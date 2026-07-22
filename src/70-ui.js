@@ -112,7 +112,7 @@ const UI = {
         h('div', { cls:'pdot', style:{ background: c.hex } }),
         h('div', { cls:'grow', style:{ minWidth:0 } },
           h('div', { cls:'pname' }, p.name),
-          h('div', { cls:'tiny dim' }, mine ? c.name + ' · 나' : c.name)),
+          h('div', { cls:'tiny dim' }, p.isBot ? c.name + ' · 🤖봇' : (mine ? c.name + ' · 나' : c.name))),
         p.id === st.hostId ? h('span', { cls:'hostbadge' }, '방장') : null,
         !p.connected ? h('span', { cls:'tiny', style:{color:'var(--bad)'} }, '끊김') : null,
       ));
@@ -127,6 +127,17 @@ const UI = {
         onclick: () => Game.start() }, n < 4 ? `게임 시작 (${n}/4명 필요)` : `🎮 게임 시작 (${n}명)`);
       btn.disabled = n < 4;
       foot.appendChild(btn);
+      // 혼자 테스트할 수 있도록 봇으로 자리를 채운다
+      const botRow = h('div', { cls:'row', style:{ marginTop:'9px' } });
+      const nBots = st.players.filter(p => p.isBot).length;
+      const addBtn = h('button', { cls:'btn ghost small grow', onclick: () => Net.toHost('addbot', {}) },
+        '🤖 봇 추가' + (n < 4 ? ` (${4 - n}명 더 필요)` : ''));
+      addBtn.disabled = st.players.length >= 16;
+      botRow.appendChild(addBtn);
+      if (nBots > 0) botRow.appendChild(h('button', { cls:'btn ghost small', onclick: () => Net.toHost('rmbots', {}) }, `봇 ${nBots}명 내보내기`));
+      foot.appendChild(botRow);
+      if (nBots > 0) foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'5px' } },
+        '봇은 돌아다니고 임무를 하고 투표도 합니다. 혼자서 게임을 익혀보세요.'));
       foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
         '늑대 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 양'));
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },

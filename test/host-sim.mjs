@@ -731,6 +731,44 @@ section('닉네임 위생 처리');
   function byName2() { return null; }
 }
 
+section('연습용 봇');
+{
+  reset(1);                                    // 사람 1명 (방장)
+  Host.addBot(); Host.addBot(); Host.addBot();
+  ok('봇 3명 추가 → 총 4명', G.order.length === 4);
+  ok('봇은 connected 상태', G.order.every(id => Host.P[id].connected));
+  ok('봇 표시 플래그', G.order.filter(id => Host.P[id].isBot).length === 3);
+  ok('봇은 후계자가 될 수 없음', Host.successorId() === null);
+
+  Host.startGame();
+  ok('사람 1 + 봇 3으로 게임 시작 가능', G.phase === 'play');
+
+  // 봇 배회 — 목표를 강제로 심어 결정론적으로 검증
+  // (실전은 50ms 실시간 틱이지만 테스트는 즉시 60회 호출이라 idle 타이머가 풀리지 않음)
+  const bot = G.order.map(id => Host.P[id]).find(p => p.isBot && p.alive);
+  const x0 = bot.x, y0 = bot.y;
+  bot._bot = { tx: x0 + 300, ty: y0, idleUntil: 0, deadline: 9e15, taskAt: 9e15, voteAt: 0 };
+  for (let i = 0; i < 60; i++) Host.botTick();
+  ok('봇이 스스로 움직임', Math.hypot(bot.x - x0, bot.y - y0) > 5,
+     { moved: Math.round(Math.hypot(bot.x - x0, bot.y - y0)) });
+  ok('봇 위치는 항상 통행 가능 지역', A.walkablePx(bot.x, bot.y));
+
+  // 회의 → 봇 자동 투표 → 개표까지
+  Host.startMeeting(G.order[0], null);
+  Host.M.phase = 'vote';
+  Host.onVote(G.order[0], 'skip');             // 사람 투표
+  // 봇 투표 지연(8~18초)을 흉내: voteAt 을 과거로 당긴다
+  for (const id of G.order) { const p = Host.P[id]; if (p._bot) p._bot.voteAt = 1; }
+  for (let i = 0; i < 10 && !Host.M?.tally; i++) Host.botTick();
+  ok('봇이 자동 투표 → 개표 완료', G.phase === 'eject' || Host.M?.tally != null || G.phase === 'over',
+     { phase: G.phase });
+
+  // 로비 복귀 후 봇 제거
+  Host.toLobby();
+  Host.removeBots();
+  ok('봇 제거 후 사람만 남음', G.order.length === 1 && !Object.values(Host.P).some(p => p.isBot));
+}
+
 /* ---- 출력 -----------------------------------------------------------------*/
 console.log(results.join('\n'));
 console.log(`\n${'─'.repeat(52)}`);

@@ -160,6 +160,8 @@ const Host = {
       }
       case 'settings': if (id === G.hostId) { Object.assign(G.settings, m.s); this.pushState(); } break;
       case 'start':    if (id === G.hostId) this.startGame(); break;
+      case 'addbot':   if (id === G.hostId) this.addBot(); break;
+      case 'rmbots':   if (id === G.hostId) this.removeBots(); break;
       case 'restart':  if (id === G.hostId) this.toLobby(); break;
       case 'pos':      this.onPos(id, m); break;
       case 'kill':     this.onKill(id, m.target); break;
@@ -190,7 +192,7 @@ const Host = {
    *  위치는 sendSnap 에서 수신자별 시야 컬링을 거쳐 나간다. */
   pubPlayer(p) {
     return { id: p.id, name: p.name, color: p.color, alive: p.alive,
-             connected: p.connected, afk: !!p.afk };
+             connected: p.connected, afk: !!p.afk, isBot: !!p.isBot };
   },
   /** 투표 중에는 "누가 투표했는지"만 공개하고 "누구에게"는 감춘다 (밴드왜건 방지) */
   pubMeeting() {
@@ -302,7 +304,8 @@ const Host = {
    * 주기적으로 넘겨둔다. 전원에게 뿌리면 모든 역할이 노출되므로 후계자 1명뿐.
    * (원래 방장도 모든 역할을 알고 있으므로 신뢰 범위가 1명 늘어나는 정도) */
   successorId() {
-    return G.order.find(id => id !== G.hostId && this.P[id]?.connected) || null;
+    // 봇은 방장 브라우저 안에서만 살기 때문에 후계자가 될 수 없다
+    return G.order.find(id => id !== G.hostId && this.P[id]?.connected && !this.P[id]?.isBot) || null;
   },
   exportState() {
     return {
@@ -333,7 +336,9 @@ const Host = {
 
     this.P = {};
     for (const p of snap.players) {
-      const q = { ...p, connected: p.id === myId, peerId: p.id === myId ? 'self' : null };
+      // 봇은 새 방장 브라우저에서 그대로 되살아난다 (연결이 아니라 로컬 시뮬레이션이므로)
+      const q = { ...p, connected: p.id === myId || !!p.isBot,
+                  peerId: p.id === myId ? 'self' : (p.isBot ? p.peerId : null) };
       q.killCdEnd = fix(q.killCdEnd); q.abilityCdEnd = fix(q.abilityCdEnd);
       q.morphEnd = fix(q.morphEnd); q.lastActive = fix(q.lastActive) || now();
       this.P[q.id] = q;
@@ -828,6 +833,80 @@ const Host = {
     Net.broadcast('msg', { from: p.id, name: p.name, color: p.color, text, ts: now(), channel: 'all' });
   },
 
+  /* ---------------- 연습용 봇 ----------------
+   * 혼자서는 4인 게임을 테스트할 수 없다. 로비에서 봇을 채워
+   * 이동·킬·신고·회의·투표·승리판정까지 전부 혼자 돌려볼 수 있게 한다.
+   * 봇은 방장 브라우저 안에서만 산다(네트워크 연결 없음, peerId 'bot:N'). */
+  addBot() {
+    if (G.phase !== 'lobby' || G.order.length >= 16) return null;
+    const n = (this._botSeq = (this._botSeq || 0) + 1);
+    const p = this.addPlayer('bot:' + n, 'bot:' + n, '양봇' + n, null);
+    if (!p) return null;
+    p.isBot = true;
+    this.sys(`🤖 ${p.name} 이(가) 추가되었습니다.`);
+    this.pushState();
+    return p;
+  },
+  removeBots() {
+    if (G.phase !== 'lobby') return;
+    for (const id of [...G.order]) {
+      const p = this.P[id];
+      if (p?.isBot) { delete this.peerToId[p.peerId]; delete this.P[id]; G.order = G.order.filter(x => x !== id); }
+    }
+    this.sys('🤖 봇을 모두 내보냈습니다.');
+    this.pushState();
+  },
+
+  /** 봇 행동. tick(50ms)마다 호출 */
+  botTick() {
+    const dt = 0.05;
+    for (const id of G.order) {
+      const p = this.P[id];
+      if (!p?.isBot) continue;
+      const b = (p._bot ||= { tx: p.x, ty: p.y, idleUntil: 0, taskAt: now() + rnd(12000, 25000), voteAt: 0 });
+
+      if (G.phase === 'play' && p.alive) {
+        // 배회 — 목표점에 도착했거나 오래 걸리면 새 목표
+        if (now() > b.idleUntil) {
+          const dx = b.tx - p.x, dy = b.ty - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 20 || !b.deadline || now() > b.deadline) {
+            if (Math.random() < 0.25) { b.idleUntil = now() + rnd(800, 2600); p.moving = false; }
+            const spot = TASK_SPOTS[(Math.random() * TASK_SPOTS.length) | 0];
+            b.tx = spot.wx + rnd(-40, 40); b.ty = spot.wy + rnd(-40, 40);
+            b.deadline = now() + 20000;
+          } else {
+            const spd = G.settings.playerSpeed * (dt * 60);
+            const r = moveWithCollision(p.x, p.y, (dx / dist) * spd, (dy / dist) * spd);
+            // 벽에 막혀 못 움직이면 목표를 버린다
+            if (Math.abs(r.x - p.x) < 0.1 && Math.abs(r.y - p.y) < 0.1) b.deadline = 0;
+            if (dx) p.dir = dx > 0 ? 1 : -1;
+            p.x = r.x; p.y = r.y; p.moving = true;
+          }
+          p.lastActive = now();
+        }
+        // 가끔 임무 1단계 (진행바가 실제로 움직이는지 테스트용)
+        if (now() > b.taskAt) {
+          b.taskAt = now() + rnd(15000, 30000);
+          const t = p.tasks.find(t => t.step < t.spots.length);
+          if (t) this.onTaskStep(id, t.tid);
+        }
+      }
+
+      // 투표 — 사람이 표를 던질 시간을 주도록 8~18초 늦게
+      if (G.phase === 'meeting' && this.M?.phase === 'vote' && p.alive) {
+        if (this.M.votes[id] == null) {
+          if (!b.voteAt) b.voteAt = now() + rnd(8000, 18000);
+          if (now() > b.voteAt) {
+            const targets = G.order.filter(i => this.P[i]?.alive && i !== id);
+            const pick = Math.random() < 0.6 ? 'skip' : targets[(Math.random() * targets.length) | 0];
+            this.onVote(id, pick);
+          }
+        }
+      } else b.voteAt = 0;
+    }
+  },
+
   /* ---------------- 자리비움(AFK) ----------------
    * 전화 받으러 간 사람 때문에 회의가 타이머 끝까지 멈춰 있으면 안 된다. */
   markActive(p) {
@@ -848,6 +927,7 @@ const Host = {
 
   /* ---------------- 틱 ---------------- */
   tick() {
+    this.botTick();
     if (!this._afkTick || now() - this._afkTick > 3000) { this._afkTick = now(); this.updateAfk(); }
     if (G.phase === 'meeting' && this.M) {
       const m = this.M;
