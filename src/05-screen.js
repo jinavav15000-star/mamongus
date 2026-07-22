@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 몰입 모드 (전체화면 + 가로 고정)
+ *  마몽어스 · 몰입 모드 (전체화면 + 가로 고정)
  *
  *  플랫폼별 현실:
  *   · 안드로이드(갤럭시) → Fullscreen API + Orientation Lock 모두 지원.
@@ -167,8 +167,8 @@ const Viewport = {
     try {
       const icon = this.makeIcon(512);
       const manifest = {
-        name: '덕몽어스', short_name: '덕몽어스',
-        description: '링크 하나로 하는 오리 마피아',
+        name: '마몽어스', short_name: '마몽어스',
+        description: '링크 하나로 하는 양들의 마피아',
         display: 'fullscreen', orientation: 'landscape',
         background_color: '#050810', theme_color: '#050810',
         start_url: location.pathname + location.search,
@@ -200,7 +200,7 @@ const Viewport = {
     g.fillStyle = grad; g.fillRect(0, 0, size, size);
     g.font = `${Math.round(size * 0.58)}px "Apple Color Emoji","Noto Color Emoji",sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('🦆', size / 2, size * 0.54);
+    g.fillText('🐑', size / 2, size * 0.54);
     return c.toDataURL('image/png');
   },
 

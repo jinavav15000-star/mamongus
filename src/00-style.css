@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 스타일 (모바일 우선)
+ *  마몽어스 · 스타일 (모바일 우선)
  * ==========================================================================*/
 :root{
   --bg:#050810; --bg2:#0b1120; --panel:#111a2e; --panel2:#18243d;
@@ -143,7 +143,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 /* 액션 버튼 */
 .actions{position:absolute;right:calc(14px + var(--safe-b));bottom:calc(18px + var(--safe-b));
   display:flex;flex-direction:column-reverse;gap:10px;align-items:flex-end;max-width:72vw}
-/* 오리는 버튼이 5개까지 늘어난다 → 좁은 화면에서 줄바꿈 */
+/* 늑대는 버튼이 5개까지 늘어난다 → 좁은 화면에서 줄바꿈 */
 .actrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap-reverse;justify-content:flex-end}
 .abtn{width:78px;height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
   font-weight:800;font-size:12px;gap:1px;border:2.5px solid;position:relative;overflow:hidden;flex:none;

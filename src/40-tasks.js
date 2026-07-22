@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 임무 미니게임 (전부 터치/마우스 동시 대응)
+ *  마몽어스 · 임무 미니게임 (전부 터치/마우스 동시 대응)
  *  build(root, opt, done)  ·  done() 호출 시 임무 1단계 완료
  * ==========================================================================*/
 function h(tag, props = {}, ...kids) {
@@ -92,7 +92,7 @@ card: {
   build(root, opt, done) {
     const box = h('div', { cls:'mg-card-box' });
     const slot = h('div', { cls:'mg-card-slot' });
-    const card = h('div', { cls:'mg-card' }, h('div', { cls:'mg-card-chip' }), h('span', {}, 'DUCK ID'));
+    const card = h('div', { cls:'mg-card' }, h('div', { cls:'mg-card-chip' }), h('span', {}, 'MAMONG ID'));
     const msg = h('div', { cls:'mg-msg' }, '카드를 오른쪽으로 밀어주세요');
     slot.appendChild(card); box.append(slot, msg); root.appendChild(box);
     let dragging = false, x0 = 0, t0 = 0, maxX = 0, samples = [];
@@ -589,7 +589,7 @@ scan: {
     const box = h('div', { cls:'mg-scan' });
     const pad = h('div', { cls:'mg-scan-pad' });
     const beam = h('div', { cls:'mg-scan-beam' });
-    const duck = h('div', { cls:'mg-scan-duck' }, '🦆');
+    const duck = h('div', { cls:'mg-scan-duck' }, '🐑');
     pad.append(duck, beam); box.appendChild(pad);
     const info = h('div', { cls:'mg-scan-info' });
     const btn = h('button', { cls:'mg-bigbtn' }, '🩺 스캔 시작');

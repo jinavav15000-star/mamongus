@@ -1,0 +1,249 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>마몽어스 캐릭터 시안</title>
+<style>
+body{margin:0;background:#070b16;color:#e8eefb;font-family:"Pretendard","Apple SD Gothic Neo",system-ui,sans-serif;padding:22px 26px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:#8fa2c4;font-size:13px;margin-bottom:22px}
+.cand{background:#0e1728;border:1px solid #23334f;border-radius:16px;padding:16px 18px;margin-bottom:16px}
+.hd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.nm{font-size:17px;font-weight:900}
+.tag{font-size:11.5px;color:#5fd0ff;font-weight:800}
+.desc{font-size:12.5px;color:#8fa2c4;line-height:1.5;margin-bottom:12px}
+.row{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
+.cell{text-align:center}
+.cap{font-size:10.5px;color:#6b7d9c;margin-top:5px}
+canvas{display:block;image-rendering:auto}
+.divider{width:1px;align-self:stretch;background:#23334f;margin:0 4px}
+</style></head><body>
+<h1>마몽어스 캐릭터 시안</h1>
+<div class="sub">왼쪽 3개 = 확대(3배) · 오른쪽 = <b>실제 게임 크기</b> (폰에서 이만하게 보입니다)</div>
+<div id="root"></div>
+
+<script>
+/* ── 공통: 색상 팔레트 ───────────────────────────────────────── */
+const COLS = [
+  {hex:'#e64b4b', dark:'#a32b2b'},
+  {hex:'#3a6fe0', dark:'#22449a'},
+  {hex:'#2ea44f', dark:'#1a6b32'},
+  {hex:'#f2d43d', dark:'#b39a12'},
+];
+
+/* ── 후보 1. 촛불 ───────────────────────────────────────────── */
+function candle(g, col, dead, t){
+  const bob = dead ? 0 : Math.sin(t/620)*1.2;
+  g.save(); g.translate(0,-bob);
+  // 그림자
+  g.fillStyle='rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(0,20,15,5,0,0,6.283); g.fill();
+  // 왁스 몸통 (아래가 살짝 넓은 기둥)
+  g.beginPath();
+  g.moveTo(-11,18); g.lineTo(-9,-8); g.quadraticCurveTo(0,-12,9,-8); g.lineTo(11,18);
+  g.quadraticCurveTo(0,21,-11,18); g.closePath();
+  g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.4; g.stroke();
+  // 흘러내린 촛농
+  g.fillStyle='rgba(255,255,255,.28)';
+  g.beginPath(); g.moveTo(-8,-6); g.quadraticCurveTo(-10,2,-7,6); g.quadraticCurveTo(-4,2,-5,-6); g.fill();
+  g.beginPath(); g.ellipse(6,0,2.4,5,0.2,0,6.283); g.fill();
+  // 심지
+  g.strokeStyle=dead?'#4a4a4a':'#2a2018'; g.lineWidth=2; g.lineCap='round';
+  g.beginPath(); g.moveTo(0,-10); g.lineTo(0,-15); g.stroke();
+  if(dead){
+    // 꺼진 연기
+    g.strokeStyle='rgba(180,190,210,.5)'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(0,-16); g.quadraticCurveTo(-5,-22,1,-27); g.quadraticCurveTo(6,-32,2,-36); g.stroke();
+  } else {
+    // 불꽃
+    const f = Math.sin(t/90)*0.9;
+    g.beginPath(); g.moveTo(0,-15);
+    g.quadraticCurveTo(-6+f,-22,0,-31); g.quadraticCurveTo(6+f,-22,0,-15); g.closePath();
+    g.fillStyle='#ff9d2e'; g.fill();
+    g.beginPath(); g.moveTo(0,-16);
+    g.quadraticCurveTo(-3+f*.5,-21,0,-26); g.quadraticCurveTo(3+f*.5,-21,0,-16); g.closePath();
+    g.fillStyle='#ffe07a'; g.fill();
+  }
+  // 눈
+  if(dead){
+    g.strokeStyle='#2a2a2a'; g.lineWidth=1.7;
+    [[-5,2],[5,2]].forEach(([x,y])=>{g.beginPath();g.moveTo(x-2.5,y-2.5);g.lineTo(x+2.5,y+2.5);g.moveTo(x+2.5,y-2.5);g.lineTo(x-2.5,y+2.5);g.stroke();});
+  } else {
+    g.fillStyle='#fff'; [-5,5].forEach(x=>{g.beginPath();g.ellipse(x,1,3.4,3.9,0,0,6.283);g.fill();});
+    g.fillStyle='#151824'; [-4.4,5.6].forEach(x=>{g.beginPath();g.arc(x,1.6,1.8,0,6.283);g.fill();});
+  }
+  g.restore();
+}
+
+/* ── 후보 2. 마트료시카 ─────────────────────────────────────── */
+function matryoshka(g, col, dead, t){
+  const bob = dead?0:Math.sin(t/620)*1.2;
+  g.save(); g.translate(0,-bob);
+  g.fillStyle='rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(0,20,15,5,0,0,6.283); g.fill();
+  if(dead){
+    // 갈라져 텅 빈 인형
+    g.save(); g.translate(0,4);
+    g.beginPath(); g.moveTo(-14,17); g.quadraticCurveTo(-16,0,-8,-4); g.lineTo(8,-4);
+    g.quadraticCurveTo(16,0,14,17); g.quadraticCurveTo(0,21,-14,17); g.closePath();
+    g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.4; g.stroke();
+    g.fillStyle='#0a0d16'; g.beginPath(); g.ellipse(0,-3,8.5,3.4,0,0,6.283); g.fill();  // 텅 빈 속
+    g.restore();
+    g.save(); g.translate(13,-4); g.rotate(0.7);
+    g.beginPath(); g.moveTo(-9,6); g.quadraticCurveTo(-10,-8,0,-12); g.quadraticCurveTo(10,-8,9,6); g.closePath();
+    g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.2; g.stroke();
+    g.restore();
+    g.restore(); return;
+  }
+  // 몸통 (달걀+볼링핀)
+  g.beginPath();
+  g.moveTo(-14,17); g.quadraticCurveTo(-17,-4,-10,-13);
+  g.quadraticCurveTo(-6,-21,0,-21); g.quadraticCurveTo(6,-21,10,-13);
+  g.quadraticCurveTo(17,-4,14,17); g.quadraticCurveTo(0,21,-14,17); g.closePath();
+  g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.4; g.stroke();
+  // 얼굴 (크림색 타원)
+  g.fillStyle='#f6e6cd'; g.beginPath(); g.ellipse(0,-9,8.2,9.4,0,0,6.283); g.fill();
+  g.strokeStyle=col.dark; g.lineWidth=1.4; g.stroke();
+  // 앞치마 (배 부분 밝게)
+  g.fillStyle='rgba(255,255,255,.22)';
+  g.beginPath(); g.ellipse(0,7,8.5,8,0,0,6.283); g.fill();
+  // 꽃 무늬
+  g.fillStyle='rgba(255,255,255,.65)';
+  for(let i=0;i<5;i++){const a=i/5*6.283; g.beginPath(); g.arc(Math.cos(a)*3.2, 7+Math.sin(a)*3.2, 1.5,0,6.283); g.fill();}
+  g.fillStyle=col.dark; g.beginPath(); g.arc(0,7,1.6,0,6.283); g.fill();
+  // 눈·볼
+  g.fillStyle='#151824'; [-3.2,3.2].forEach(x=>{g.beginPath();g.arc(x,-10,1.9,0,6.283);g.fill();});
+  g.fillStyle='rgba(230,90,90,.45)'; [-5.6,5.6].forEach(x=>{g.beginPath();g.arc(x,-6,2.1,0,6.283);g.fill();});
+  g.strokeStyle='#151824'; g.lineWidth=1.2; g.beginPath(); g.arc(0,-5.5,1.8,0.2,2.94); g.stroke();
+  g.restore();
+}
+
+/* ── 후보 3. 도깨비 ─────────────────────────────────────────── */
+function dokkaebi(g, col, dead, t){
+  const bob = dead?0:Math.abs(Math.sin(t/300))*1.6;
+  g.save(); g.translate(0,-bob);
+  g.fillStyle='rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(0,20,15,5,0,0,6.283); g.fill();
+  // 몸통
+  g.beginPath(); g.ellipse(0,4,14,16,0,0,6.283);
+  g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.5; g.stroke();
+  g.fillStyle='rgba(255,255,255,.18)'; g.beginPath(); g.ellipse(2,9,8,8,0,0,6.283); g.fill();
+  // 뿔 (하나 — 도깨비의 상징)
+  g.save(); g.translate(-3,-13); g.rotate(-0.22);
+  g.beginPath(); g.moveTo(-3.5,2); g.quadraticCurveTo(-1,-13,3.5,-1); g.closePath();
+  g.fillStyle='#e8dcc0'; g.fill(); g.strokeStyle='#a89877'; g.lineWidth=1.6; g.stroke();
+  g.restore();
+  // 눈썹 (성난)
+  g.strokeStyle=col.dark; g.lineWidth=2.4; g.lineCap='round';
+  g.beginPath(); g.moveTo(-9,-6); g.lineTo(-3.5,-3.5); g.moveTo(9,-6); g.lineTo(3.5,-3.5); g.stroke();
+  if(dead){
+    g.strokeStyle='#2a2a2a'; g.lineWidth=1.8;
+    [[-5,1],[5,1]].forEach(([x,y])=>{g.beginPath();g.moveTo(x-2.6,y-2.6);g.lineTo(x+2.6,y+2.6);g.moveTo(x+2.6,y-2.6);g.lineTo(x-2.6,y+2.6);g.stroke();});
+  } else {
+    g.fillStyle='#fff'; [-5,5].forEach(x=>{g.beginPath();g.ellipse(x,0.5,3.6,4,0,0,6.283);g.fill();});
+    g.fillStyle='#151824'; [-4.4,5.6].forEach(x=>{g.beginPath();g.arc(x,1,1.9,0,6.283);g.fill();});
+    // 씩 웃는 입 + 송곳니
+    g.strokeStyle='#2a1a1a'; g.lineWidth=1.7;
+    g.beginPath(); g.arc(0,7,5,0.15,2.99); g.stroke();
+    g.fillStyle='#fff'; g.beginPath(); g.moveTo(-3,7.5); g.lineTo(-1.4,11); g.lineTo(-0.2,7.5); g.fill();
+    g.beginPath(); g.moveTo(1.6,7.5); g.lineTo(3,10.6); g.lineTo(4.2,7.5); g.fill();
+  }
+  g.restore();
+}
+
+/* ── 후보 4. 심해아귀 ───────────────────────────────────────── */
+function angler(g, col, dead, t){
+  const bob = dead?0:Math.sin(t/540)*1.4;
+  g.save(); g.translate(0,-bob);
+  g.fillStyle='rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(0,19,15,5,0,0,6.283); g.fill();
+  // 꼬리
+  g.fillStyle=col.dark;
+  g.beginPath(); g.moveTo(-11,2); g.lineTo(-20,-5); g.lineTo(-19,9); g.closePath(); g.fill();
+  // 몸통 (앞이 큰 물방울)
+  g.beginPath(); g.moveTo(-12,2); g.quadraticCurveTo(-8,-14,4,-13);
+  g.quadraticCurveTo(15,-11,15,2); g.quadraticCurveTo(15,15,2,15);
+  g.quadraticCurveTo(-9,15,-12,2); g.closePath();
+  g.fillStyle=col.hex; g.fill(); g.strokeStyle=col.dark; g.lineWidth=2.4; g.stroke();
+  // 등지느러미
+  g.fillStyle=col.dark;
+  g.beginPath(); g.moveTo(-4,-12); g.lineTo(-1,-18); g.lineTo(3,-12); g.closePath(); g.fill();
+  // 낚싯대 + 등불
+  g.strokeStyle=col.dark; g.lineWidth=2; g.lineCap='round';
+  g.beginPath(); g.moveTo(6,-12); g.quadraticCurveTo(14,-24,20,-19); g.stroke();
+  if(dead){
+    g.fillStyle='#3a4152'; g.beginPath(); g.arc(21,-18,3.6,0,6.283); g.fill();
+  } else {
+    const pulse = 0.75+Math.sin(t/260)*0.25;
+    g.fillStyle=`rgba(120,230,255,${0.20*pulse})`; g.beginPath(); g.arc(21,-18,11,0,6.283); g.fill();
+    g.fillStyle='#8ff0ff'; g.beginPath(); g.arc(21,-18,4,0,6.283); g.fill();
+    g.fillStyle='#fff'; g.beginPath(); g.arc(20,-19,1.7,0,6.283); g.fill();
+  }
+  // 입 + 이빨
+  g.strokeStyle=col.dark; g.lineWidth=2;
+  g.beginPath(); g.moveTo(2,8); g.quadraticCurveTo(9,10,15,4); g.stroke();
+  g.fillStyle='#fff';
+  for(let i=0;i<4;i++){const x=4+i*3.2, y=8.6-i*1.1; g.beginPath(); g.moveTo(x,y); g.lineTo(x+1.3,y-3.4); g.lineTo(x+2.6,y); g.fill();}
+  // 눈
+  if(dead){
+    g.strokeStyle='#2a2a2a'; g.lineWidth=1.8;
+    g.beginPath(); g.moveTo(4,-6); g.lineTo(9,-1); g.moveTo(9,-6); g.lineTo(4,-1); g.stroke();
+  } else {
+    g.fillStyle='#fff'; g.beginPath(); g.ellipse(7,-4,4.2,4.4,0,0,6.283); g.fill();
+    g.fillStyle='#151824'; g.beginPath(); g.arc(8.2,-3.6,2.1,0,6.283); g.fill();
+    g.fillStyle='rgba(255,255,255,.9)'; g.beginPath(); g.arc(9,-4.6,0.9,0,6.283); g.fill();
+  }
+  g.restore();
+}
+
+/* ── 렌더 ───────────────────────────────────────────────────── */
+const CANDS = [
+  { fn:candle, nm:'촛불', tag:'추천', desc:'왁스 몸통이 플레이어 색. 죽으면 <b>불이 꺼지고 연기가 피어오릅니다.</b> 이 게임은 이미 시야·어둠·정전 사보타주가 핵심인데, 촛불은 그 규칙을 캐릭터 자체로 설명합니다. "내 불빛이 곧 내 시야"' },
+  { fn:matryoshka, nm:'마트료시카', tag:'컨셉', desc:'겉은 다 똑같은데 <b>안에 뭐가 들었는지 모른다</b> — 마피아 게임 그 자체입니다. 죽으면 <b>쪼개지고 속이 텅 빈 채</b>로 남습니다. 추방 연출에서 인형이 갈라지며 정체가 드러나는 장면이 강력합니다.' },
+  { fn:dokkaebi, nm:'도깨비', tag:'한국풍', desc:'뿔 하나에 송곳니. 한국 설화의 도깨비는 <b>남을 홀리는 장난꾼</b>이라 속고 속이는 게임과 맞습니다. 마몬(악마)과도 결이 이어집니다. 실루엣이 뚜렷해 작게 봐도 구분이 쉽습니다.' },
+  { fn:angler, nm:'심해아귀', tag:'분위기', desc:'머리의 <b>등불이 유일한 빛</b>. 죽으면 등불이 꺼집니다. 어두운 맵과 가장 잘 붙고, 옆을 보는 실루엣이라 <b>방향이 한눈에</b> 보입니다. 다만 넷 중 가장 무섭고 귀여움은 적습니다.' },
+];
+
+const root = document.getElementById('root');
+const canvases = [];
+
+CANDS.forEach(c=>{
+  const box=document.createElement('div'); box.className='cand';
+  box.innerHTML = `<div class="hd"><span class="nm">${c.nm}</span><span class="tag">${c.tag}</span></div>
+                   <div class="desc">${c.desc}</div>`;
+  const row=document.createElement('div'); row.className='row';
+
+  COLS.slice(0,3).forEach((col,i)=>{
+    const cell=document.createElement('div'); cell.className='cell';
+    const cv=document.createElement('canvas'); cv.width=150; cv.height=180;
+    cell.appendChild(cv);
+    cell.insertAdjacentHTML('beforeend',`<div class="cap">${i===2?'사망':'생존'}</div>`);
+    row.appendChild(cell);
+    canvases.push({cv, fn:c.fn, col, dead:i===2, scale:3});
+  });
+
+  const div=document.createElement('div'); div.className='divider'; row.appendChild(div);
+
+  const cell=document.createElement('div'); cell.className='cell';
+  const cv=document.createElement('canvas'); cv.width=190; cv.height=90;
+  cell.appendChild(cv);
+  cell.insertAdjacentHTML('beforeend','<div class="cap">실제 게임 크기</div>');
+  row.appendChild(cell);
+  canvases.push({cv, fn:c.fn, cols:COLS, scale:1, multi:true});
+
+  box.appendChild(row); root.appendChild(box);
+});
+
+function frame(t){
+  canvases.forEach(o=>{
+    const g=o.cv.getContext('2d');
+    g.setTransform(1,0,0,1,0,0);
+    g.clearRect(0,0,o.cv.width,o.cv.height);
+    if(o.multi){
+      o.cols.forEach((col,i)=>{
+        g.save(); g.translate(28+i*45, 58); g.scale(o.scale,o.scale);
+        o.fn(g,col,false,t+i*400); g.restore();
+      });
+    } else {
+      g.save(); g.translate(o.cv.width/2, o.cv.height*0.62); g.scale(o.scale,o.scale);
+      o.fn(g,o.col,o.dead,t); g.restore();
+    }
+  });
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>

@@ -8,22 +8,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="덕몽어스">
+<meta name="apple-mobile-web-app-title" content="마몽어스">
 <meta name="screen-orientation" content="landscape">
 <meta name="x5-orientation" content="landscape">
-<meta name="description" content="브라우저에서 바로 하는 마피아 추리 게임. 링크만 공유하면 최대 16명이 함께 플레이합니다.">
-<meta property="og:title" content="덕몽어스 — 링크 하나로 하는 오리 마피아">
-<meta property="og:description" content="설치 없이 브라우저에서 바로. 직업 22종 · 임무 18종 · 사보타주. 최대 16명.">
+<meta name="description" content="양 무리에 늑대가 숨어 있다! 브라우저에서 바로 하는 마피아 추리 게임. 링크만 공유하면 최대 16명이 함께 플레이합니다.">
+<meta property="og:title" content="마몽어스 — 링크 하나로 하는 양들의 마피아">
+<meta property="og:description" content="설치 없이 브라우저에서 바로. 양 vs 늑대 · 직업 22종 · 임무 18종 · 사보타주. 최대 16명.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦆</text></svg>">
-<title>덕몽어스 · 오리 마피아</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐑</text></svg>">
+<title>마몽어스 · 양들의 마피아</title>
 <style>/* ============================================================================
- *  덕몽어스 · 스타일 (모바일 우선)
+ *  마몽어스 · 스타일 (모바일 우선)
  * ==========================================================================*/
 :root{
   --bg:#050810; --bg2:#0b1120; --panel:#111a2e; --panel2:#18243d;
@@ -167,7 +167,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 /* 액션 버튼 */
 .actions{position:absolute;right:calc(14px + var(--safe-b));bottom:calc(18px + var(--safe-b));
   display:flex;flex-direction:column-reverse;gap:10px;align-items:flex-end;max-width:72vw}
-/* 오리는 버튼이 5개까지 늘어난다 → 좁은 화면에서 줄바꿈 */
+/* 늑대는 버튼이 5개까지 늘어난다 → 좁은 화면에서 줄바꿈 */
 .actrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap-reverse;justify-content:flex-end}
 .abtn{width:78px;height:78px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
   font-weight:800;font-size:12px;gap:1px;border:2.5px solid;position:relative;overflow:hidden;flex:none;
@@ -513,16 +513,16 @@ body.immersive .topbar{top:8px}
 <!-- ══════════ 홈 ══════════ -->
 <div id="screen-home" class="screen">
   <div class="wrap">
-    <div class="duck-hero">🦆</div>
+    <div class="duck-hero">🐑</div>
     <div class="logo">
-      <div class="big">덕몽어스</div>
-      <div class="sub">링크 하나로 시작하는 오리 마피아 · 최대 16명</div>
+      <div class="big">마몽어스</div>
+      <div class="sub">링크 하나로 시작하는 양들의 마피아 · 최대 16명</div>
     </div>
 
     <div class="card" style="margin-bottom:12px">
       <div class="field">
         <label>닉네임</label>
-        <input id="in-name" maxlength="10" placeholder="오리1" autocomplete="off">
+        <input id="in-name" maxlength="10" placeholder="마몽1" autocomplete="off">
       </div>
       <button id="btn-create" class="btn primary" style="width:100%;margin-bottom:9px">🏠 방 만들기</button>
       <div class="row">
@@ -558,7 +558,7 @@ body.immersive .topbar{top:8px}
     </div>
 
     <div class="card" style="margin-bottom:11px">
-      <h3>내 오리</h3>
+      <h3>내 양</h3>
       <div class="row" style="margin-bottom:10px">
         <input id="in-name2" maxlength="10"
                style="flex:1;background:#0b1224;border:1px solid #2a3d63;border-radius:11px;padding:10px 13px;color:var(--txt);outline:none">
@@ -655,7 +655,7 @@ body.immersive .topbar{top:8px}
 <!-- ══════════ 추방 연출 ══════════ -->
 <div id="screen-eject" class="screen hidden">
   <div class="eject-space" id="eject-space"></div>
-  <div class="eject-duck" id="eject-duck">🦆</div>
+  <div class="eject-duck" id="eject-duck">🐑</div>
   <div class="eject-text" id="eject-text"></div>
   <div class="eject-sub" id="eject-sub"></div>
 </div>
@@ -676,7 +676,7 @@ body.immersive .topbar{top:8px}
 <div id="rotate-gate" class="rotate-gate hidden">
   <div class="rotate-phone">📱</div>
   <div class="rotate-title">가로로 돌려주세요</div>
-  <div class="rotate-sub">덕몽어스는 가로 화면에 맞춰져 있습니다.<br>폰을 눕히면 바로 시작됩니다.</div>
+  <div class="rotate-sub">마몽어스는 가로 화면에 맞춰져 있습니다.<br>폰을 눕히면 바로 시작됩니다.</div>
   <div class="rotate-hint" id="rotate-hint"></div>
 </div>
 
@@ -698,7 +698,7 @@ body.immersive .topbar{top:8px}
 <script>
 /* ═══ 05-screen.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 몰입 모드 (전체화면 + 가로 고정)
+ *  마몽어스 · 몰입 모드 (전체화면 + 가로 고정)
  *
  *  플랫폼별 현실:
  *   · 안드로이드(갤럭시) → Fullscreen API + Orientation Lock 모두 지원.
@@ -866,8 +866,8 @@ const Viewport = {
     try {
       const icon = this.makeIcon(512);
       const manifest = {
-        name: '덕몽어스', short_name: '덕몽어스',
-        description: '링크 하나로 하는 오리 마피아',
+        name: '마몽어스', short_name: '마몽어스',
+        description: '링크 하나로 하는 양들의 마피아',
         display: 'fullscreen', orientation: 'landscape',
         background_color: '#050810', theme_color: '#050810',
         start_url: location.pathname + location.search,
@@ -899,7 +899,7 @@ const Viewport = {
     g.fillStyle = grad; g.fillRect(0, 0, size, size);
     g.font = `${Math.round(size * 0.58)}px "Apple Color Emoji","Noto Color Emoji",sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('🦆', size / 2, size * 0.54);
+    g.fillText('🐑', size / 2, size * 0.54);
     return c.toDataURL('image/png');
   },
 
@@ -922,7 +922,7 @@ const Viewport = {
 
 /* ═══ 10-map.js ═══ */
 /* ============================================================================
- *  덕몽어스 · MAP MODULE
+ *  마몽어스 · MAP MODULE
  *  - 방/복도를 사각형으로 정의 → 타일 그리드로 래스터화
  *  - 타일 충돌 판정, 벽 선분 추출(머지), 2D 가시성 폴리곤(레이캐스트)
  * ==========================================================================*/
@@ -1197,7 +1197,7 @@ const DOOR_ROOMS = ['cafe','elect','medbay','store','upeng','loweng','secur','co
 
 /* ═══ 15-roles.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 색상 & 직업(역할) 정의
+ *  마몽어스 · 색상 & 직업(역할) 정의
  * ==========================================================================*/
 const COLORS = [
   { id:'red',    name:'빨강',   hex:'#e64b4b', dark:'#a32b2b' },
@@ -1227,7 +1227,7 @@ const hasJong = s => {
 };
 
 const F = { GOOSE:'goose', DUCK:'duck', NEUT:'neutral' };
-const FACTION_LABEL = { goose:'거위', duck:'오리', neutral:'중립' };
+const FACTION_LABEL = { goose:'양', duck:'늑대', neutral:'중립' };
 const FACTION_COLOR = { goose:'#5fd0ff', duck:'#ff5f6d', neutral:'#c99bff' };
 
 /* ---------------------------------------------------------------------------
@@ -1235,14 +1235,14 @@ const FACTION_COLOR = { goose:'#5fd0ff', duck:'#ff5f6d', neutral:'#c99bff' };
  *   canKill    : 킬 버튼 사용
  *   canVent    : 벤트 사용
  *   fakeTasks  : 임무가 진행바에 반영되지 않음
- *   counts     : 임무가 진행바에 반영됨 (거위 기본 true)
+ *   counts     : 임무가 진행바에 반영됨 (양 기본 true)
  *   ability    : 특수 능력 키 (UI 버튼 생성)
  * -------------------------------------------------------------------------*/
 const ROLES = {
-  /* ── 거위 진영 ───────────────────────────────────────────────── */
+  /* ── 양 진영 ───────────────────────────────────────────────── */
   goose: {
-    name:'거위', faction:F.GOOSE, icon:'🪿', tier:0,
-    desc:'임무를 완수하고 오리를 색출하세요.',
+    name:'양', faction:F.GOOSE, icon:'🐑', tier:0,
+    desc:'임무를 완수하고 양 무리에 숨어든 늑대를 색출하세요.',
     tip:'죽으면 유령이 되어도 임무는 계속할 수 있어요.',
   },
   detective: {
@@ -1258,20 +1258,20 @@ const ROLES = {
   engineer: {
     name:'기술자', faction:F.GOOSE, icon:'🔧', tier:1, canVent:true, ability:'remotefix', uses:1,
     desc:'벤트를 사용할 수 있고, 사보타주를 라운드당 1회 원격 수리합니다.',
-    tip:'벤트를 타다 들키면 오리로 몰립니다. 미리 커밍아웃해 두세요.',
+    tip:'벤트를 타다 들키면 늑대로 몰립니다. 미리 커밍아웃해 두세요.',
   },
   medium: {
     name:'영매', faction:F.GOOSE, icon:'🔮', tier:1,
     desc:'유령들의 대화를 들을 수 있습니다.',
-    tip:'죽은 사람이 본 것을 대신 전할 수 있지만, 오리가 노리는 1순위입니다.',
+    tip:'죽은 사람이 본 것을 대신 전할 수 있지만, 늑대가 노리는 1순위입니다.',
   },
   sheriff: {
     name:'보안관', faction:F.GOOSE, icon:'⭐', tier:2, ability:'shoot', uses:1, cd:25,
-    desc:'플레이어 1명을 사살합니다. 오리/중립킬러면 처치, 거위면 자신이 죽습니다.',
-    tip:'확신 없이 쏘면 거위 2명이 사라집니다. 신중하게.',
+    desc:'플레이어 1명을 사살합니다. 늑대/중립킬러면 처치, 양이면 자신이 죽습니다.',
+    tip:'확신 없이 쏘면 양 2명이 사라집니다. 신중하게.',
   },
   birdwatcher: {
-    name:'조류관찰자', faction:F.GOOSE, icon:'🔭', tier:1,
+    name:'감시견', faction:F.GOOSE, icon:'🐕', tier:1,
     desc:'맵 어디서든 벤트가 사용되면 그 위치를 알림으로 받습니다.',
     tip:'알림이 뜬 방을 즉시 채팅에 남겨두면 나중에 강력한 증거가 됩니다.',
   },
@@ -1281,7 +1281,7 @@ const ROLES = {
     tip:'커밍아웃하면 표를 몰아줄 수 있지만 바로 암살당할 수 있어요.',
   },
   doctor: {
-    name:'의사', faction:F.GOOSE, icon:'🩺', tier:2, ability:'shield', uses:1,
+    name:'수의사', faction:F.GOOSE, icon:'🩺', tier:2, ability:'shield', uses:1,
     desc:'플레이어 1명에게 방패를 부여합니다. 살해 시도 1회를 막습니다.',
     tip:'방패가 발동하면 공격자의 킬 쿨다운만 돌아갑니다. 누가 노렸는지 추리하세요.',
   },
@@ -1296,15 +1296,15 @@ const ROLES = {
     tip:'경호가 발동하면 전원에게 알려집니다. 누구를 노렸는지가 그대로 드러나요.',
   },
   canadian: {
-    name:'캐나다거위', faction:F.GOOSE, icon:'🥊', tier:2, canKill:true, cdMul:1.4,
-    desc:'살해할 수 있습니다. 하지만 거위를 죽이면 자신도 함께 죽습니다.',
-    tip:'거위 진영이지만 시체를 만들 수 있어 오해받기 쉽습니다.',
+    name:'숫양', faction:F.GOOSE, icon:'🐏', tier:2, canKill:true, cdMul:1.4,
+    desc:'박치기로 살해할 수 있습니다. 하지만 양을 죽이면 자신도 함께 죽습니다.',
+    tip:'양 진영이지만 시체를 만들 수 있어 오해받기 쉽습니다.',
   },
 
-  /* ── 오리 진영 ───────────────────────────────────────────────── */
+  /* ── 늑대 진영 ───────────────────────────────────────────────── */
   duck: {
-    name:'오리', faction:F.DUCK, icon:'🦆', tier:0, canKill:true, canVent:true, fakeTasks:true,
-    desc:'거위를 제거하세요. 벤트와 사보타주를 사용할 수 있습니다.',
+    name:'늑대', faction:F.DUCK, icon:'🐺', tier:0, canKill:true, canVent:true, fakeTasks:true,
+    desc:'양의 탈을 쓰고 숨어드세요. 벤트와 사보타주로 양을 사냥합니다.',
     tip:'임무하는 척 서 있는 시간도 알리바이가 됩니다.',
   },
   assassin: {
@@ -1323,7 +1323,7 @@ const ROLES = {
     name:'변신술사', faction:F.DUCK, icon:'🎭', tier:2, canKill:true, canVent:true, fakeTasks:true,
     ability:'morph', cd:25,
     desc:'플레이어의 샘플을 채취해 15초간 그 사람의 모습으로 변신합니다.',
-    tip:'변신한 채로 목격당하면 무고한 거위가 처형됩니다.',
+    tip:'변신한 채로 목격당하면 무고한 양이 처형됩니다.',
   },
   undertaker: {
     name:'매장인', faction:F.DUCK, icon:'🪦', tier:2, canKill:true, canVent:true, fakeTasks:true,
@@ -1332,14 +1332,14 @@ const ROLES = {
     tip:'시체를 벤트 근처나 사각지대로 옮기면 발각이 크게 늦어집니다.',
   },
   pelican: {
-    name:'펠리컨', faction:F.DUCK, icon:'🦩', tier:3, canKill:true, canVent:true, fakeTasks:true,
+    name:'구렁이', faction:F.DUCK, icon:'🐍', tier:3, canKill:true, canVent:true, fakeTasks:true,
     cdMul:1.25, noBody:true,
-    desc:'삼켜버립니다. 시체가 전혀 남지 않아 아무도 신고할 수 없습니다.',
+    desc:'통째로 삼켜버립니다. 시체가 전혀 남지 않아 아무도 신고할 수 없습니다.',
     tip:'사람이 조용히 사라지므로 발각이 늦습니다. 대신 생체신호로 사망은 드러납니다.',
   },
   spy: {
     name:'첩자', faction:F.DUCK, icon:'🕵️', tier:1, canKill:true, canVent:true,
-    desc:'가짜 임무가 실제 임무 진행바를 채웁니다. 거위를 착각하게 만드세요.',
+    desc:'가짜 임무가 실제 임무 진행바를 채웁니다. 양들을 착각하게 만드세요.',
     tip:'진행바를 일부러 올려 "임무 다 끝났다"고 방심시키세요.',
   },
 
@@ -1351,14 +1351,14 @@ const ROLES = {
     tip:'시체가 나오길 기다리세요. 아무도 당신을 막을 이유가 없습니다.',
   },
   pigeon: {
-    name:'비둘기', faction:F.NEUT, icon:'🕊️', tier:2, fakeTasks:true, ability:'infect', cd:20,
-    desc:'플레이어를 감염시킵니다. 살아있는 전원을 감염시키면 단독 승리합니다.',
+    name:'모기', faction:F.NEUT, icon:'🦟', tier:2, fakeTasks:true, ability:'infect', cd:20,
+    desc:'플레이어를 물어 감염시킵니다. 살아있는 전원을 감염시키면 단독 승리합니다.',
     tip:'감염 사실은 본인만 압니다. 조용히 모두에게 다가가세요.',
   },
   falcon: {
-    name:'매', faction:F.NEUT, icon:'🪶', tier:3, canKill:true, canVent:true, fakeTasks:true, cdMul:1.15,
+    name:'곰', faction:F.NEUT, icon:'🐻', tier:3, canKill:true, canVent:true, fakeTasks:true, cdMul:1.15,
     desc:'중립 킬러. 마지막까지 홀로 살아남으면 단독 승리합니다.',
-    tip:'거위와 오리를 서로 싸우게 만드는 것이 최선의 전략입니다.',
+    tip:'양과 늑대를 서로 싸우게 만드는 것이 최선의 전략입니다.',
   },
 };
 
@@ -1404,13 +1404,13 @@ function assignRoles(playerIds, S) {
   };
 
   let idx = 0;
-  // 오리
+  // 늑대
   const duckSpecial = pick(DUCK_ROLES, nDuck);
   for (let i = 0; i < nDuck; i++) out[ids[idx++]] = duckSpecial[i] || 'duck';
   // 중립
   const neutSpecial = pick(NEUT_ROLES, nNeut);
   for (let i = 0; i < nNeut && neutSpecial[i]; i++) out[ids[idx++]] = neutSpecial[i];
-  // 거위
+  // 양
   const remain = ids.slice(idx);
   const gooseSpecial = pick(GOOSE_ROLES, remain.length);
   remain.forEach((pid, i) => { out[pid] = gooseSpecial[i] || 'goose'; });
@@ -1429,7 +1429,7 @@ const DEFAULT_WEIGHTS = {
 
 /* ═══ 20-net.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 네트워크 레이어 (PeerJS · 스타 토폴로지)
+ *  마몽어스 · 네트워크 레이어 (PeerJS · 스타 토폴로지)
  *
  *   [클라] ──┐
  *   [클라] ──┼──▶ [호스트] ── 게임 로직 권한 ──▶ 스냅샷 브로드캐스트
@@ -1439,7 +1439,7 @@ const DEFAULT_WEIGHTS = {
  *  · uid 기반 재접속 복구 (모바일 화면잠금/백그라운드 대응)
  *  · 음성은 별도 메시 (사용자가 켠 사람끼리만)
  * ==========================================================================*/
-const NET_PREFIX = 'duckus7-';
+const NET_PREFIX = 'mamong1-';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 0/O/1/I 제외
 
 const ICE = {
@@ -1799,7 +1799,7 @@ const Voice = {
 
 /* ═══ 30-audio.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 효과음 (WebAudio 절차 생성 · 외부 파일 0)
+ *  마몽어스 · 효과음 (WebAudio 절차 생성 · 외부 파일 0)
  * ==========================================================================*/
 const Sfx = {
   ctx: null, master: null, muted: false,
@@ -1869,7 +1869,7 @@ const Sfx = {
 
 /* ═══ 40-tasks.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 임무 미니게임 (전부 터치/마우스 동시 대응)
+ *  마몽어스 · 임무 미니게임 (전부 터치/마우스 동시 대응)
  *  build(root, opt, done)  ·  done() 호출 시 임무 1단계 완료
  * ==========================================================================*/
 function h(tag, props = {}, ...kids) {
@@ -1962,7 +1962,7 @@ card: {
   build(root, opt, done) {
     const box = h('div', { cls:'mg-card-box' });
     const slot = h('div', { cls:'mg-card-slot' });
-    const card = h('div', { cls:'mg-card' }, h('div', { cls:'mg-card-chip' }), h('span', {}, 'DUCK ID'));
+    const card = h('div', { cls:'mg-card' }, h('div', { cls:'mg-card-chip' }), h('span', {}, 'MAMONG ID'));
     const msg = h('div', { cls:'mg-msg' }, '카드를 오른쪽으로 밀어주세요');
     slot.appendChild(card); box.append(slot, msg); root.appendChild(box);
     let dragging = false, x0 = 0, t0 = 0, maxX = 0, samples = [];
@@ -2459,7 +2459,7 @@ scan: {
     const box = h('div', { cls:'mg-scan' });
     const pad = h('div', { cls:'mg-scan-pad' });
     const beam = h('div', { cls:'mg-scan-beam' });
-    const duck = h('div', { cls:'mg-scan-duck' }, '🦆');
+    const duck = h('div', { cls:'mg-scan-duck' }, '🐑');
     pad.append(duck, beam); box.appendChild(pad);
     const info = h('div', { cls:'mg-scan-info' });
     const btn = h('button', { cls:'mg-bigbtn' }, '🩺 스캔 시작');
@@ -2485,7 +2485,7 @@ scan: {
 
 /* ═══ 50-game.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 게임 로직 (호스트 권한)
+ *  마몽어스 · 게임 로직 (호스트 권한)
  * ==========================================================================*/
 const DEFAULT_SETTINGS = {
   duckCount: 2, neutralCount: 1,
@@ -2528,7 +2528,7 @@ const G = {
 const now = () => Date.now() + Net.clockOffset;
 const genId = () => Math.random().toString(36).slice(2, 8);
 /** 닉네임은 토스트·추방 연출에서 innerHTML 로도 쓰이므로 호스트에서 한 번 걸러낸다 */
-const cleanName = n => String(n || '오리').replace(/[<>&"'`\\]/g, '').trim().slice(0, 10) || '오리';
+const cleanName = n => String(n || '양').replace(/[<>&"'`\\]/g, '').trim().slice(0, 10) || '양';
 
 /* ---------------------------------------------------------------------------
  *  임무 목록 생성
@@ -2924,10 +2924,10 @@ const Host = {
       this.ev('shieldblock', { at: { x: v.x, y: v.y } });
       return;
     }
-    // 캐나다거위 자폭
+    // 숫양 자폭
     if (k.role === 'canadian' && isGoose(v.role)) {
       this.doDeath(v, k.id); this.doDeath(k, k.id);
-      Net.toPeer(k.peerId, 'toast', { text: '💀 거위를 죽였습니다. 당신도 함께 쓰러집니다.' });
+      Net.toPeer(k.peerId, 'toast', { text: '💀 양을 죽였습니다. 당신도 함께 쓰러집니다.' });
       this.afterDeath(); return;
     }
     k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
@@ -3082,7 +3082,7 @@ const Host = {
   },
 
   /** 벤트 사용 알림.
-   *  ⚠️ 사용자 id 를 전체에 뿌리면 콘솔로 오리가 특정된다.
+   *  ⚠️ 사용자 id 를 전체에 뿌리면 콘솔로 늑대가 특정된다.
    *     전체에는 '소리용 위치'만, 사용자 정보는 조류관찰자에게만 개별 전송. */
   ventNotify(userId, entering, roomName, wx, wy) {
     this.ev('vent', { in: entering, room: roomName, at: { x: wx, y: wy } });
@@ -3154,7 +3154,7 @@ const Host = {
     this.pushState();
     if (t.step >= t.spots.length) {
       const sp = spotById(t.spots[0]);
-      // 시각 임무는 '그 자리에 있던 사람'에게만 보여야 한다 (전체 브로드캐스트는 거위 확정 정보 누출)
+      // 시각 임무는 '그 자리에 있던 사람'에게만 보여야 한다 (전체 브로드캐스트는 양 확정 정보 누출)
       if (sp?.vis && G.settings.visualTasks && p.alive) {
         for (const oid of G.order) {
           const o = this.P[oid];
@@ -3171,7 +3171,7 @@ const Host = {
     let done = 0, total = 0;
     for (const id of G.order) {
       const p = this.P[id]; if (!p) continue;
-      if (roleInfo(p.role).fakeTasks) continue;   // 오리/중립의 가짜 임무는 제외 (첩자는 예외)
+      if (roleInfo(p.role).fakeTasks) continue;   // 늑대/중립의 가짜 임무는 제외 (첩자는 예외)
       total += taskTotalSteps(p.tasks);
       done += p.tasks.reduce((a, t) => a + t.step, 0);
     }
@@ -3213,7 +3213,7 @@ const Host = {
         if (Math.hypot(p.x - target.x, p.y - target.y) > 150) return;
         p.abilityUses--; p.abilityCdEnd = now() + (r.cd || 25) * 1000;
         if (isSheriffTarget(target.role)) { this.doDeath(target, p.id); Net.toPeer(p.peerId, 'toast', { text: '⭐ 명중! 적을 처치했습니다.' }); }
-        else { this.doDeath(p, p.id); Net.toPeer(p.peerId, 'toast', { text: '💀 무고한 거위였습니다. 당신이 쓰러집니다.' }); }
+        else { this.doDeath(p, p.id); Net.toPeer(p.peerId, 'toast', { text: '💀 무고한 양이었습니다. 당신이 쓰러집니다.' }); }
         this.sendPrivate(id); this.afterDeath(); break;
       }
       case 'shield': {               // 의사
@@ -3375,11 +3375,11 @@ const Host = {
     if (neutKillers.length === 1 && alive.length === 1) return this.finish('neutral', `🪶 ${neutKillers[0].name} 님이 홀로 살아남았습니다`, [neutKillers[0].id]);
 
     // 임무 완수
-    if (G.taskBar.total > 0 && G.taskBar.done >= G.taskBar.total) return this.finish('goose', '거위들이 모든 임무를 완수했습니다');
-    // 오리 전멸
-    if (ducks.length === 0 && neutKillers.length === 0) return this.finish('goose', '오리를 모두 찾아냈습니다');
-    // 오리 과반
-    if (ducks.length > 0 && ducks.length >= others.length) return this.finish('duck', '오리의 수가 거위와 같아졌습니다');
+    if (G.taskBar.total > 0 && G.taskBar.done >= G.taskBar.total) return this.finish('goose', '양들이 모든 임무를 완수했습니다');
+    // 늑대 전멸
+    if (ducks.length === 0 && neutKillers.length === 0) return this.finish('goose', '늑대를 모두 찾아냈습니다');
+    // 늑대 과반
+    if (ducks.length > 0 && ducks.length >= others.length) return this.finish('duck', '늑대의 수가 양과 같아졌습니다');
     return false;
   },
 
@@ -3401,7 +3401,7 @@ const Host = {
 
 /* ═══ 60-render.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 렌더러
+ *  마몽어스 · 렌더러
  * ==========================================================================*/
 /* roundRect 미지원 브라우저(구형 iOS Safari · 카톡 인앱) 대비 */
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -3732,46 +3732,76 @@ const Render = {
     return !lineBlocked(me.x, me.y, x, y);
   },
 
-  /* ---------------- 오리 몸체 (원점 기준) ----------------
+  /* ---------------- 양 몸체 (원점 기준) ----------------
    * 월드 렌더링과 킬 연출이 같은 그림을 쓰도록 분리해 둔다. */
-  duckShape(g, col, o = {}) {
+  /** 양 캐릭터. 양털이 플레이어 색, 얼굴은 진회색(서퍽종) — 어떤 색 양털과도 대비된다.
+   *  머리가 +x 쪽에 있어 오리 부리처럼 진행 방향을 알려준다. */
+  charShape(g, col, o = {}) {
     const { dead = false, moving = false, t = 0 } = o;
-    // 발
+    const FACE = '#3d3844', FACE_D = '#262230', LEG = '#332e3a';
+
+    // 다리 (걸을 때 앞뒤로 교차)
     if (!dead) {
-      g.fillStyle = '#e08a20';
-      const fa = moving ? Math.sin(t / 105) * 5 : 0;
-      g.beginPath(); g.ellipse(-6 + fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
-      g.beginPath(); g.ellipse(6 - fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
+      const fa = moving ? Math.sin(t / 105) * 4.5 : 0;
+      g.strokeStyle = LEG; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-7, 10); g.lineTo(-7 + fa, 18); g.stroke();
+      g.beginPath(); g.moveTo(6, 10); g.lineTo(6 - fa, 18); g.stroke();
     }
-    // 몸통
+    // 꼬리 양털 뭉치
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.2;
+    g.beginPath(); g.arc(-15, 0, 4.6, 0, 6.283); g.fill(); g.stroke();
+
+    // 몸통 양털 — 타원 + 테두리 뭉게 혹으로 구름 실루엣
     g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.6;
-    g.beginPath(); g.ellipse(0, 2, 15, 17, 0, 0, 6.283); g.fill(); g.stroke();
-    // 배 하이라이트
-    g.fillStyle = 'rgba(255,255,255,.20)';
-    g.beginPath(); g.ellipse(2, 7, 8.5, 9, 0, 0, 6.283); g.fill();
-    // 날개
-    g.fillStyle = col.dark;
-    g.beginPath(); g.ellipse(-10, 4, 5, 9, 0.25, 0, 6.283); g.fill();
-    // 머리
-    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
-    g.beginPath(); g.arc(3, -13, 11, 0, 6.283); g.fill(); g.stroke();
-    // 부리
-    g.fillStyle = '#f2a02c'; g.strokeStyle = '#c47b12'; g.lineWidth = 1.6;
-    g.beginPath(); g.ellipse(13, -11, 7, 4.2, 0, 0, 6.283); g.fill(); g.stroke();
-    // 눈
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(6, -16, 4.4, 5, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(-1, 2, 14.5, 12.5, 0, 0, 6.283); g.fill(); g.stroke();
+    g.lineWidth = 2.2;
+    for (const [bx, by, br] of [[-11,-7,5],[-2,-10,5.6],[7,-7,5],[-13,6,4.6],[9,7,4.6],[-4,12,5]]) {
+      g.beginPath(); g.arc(bx, by, br, 0, 6.283); g.fill(); g.stroke();
+    }
+    // 혹 사이 경계선 지우기 (안쪽을 다시 칠함)
+    g.fillStyle = col.hex;
+    g.beginPath(); g.ellipse(-1, 1, 13, 11, 0, 0, 6.283); g.fill();
+    // 양털 음영
+    g.fillStyle = 'rgba(255,255,255,.16)';
+    g.beginPath(); g.ellipse(-4, -3, 8, 6, -0.3, 0, 6.283); g.fill();
+
+    // 뒤 귀 (얼굴에 가려 끝만 보임)
+    g.fillStyle = FACE_D;
+    g.beginPath(); g.ellipse(2, -12, 5, 2.6, -0.5, 0, 6.283); g.fill();
+
+    // 얼굴 (진행 방향 쪽으로 내민 진회색 머리)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 2.2;
+    g.beginPath(); g.ellipse(9, -9, 8.6, 9.6, 0.18, 0, 6.283); g.fill(); g.stroke();
+    // 앞 귀 (아래로 처진 잎사귀 모양)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 1.8;
+    g.beginPath(); g.ellipse(1.5, -6.5, 3.1, 5.4, 0.5, 0, 6.283); g.fill(); g.stroke();
+    // 머리 위 양털 모자
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2;
+    g.beginPath(); g.arc(6, -16.5, 4.4, 0, 6.283); g.fill(); g.stroke();
+    g.beginPath(); g.arc(11.5, -17.5, 3.8, 0, 6.283); g.fill(); g.stroke();
+    // 콧등 하이라이트
+    g.fillStyle = 'rgba(255,255,255,.10)';
+    g.beginPath(); g.ellipse(12, -5.5, 4, 4.6, 0.2, 0, 6.283); g.fill();
+
+    // 눈 (어두운 얼굴 위 흰 눈 — 멀리서도 또렷)
     if (dead) {
-      g.strokeStyle = '#222'; g.lineWidth = 1.8;
-      g.beginPath(); g.moveTo(3.5, -18.5); g.lineTo(8.5, -13.5); g.moveTo(8.5, -18.5); g.lineTo(3.5, -13.5); g.stroke();
+      g.strokeStyle = '#e8e2ee'; g.lineWidth = 1.8; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(5.5, -12.5); g.lineTo(10, -8); g.moveTo(10, -12.5); g.lineTo(5.5, -8); g.stroke();
     } else {
-      g.fillStyle = '#151824';
-      const lookX = moving ? 1.2 : Math.sin(t / 900) * 0.9;
-      g.beginPath(); g.arc(6.8 + lookX, -15.6, 2.3, 0, 6.283); g.fill();
-      g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(7.6 + lookX, -16.6, 0.9, 0, 6.283); g.fill();
+      const lookX = moving ? 1.1 : Math.sin(t / 900) * 0.8;
+      g.fillStyle = '#fff';
+      g.beginPath(); g.ellipse(8, -10.5, 3.9, 4.4, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#151220';
+      g.beginPath(); g.arc(8.9 + lookX, -10, 2, 0, 6.283); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.9)';
+      g.beginPath(); g.arc(9.6 + lookX, -11, 0.8, 0, 6.283); g.fill();
+      // 코
+      g.fillStyle = FACE_D;
+      g.beginPath(); g.ellipse(15.5, -4.5, 1.8, 1.3, 0.3, 0, 6.283); g.fill();
     }
   },
 
-  /* ---------------- 오리 캐릭터 ---------------- */
+  /* ---------------- 양 캐릭터 ---------------- */
   drawDuck(g, p, state, isMe) {
     const col = colorOf(p.morphColor || p.color);
     const dead = !p.alive;
@@ -3791,7 +3821,7 @@ const Render = {
     g.translate(0, -bob);
     g.scale(flip, 1);
 
-    this.duckShape(g, col, { dead, moving: p.moving, t });
+    this.charShape(g, col, { dead, moving: p.moving, t });
     g.restore();
 
     /* 상태 배지 / 이름 */
@@ -3806,7 +3836,7 @@ const Render = {
     }
     if (state.duckMates?.includes(p.id) && !isMe) {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
-      g.fillText('🦆', 0, -44);
+      g.fillText('🐺', 0, -44);
     }
     const shownName = p.morphName || p.name;      // 변신술사는 이름까지 위장된다
     if (shownName) {
@@ -3821,25 +3851,37 @@ const Render = {
     g.restore();
   },
 
+  /** 쓰러진 양 — 옆으로 누워 다리가 뻗어 있다 */
   drawBody(g, b) {
     const col = colorOf(b.color);
+    const FACE = '#3d3844', FACE_D = '#262230', LEG = '#332e3a';
     g.save(); g.translate(b.x, b.y);
     // 핏자국
     g.fillStyle = 'rgba(140,20,30,.55)';
     g.beginPath(); g.ellipse(0, 10, 26, 12, 0, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(180,30,40,.45)';
     g.beginPath(); g.ellipse(8, 14, 12, 6, 0, 0, 6.283); g.fill();
-    // 쓰러진 오리 (반쪽 몸통)
     g.rotate(-0.45);
+    // 뻗은 다리 (뻣뻣하게 위로)
+    g.strokeStyle = LEG; g.lineWidth = 3.6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(2, -6); g.lineTo(8, -15); g.stroke();
+    g.beginPath(); g.moveTo(8, -4); g.lineTo(15, -11); g.stroke();
+    // 양털 몸통 (옆으로 누움)
     g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
-    g.beginPath(); g.ellipse(0, 0, 16, 12, 0, 0, 6.283); g.fill(); g.stroke();
-    g.beginPath(); g.arc(-13, -4, 9, 0, 6.283); g.fill(); g.stroke();
-    g.fillStyle = '#f2a02c'; g.beginPath(); g.ellipse(-22, -3, 6, 3.6, 0, 0, 6.283); g.fill();
-    // 뼈
-    g.fillStyle = '#e8e2d0';
-    g.beginPath(); g.ellipse(9, 4, 4, 2.6, 0.4, 0, 6.283); g.fill();
-    // X 눈
-    g.strokeStyle = '#1b1b1b'; g.lineWidth = 1.7;
+    g.beginPath(); g.ellipse(0, 0, 16, 11, 0, 0, 6.283); g.fill(); g.stroke();
+    g.lineWidth = 2;
+    for (const [bx, by, br] of [[-10,-6,4.6],[0,-8,5],[9,-5,4.4],[12,4,4.2],[-12,5,4.2]]) {
+      g.beginPath(); g.arc(bx, by, br, 0, 6.283); g.fill(); g.stroke();
+    }
+    g.fillStyle = col.hex;
+    g.beginPath(); g.ellipse(0, 0, 14.5, 9.5, 0, 0, 6.283); g.fill();
+    // 얼굴 (진회색, 축 늘어짐)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(-15, -1, 7.4, 8, -0.25, 0, 6.283); g.fill(); g.stroke();
+    // 처진 귀
+    g.beginPath(); g.ellipse(-9, 4, 2.6, 4.6, 0.7, 0, 6.283); g.fill(); g.stroke();
+    // X 눈 (어두운 얼굴 위 밝게)
+    g.strokeStyle = '#e8e2ee'; g.lineWidth = 1.7;
     g.beginPath(); g.moveTo(-16, -7); g.lineTo(-12, -3); g.moveTo(-12, -7); g.lineTo(-16, -3); g.stroke();
     g.restore();
   },
@@ -3919,22 +3961,22 @@ const Render = {
 
 /* ═══ 70-ui.js ═══ */
 /* ============================================================================
- *  덕몽어스 · UI (화면 · 로비 · HUD · 모달)
+ *  마몽어스 · UI (화면 · 로비 · HUD · 모달)
  * ==========================================================================*/
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const SETTING_DEFS = [
   { g:'인원 구성' },
-  { k:'duckCount',   label:'오리 수',          min:1, max:4,  step:1 },
+  { k:'duckCount',   label:'늑대 수',          min:1, max:4,  step:1 },
   { k:'neutralCount',label:'중립 수',          min:0, max:3,  step:1 },
   { g:'전투' },
   { k:'killCd',      label:'킬 쿨다운',        min:10, max:60, step:5, unit:'초' },
   { k:'killRange',   label:'킬 사거리',        min:60, max:170, step:10 },
   { k:'playerSpeed', label:'이동 속도',        min:2,  max:6,  step:0.25, fmt:v => v.toFixed(2) },
   { g:'시야' },
-  { k:'visionCrew',  label:'거위 시야',        min:200, max:620, step:20 },
-  { k:'visionDuck',  label:'오리 시야',        min:200, max:720, step:20 },
+  { k:'visionCrew',  label:'양 시야',        min:200, max:620, step:20 },
+  { k:'visionDuck',  label:'늑대 시야',        min:200, max:720, step:20 },
   { k:'visionDark',  label:'정전 시 시야',     min:80,  max:300, step:10 },
   { g:'회의' },
   { k:'emergencies', label:'긴급회의 횟수',    min:0, max:5, step:1, unit:'회' },
@@ -4048,7 +4090,7 @@ const UI = {
       btn.disabled = n < 4;
       foot.appendChild(btn);
       foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
-        '오리 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 거위'));
+        '늑대 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 양'));
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
         '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
@@ -4090,7 +4132,7 @@ const UI = {
 
   renderRoleWeights(st, isHost) {
     const body = $('#roles-body'); body.innerHTML = '';
-    const groups = [['거위 진영', GOOSE_ROLES, 'var(--goose)'], ['오리 진영', DUCK_ROLES, 'var(--duck)'], ['중립', NEUT_ROLES, 'var(--neut)']];
+    const groups = [['양 진영', GOOSE_ROLES, 'var(--goose)'], ['늑대 진영', DUCK_ROLES, 'var(--duck)'], ['중립', NEUT_ROLES, 'var(--neut)']];
     groups.forEach(([gname, keys, col]) => {
       body.appendChild(h('div', { style:{ color:col, fontWeight:800, fontSize:'13px', margin:'12px 0 6px' } }, gname));
       keys.forEach(k => {
@@ -4164,7 +4206,7 @@ const UI = {
     if (G.ducksKnown.length > 1) {
       const names = G.ducksKnown.filter(i => i !== G.myId).map(i => G.players[i]?.name).filter(Boolean);
       if (names.length) root.appendChild(h('div', { style:{ marginTop:'14px', padding:'11px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
-        h('div', { cls:'tiny dim' }, '동료 오리'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
+        h('div', { cls:'tiny dim' }, '동료 늑대'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
     }
     const badges = [];
     if (G.shielded) badges.push('🛡️ 방패 보호 중');
@@ -4318,7 +4360,7 @@ const UI = {
     if (G.sabotage) root.appendChild(h('div', { cls:'mg-msg bad', style:{ marginBottom:'10px' } }, '이미 진행 중인 사보타주가 있습니다.'));
     const grid = h('div', { cls:'sabgrid' });
     const items = [
-      ['lights',  '💡', '정전',      '거위의 시야를 크게 줄입니다'],
+      ['lights',  '💡', '정전',      '양들의 시야를 크게 줄입니다'],
       ['comms',   '📡', '통신 두절', '임무 목록·지도·관리실을 막습니다'],
       ['reactor', '☢️', '리액터',    '제한시간 내 2명이 동시에 눌러야 함'],
       ['oxygen',  '🫁', '산소 고갈', '제한시간 내 2곳에 코드 입력'],
@@ -4492,7 +4534,7 @@ const UI = {
   <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
     <div style="font-size:22px">2️⃣</div><div style="font-size:13.5px">목록을 내려서 <b>"홈 화면에 추가"</b> 탭</div></div>
   <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🦆 아이콘으로 실행</div></div>
+    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🐑 아이콘으로 실행</div></div>
 </div>
 <div class="tiny dim" style="margin-top:12px;line-height:1.6">
 지금 그냥 하셔도 됩니다. 폰을 <b>가로로 눕히면</b> 사파리 주소창이 대부분 사라져
@@ -4532,12 +4574,12 @@ const UI = {
   openHowTo() {
     this.modal({ title:'📖 게임 방법', body: `
 <div style="line-height:1.65;font-size:14px">
-<b style="color:var(--goose)">🪿 거위 (선량한 시민)</b><br>
+<b style="color:var(--goose)">🐑 양 (선량한 시민)</b><br>
 맵을 돌아다니며 <b>임무</b>를 완수하세요. 임무 진행바를 100%로 채우면 승리합니다.
-숨어 있는 <b>오리</b>를 회의에서 찾아내 추방해도 승리합니다.<br><br>
+무리에 숨어든 <b>늑대</b>를 회의에서 찾아내 추방해도 승리합니다.<br><br>
 
-<b style="color:var(--duck)">🦆 오리 (마피아)</b><br>
-거위를 몰래 살해하세요. 살아있는 오리 수가 거위 수와 같아지면 승리합니다.
+<b style="color:var(--duck)">🐺 늑대 (마피아)</b><br>
+양의 탈을 쓰고 몰래 사냥하세요. 살아있는 늑대 수가 양 수와 같아지면 승리합니다.
 <b>벤트</b>로 순간이동하고, <b>사보타주</b>로 방해할 수 있습니다.<br><br>
 
 <b style="color:var(--neut)">🎭 중립</b><br>
@@ -4547,7 +4589,7 @@ const UI = {
 왼쪽 <b>조이스틱</b>으로 이동, 오른쪽 <b>버튼</b>으로 행동합니다.<br>
 <b>사용</b> — 임무·수리·패널<br>
 <b>신고</b> — 시체 발견 시 회의 소집<br>
-<b>살해 / 벤트 / 방해</b> — 오리 전용<br><br>
+<b>살해 / 벤트 / 방해</b> — 늑대 전용<br><br>
 
 <b>▸ 회의</b><br>
 시체를 신고하거나 카페테리아의 빨간 버튼을 누르면 회의가 열립니다.
@@ -4563,8 +4605,8 @@ const UI = {
 
   openRolesInfo() {
     const root = h('div', {});
-    [['거위 진영', ['goose', ...GOOSE_ROLES], 'var(--goose)'],
-     ['오리 진영', ['duck', ...DUCK_ROLES], 'var(--duck)'],
+    [['양 진영', ['goose', ...GOOSE_ROLES], 'var(--goose)'],
+     ['늑대 진영', ['duck', ...DUCK_ROLES], 'var(--duck)'],
      ['중립', NEUT_ROLES, 'var(--neut)']].forEach(([gname, keys, col]) => {
       root.appendChild(h('div', { style:{ color:col, fontWeight:800, margin:'14px 0 7px' } }, gname));
       keys.forEach(k => {
@@ -4593,7 +4635,7 @@ const UI = {
     if (G.ducksKnown.length > 1) {
       const names = G.ducksKnown.filter(i => i !== G.myId).map(i => G.players[i]?.name).filter(Boolean);
       if (names.length) root.appendChild(h('div', { style:{ marginTop:'16px', padding:'11px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
-        h('div', { cls:'tiny dim' }, '동료 오리'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
+        h('div', { cls:'tiny dim' }, '동료 늑대'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
     }
     const btn = h('button', { cls:'btn primary', style:{ width:'100%' }, onclick: () => UI.closeModal() }, '시작하기');
     this.modal({ title:'역할이 정해졌습니다', body: root, footer:[btn], closable:false });
@@ -4651,14 +4693,14 @@ const UI = {
       g.save();
       g.translate(kx, H * 0.54);
       g.scale(-2.3, 2.3);                            // 왼쪽을 바라보게 반전
-      Render.duckShape(g, K, { moving: p < 0.6, t: performance.now() });
+      Render.charShape(g, K, { moving: p < 0.6, t: performance.now() });
       g.restore();
       // 피해자 (앞쪽 — 쓰러진 모습이 가려지지 않도록 나중에 그린다)
       g.save();
       g.translate(vx, vy + fall * 18);
       g.rotate(fall * 1.35);
       g.scale(2.3, 2.3);
-      Render.duckShape(g, V, { dead: fall > 0.15, moving: false, t: 0 });
+      Render.charShape(g, V, { dead: fall > 0.15, moving: false, t: 0 });
       g.restore();
 
       // 슬래시 섬광
@@ -4692,13 +4734,13 @@ const UI = {
     if (d.ejectId) {
       const p = G.players[d.ejectId];
       duckEl.style.display = '';
-      duckEl.innerHTML = `<span style="filter:drop-shadow(0 0 14px ${colorOf(p?.color).hex})">🦆</span>`;
+      duckEl.innerHTML = `<span style="filter:drop-shadow(0 0 14px ${colorOf(p?.color).hex})">🐑</span>`;
       let txt = `${p?.name || '???'} 님이 우주로 추방되었습니다`;
       let sub = '';
       if (d.confirm) {
         const r = roleInfo(d.role);
         sub = `${p?.name} 님은 <b style="color:${FACTION_COLOR[r.faction]}">${r.icon} ${r.name}</b>${hasJong(r.name) ? '이었습니다' : '였습니다'}.`;
-        if (isDuck(d.role)) sub += `<br>남은 오리 ${d.remainDucks}마리`;
+        if (isDuck(d.role)) sub += `<br>남은 늑대 ${d.remainDucks}마리`;
       }
       $('#eject-text').innerHTML = txt;
       $('#eject-sub').innerHTML = sub;
@@ -4714,7 +4756,7 @@ const UI = {
   showResult(res) {
     this.closeAllModals();
     this.show('result');
-    const label = { goose:'거위 승리!', duck:'오리 승리!', neutral:'중립 승리!' }[res.faction];
+    const label = { goose:'양 승리!', duck:'늑대 승리!', neutral:'중립 승리!' }[res.faction];
     const col = FACTION_COLOR[res.faction];
     $('#result-title').textContent = label;
     $('#result-title').style.color = col;
@@ -4753,7 +4795,7 @@ const ABILITY_LABEL = {
 
 /* ═══ 75-meeting.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 회의 · 투표 · 채팅
+ *  마몽어스 · 회의 · 투표 · 채팅
  *  ※ 대부분 음성을 못 쓰는 환경 → 타이핑 부담을 없애는 것이 이 모듈의 목표
  * ==========================================================================*/
 
@@ -4798,7 +4840,7 @@ const Trail = {
  * -------------------------------------------------------------------------*/
 const QUICK = [
   { cat:'🚨 지목', items:[
-    { t:'{p} 의심돼', n:['p'] }, { t:'{p} 오리야 확실해', n:['p'] }, { t:'{p} 클리어', n:['p'] },
+    { t:'{p} 의심돼', n:['p'] }, { t:'{p} 늑대야 확실해', n:['p'] }, { t:'{p} 클리어', n:['p'] },
     { t:'{p} 벤트 타는 거 봤어', n:['p'] }, { t:'{p} 시체 옆에 있었어', n:['p'] },
     { t:'{p} 임무 안 하고 서성였어', n:['p'] }, { t:'{p} 아까부터 나 따라다녀', n:['p'] },
     { t:'{p}랑 {q} 둘 중 하나야', n:['p','q'] },
@@ -5083,7 +5125,7 @@ function escapeHtml(s) {
 
 /* ═══ 80-main.js ═══ */
 /* ============================================================================
- *  덕몽어스 · 메인 (입력 · 루프 · 액션 · 부팅)
+ *  마몽어스 · 메인 (입력 · 루프 · 액션 · 부팅)
  * ==========================================================================*/
 const Game = {
   input: { dx: 0, dy: 0, keys: {} },
@@ -5113,7 +5155,7 @@ const Game = {
     $('#btn-copy').onclick = () => this.copyLink();
     $('#btn-leave').onclick = () => { if (confirm('방에서 나가시겠습니까?')) location.reload(); };
     $('#in-name2').addEventListener('change', e => {
-      const n = e.target.value.trim().slice(0, 10) || '오리';
+      const n = e.target.value.trim().slice(0, 10) || '양';
       localStorage.setItem('duckus_name', n); Net.toHost('setName', { name: n });
     });
     $$('.tabs button').forEach(b => b.onclick = () => {
@@ -5183,7 +5225,7 @@ const Game = {
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
   async createRoom() {
-    const name = ($('#in-name').value.trim() || '오리').slice(0, 10);
+    const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방을 만드는 중…');
     try {
@@ -5205,7 +5247,7 @@ const Game = {
 
   async joinRoom(code) {
     if (!/^[A-Z2-9]{4}$/.test(code)) return this.err('방 코드 4자리를 입력하세요.');
-    const name = ($('#in-name').value.trim() || '오리').slice(0, 10);
+    const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방에 접속하는 중…');
     try {
@@ -5317,7 +5359,7 @@ const Game = {
       }
       case 'visualtask': {                      // 근처에 있던 사람에게만 도착
         const p = G.players[m.pid];
-        if (p) UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'소행성 격추', shields:'실드 정비', scan:'신체 스캔' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (거위 확정)`, 5000);
+        if (p) UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'소행성 격추', shields:'실드 정비', scan:'신체 스캔' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (양 확정)`, 5000);
         break;
       }
     }
@@ -5804,7 +5846,7 @@ const Game = {
                     : (r.ability === 'track' || r.ability === 'guard') ? 140 : 130;
         const tgt = this.nearestPlayer(me, range); if (!tgt) return;
         if (r.ability === 'shoot') {
-          UI.modal({ title:'⭐ 사격', body:`<div style="text-align:center;padding:10px"><b>${tgt.name}</b> 님을 사격합니다.<br><span class="dim tiny">오리·중립킬러가 아니면 당신이 죽습니다.</span></div>`,
+          UI.modal({ title:'⭐ 사격', body:`<div style="text-align:center;padding:10px"><b>${tgt.name}</b> 님을 사격합니다.<br><span class="dim tiny">늑대·중립킬러가 아니면 당신이 죽습니다.</span></div>`,
             footer:[h('button', { cls:'btn ghost grow', onclick:() => UI.closeModal() }, '취소'),
                     h('button', { cls:'btn danger grow', onclick:() => { Net.toHost('ability', { kind:'shoot', target: tgt.id }); UI.closeModal(); } }, '발사')] });
         } else { Net.toHost('ability', { kind: r.ability, target: tgt.id }); Sfx.click(); }

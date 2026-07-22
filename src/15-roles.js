@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 색상 & 직업(역할) 정의
+ *  마몽어스 · 색상 & 직업(역할) 정의
  * ==========================================================================*/
 const COLORS = [
   { id:'red',    name:'빨강',   hex:'#e64b4b', dark:'#a32b2b' },
@@ -29,7 +29,7 @@ const hasJong = s => {
 };
 
 const F = { GOOSE:'goose', DUCK:'duck', NEUT:'neutral' };
-const FACTION_LABEL = { goose:'거위', duck:'오리', neutral:'중립' };
+const FACTION_LABEL = { goose:'양', duck:'늑대', neutral:'중립' };
 const FACTION_COLOR = { goose:'#5fd0ff', duck:'#ff5f6d', neutral:'#c99bff' };
 
 /* ---------------------------------------------------------------------------
@@ -37,14 +37,14 @@ const FACTION_COLOR = { goose:'#5fd0ff', duck:'#ff5f6d', neutral:'#c99bff' };
  *   canKill    : 킬 버튼 사용
  *   canVent    : 벤트 사용
  *   fakeTasks  : 임무가 진행바에 반영되지 않음
- *   counts     : 임무가 진행바에 반영됨 (거위 기본 true)
+ *   counts     : 임무가 진행바에 반영됨 (양 기본 true)
  *   ability    : 특수 능력 키 (UI 버튼 생성)
  * -------------------------------------------------------------------------*/
 const ROLES = {
-  /* ── 거위 진영 ───────────────────────────────────────────────── */
+  /* ── 양 진영 ───────────────────────────────────────────────── */
   goose: {
-    name:'거위', faction:F.GOOSE, icon:'🪿', tier:0,
-    desc:'임무를 완수하고 오리를 색출하세요.',
+    name:'양', faction:F.GOOSE, icon:'🐑', tier:0,
+    desc:'임무를 완수하고 양 무리에 숨어든 늑대를 색출하세요.',
     tip:'죽으면 유령이 되어도 임무는 계속할 수 있어요.',
   },
   detective: {
@@ -60,20 +60,20 @@ const ROLES = {
   engineer: {
     name:'기술자', faction:F.GOOSE, icon:'🔧', tier:1, canVent:true, ability:'remotefix', uses:1,
     desc:'벤트를 사용할 수 있고, 사보타주를 라운드당 1회 원격 수리합니다.',
-    tip:'벤트를 타다 들키면 오리로 몰립니다. 미리 커밍아웃해 두세요.',
+    tip:'벤트를 타다 들키면 늑대로 몰립니다. 미리 커밍아웃해 두세요.',
   },
   medium: {
     name:'영매', faction:F.GOOSE, icon:'🔮', tier:1,
     desc:'유령들의 대화를 들을 수 있습니다.',
-    tip:'죽은 사람이 본 것을 대신 전할 수 있지만, 오리가 노리는 1순위입니다.',
+    tip:'죽은 사람이 본 것을 대신 전할 수 있지만, 늑대가 노리는 1순위입니다.',
   },
   sheriff: {
     name:'보안관', faction:F.GOOSE, icon:'⭐', tier:2, ability:'shoot', uses:1, cd:25,
-    desc:'플레이어 1명을 사살합니다. 오리/중립킬러면 처치, 거위면 자신이 죽습니다.',
-    tip:'확신 없이 쏘면 거위 2명이 사라집니다. 신중하게.',
+    desc:'플레이어 1명을 사살합니다. 늑대/중립킬러면 처치, 양이면 자신이 죽습니다.',
+    tip:'확신 없이 쏘면 양 2명이 사라집니다. 신중하게.',
   },
   birdwatcher: {
-    name:'조류관찰자', faction:F.GOOSE, icon:'🔭', tier:1,
+    name:'감시견', faction:F.GOOSE, icon:'🐕', tier:1,
     desc:'맵 어디서든 벤트가 사용되면 그 위치를 알림으로 받습니다.',
     tip:'알림이 뜬 방을 즉시 채팅에 남겨두면 나중에 강력한 증거가 됩니다.',
   },
@@ -83,7 +83,7 @@ const ROLES = {
     tip:'커밍아웃하면 표를 몰아줄 수 있지만 바로 암살당할 수 있어요.',
   },
   doctor: {
-    name:'의사', faction:F.GOOSE, icon:'🩺', tier:2, ability:'shield', uses:1,
+    name:'수의사', faction:F.GOOSE, icon:'🩺', tier:2, ability:'shield', uses:1,
     desc:'플레이어 1명에게 방패를 부여합니다. 살해 시도 1회를 막습니다.',
     tip:'방패가 발동하면 공격자의 킬 쿨다운만 돌아갑니다. 누가 노렸는지 추리하세요.',
   },
@@ -98,15 +98,15 @@ const ROLES = {
     tip:'경호가 발동하면 전원에게 알려집니다. 누구를 노렸는지가 그대로 드러나요.',
   },
   canadian: {
-    name:'캐나다거위', faction:F.GOOSE, icon:'🥊', tier:2, canKill:true, cdMul:1.4,
-    desc:'살해할 수 있습니다. 하지만 거위를 죽이면 자신도 함께 죽습니다.',
-    tip:'거위 진영이지만 시체를 만들 수 있어 오해받기 쉽습니다.',
+    name:'숫양', faction:F.GOOSE, icon:'🐏', tier:2, canKill:true, cdMul:1.4,
+    desc:'박치기로 살해할 수 있습니다. 하지만 양을 죽이면 자신도 함께 죽습니다.',
+    tip:'양 진영이지만 시체를 만들 수 있어 오해받기 쉽습니다.',
   },
 
-  /* ── 오리 진영 ───────────────────────────────────────────────── */
+  /* ── 늑대 진영 ───────────────────────────────────────────────── */
   duck: {
-    name:'오리', faction:F.DUCK, icon:'🦆', tier:0, canKill:true, canVent:true, fakeTasks:true,
-    desc:'거위를 제거하세요. 벤트와 사보타주를 사용할 수 있습니다.',
+    name:'늑대', faction:F.DUCK, icon:'🐺', tier:0, canKill:true, canVent:true, fakeTasks:true,
+    desc:'양의 탈을 쓰고 숨어드세요. 벤트와 사보타주로 양을 사냥합니다.',
     tip:'임무하는 척 서 있는 시간도 알리바이가 됩니다.',
   },
   assassin: {
@@ -125,7 +125,7 @@ const ROLES = {
     name:'변신술사', faction:F.DUCK, icon:'🎭', tier:2, canKill:true, canVent:true, fakeTasks:true,
     ability:'morph', cd:25,
     desc:'플레이어의 샘플을 채취해 15초간 그 사람의 모습으로 변신합니다.',
-    tip:'변신한 채로 목격당하면 무고한 거위가 처형됩니다.',
+    tip:'변신한 채로 목격당하면 무고한 양이 처형됩니다.',
   },
   undertaker: {
     name:'매장인', faction:F.DUCK, icon:'🪦', tier:2, canKill:true, canVent:true, fakeTasks:true,
@@ -134,14 +134,14 @@ const ROLES = {
     tip:'시체를 벤트 근처나 사각지대로 옮기면 발각이 크게 늦어집니다.',
   },
   pelican: {
-    name:'펠리컨', faction:F.DUCK, icon:'🦩', tier:3, canKill:true, canVent:true, fakeTasks:true,
+    name:'구렁이', faction:F.DUCK, icon:'🐍', tier:3, canKill:true, canVent:true, fakeTasks:true,
     cdMul:1.25, noBody:true,
-    desc:'삼켜버립니다. 시체가 전혀 남지 않아 아무도 신고할 수 없습니다.',
+    desc:'통째로 삼켜버립니다. 시체가 전혀 남지 않아 아무도 신고할 수 없습니다.',
     tip:'사람이 조용히 사라지므로 발각이 늦습니다. 대신 생체신호로 사망은 드러납니다.',
   },
   spy: {
     name:'첩자', faction:F.DUCK, icon:'🕵️', tier:1, canKill:true, canVent:true,
-    desc:'가짜 임무가 실제 임무 진행바를 채웁니다. 거위를 착각하게 만드세요.',
+    desc:'가짜 임무가 실제 임무 진행바를 채웁니다. 양들을 착각하게 만드세요.',
     tip:'진행바를 일부러 올려 "임무 다 끝났다"고 방심시키세요.',
   },
 
@@ -153,14 +153,14 @@ const ROLES = {
     tip:'시체가 나오길 기다리세요. 아무도 당신을 막을 이유가 없습니다.',
   },
   pigeon: {
-    name:'비둘기', faction:F.NEUT, icon:'🕊️', tier:2, fakeTasks:true, ability:'infect', cd:20,
-    desc:'플레이어를 감염시킵니다. 살아있는 전원을 감염시키면 단독 승리합니다.',
+    name:'모기', faction:F.NEUT, icon:'🦟', tier:2, fakeTasks:true, ability:'infect', cd:20,
+    desc:'플레이어를 물어 감염시킵니다. 살아있는 전원을 감염시키면 단독 승리합니다.',
     tip:'감염 사실은 본인만 압니다. 조용히 모두에게 다가가세요.',
   },
   falcon: {
-    name:'매', faction:F.NEUT, icon:'🪶', tier:3, canKill:true, canVent:true, fakeTasks:true, cdMul:1.15,
+    name:'곰', faction:F.NEUT, icon:'🐻', tier:3, canKill:true, canVent:true, fakeTasks:true, cdMul:1.15,
     desc:'중립 킬러. 마지막까지 홀로 살아남으면 단독 승리합니다.',
-    tip:'거위와 오리를 서로 싸우게 만드는 것이 최선의 전략입니다.',
+    tip:'양과 늑대를 서로 싸우게 만드는 것이 최선의 전략입니다.',
   },
 };
 
@@ -206,13 +206,13 @@ function assignRoles(playerIds, S) {
   };
 
   let idx = 0;
-  // 오리
+  // 늑대
   const duckSpecial = pick(DUCK_ROLES, nDuck);
   for (let i = 0; i < nDuck; i++) out[ids[idx++]] = duckSpecial[i] || 'duck';
   // 중립
   const neutSpecial = pick(NEUT_ROLES, nNeut);
   for (let i = 0; i < nNeut && neutSpecial[i]; i++) out[ids[idx++]] = neutSpecial[i];
-  // 거위
+  // 양
   const remain = ids.slice(idx);
   const gooseSpecial = pick(GOOSE_ROLES, remain.length);
   remain.forEach((pid, i) => { out[pid] = gooseSpecial[i] || 'goose'; });

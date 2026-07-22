@@ -1,20 +1,20 @@
 /* ============================================================================
- *  덕몽어스 · UI (화면 · 로비 · HUD · 모달)
+ *  마몽어스 · UI (화면 · 로비 · HUD · 모달)
  * ==========================================================================*/
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const SETTING_DEFS = [
   { g:'인원 구성' },
-  { k:'duckCount',   label:'오리 수',          min:1, max:4,  step:1 },
+  { k:'duckCount',   label:'늑대 수',          min:1, max:4,  step:1 },
   { k:'neutralCount',label:'중립 수',          min:0, max:3,  step:1 },
   { g:'전투' },
   { k:'killCd',      label:'킬 쿨다운',        min:10, max:60, step:5, unit:'초' },
   { k:'killRange',   label:'킬 사거리',        min:60, max:170, step:10 },
   { k:'playerSpeed', label:'이동 속도',        min:2,  max:6,  step:0.25, fmt:v => v.toFixed(2) },
   { g:'시야' },
-  { k:'visionCrew',  label:'거위 시야',        min:200, max:620, step:20 },
-  { k:'visionDuck',  label:'오리 시야',        min:200, max:720, step:20 },
+  { k:'visionCrew',  label:'양 시야',        min:200, max:620, step:20 },
+  { k:'visionDuck',  label:'늑대 시야',        min:200, max:720, step:20 },
   { k:'visionDark',  label:'정전 시 시야',     min:80,  max:300, step:10 },
   { g:'회의' },
   { k:'emergencies', label:'긴급회의 횟수',    min:0, max:5, step:1, unit:'회' },
@@ -128,7 +128,7 @@ const UI = {
       btn.disabled = n < 4;
       foot.appendChild(btn);
       foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
-        '오리 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 거위'));
+        '늑대 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 양'));
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
         '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
@@ -170,7 +170,7 @@ const UI = {
 
   renderRoleWeights(st, isHost) {
     const body = $('#roles-body'); body.innerHTML = '';
-    const groups = [['거위 진영', GOOSE_ROLES, 'var(--goose)'], ['오리 진영', DUCK_ROLES, 'var(--duck)'], ['중립', NEUT_ROLES, 'var(--neut)']];
+    const groups = [['양 진영', GOOSE_ROLES, 'var(--goose)'], ['늑대 진영', DUCK_ROLES, 'var(--duck)'], ['중립', NEUT_ROLES, 'var(--neut)']];
     groups.forEach(([gname, keys, col]) => {
       body.appendChild(h('div', { style:{ color:col, fontWeight:800, fontSize:'13px', margin:'12px 0 6px' } }, gname));
       keys.forEach(k => {
@@ -244,7 +244,7 @@ const UI = {
     if (G.ducksKnown.length > 1) {
       const names = G.ducksKnown.filter(i => i !== G.myId).map(i => G.players[i]?.name).filter(Boolean);
       if (names.length) root.appendChild(h('div', { style:{ marginTop:'14px', padding:'11px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
-        h('div', { cls:'tiny dim' }, '동료 오리'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
+        h('div', { cls:'tiny dim' }, '동료 늑대'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
     }
     const badges = [];
     if (G.shielded) badges.push('🛡️ 방패 보호 중');
@@ -398,7 +398,7 @@ const UI = {
     if (G.sabotage) root.appendChild(h('div', { cls:'mg-msg bad', style:{ marginBottom:'10px' } }, '이미 진행 중인 사보타주가 있습니다.'));
     const grid = h('div', { cls:'sabgrid' });
     const items = [
-      ['lights',  '💡', '정전',      '거위의 시야를 크게 줄입니다'],
+      ['lights',  '💡', '정전',      '양들의 시야를 크게 줄입니다'],
       ['comms',   '📡', '통신 두절', '임무 목록·지도·관리실을 막습니다'],
       ['reactor', '☢️', '리액터',    '제한시간 내 2명이 동시에 눌러야 함'],
       ['oxygen',  '🫁', '산소 고갈', '제한시간 내 2곳에 코드 입력'],
@@ -572,7 +572,7 @@ const UI = {
   <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
     <div style="font-size:22px">2️⃣</div><div style="font-size:13.5px">목록을 내려서 <b>"홈 화면에 추가"</b> 탭</div></div>
   <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🦆 아이콘으로 실행</div></div>
+    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🐑 아이콘으로 실행</div></div>
 </div>
 <div class="tiny dim" style="margin-top:12px;line-height:1.6">
 지금 그냥 하셔도 됩니다. 폰을 <b>가로로 눕히면</b> 사파리 주소창이 대부분 사라져
@@ -612,12 +612,12 @@ const UI = {
   openHowTo() {
     this.modal({ title:'📖 게임 방법', body: `
 <div style="line-height:1.65;font-size:14px">
-<b style="color:var(--goose)">🪿 거위 (선량한 시민)</b><br>
+<b style="color:var(--goose)">🐑 양 (선량한 시민)</b><br>
 맵을 돌아다니며 <b>임무</b>를 완수하세요. 임무 진행바를 100%로 채우면 승리합니다.
-숨어 있는 <b>오리</b>를 회의에서 찾아내 추방해도 승리합니다.<br><br>
+무리에 숨어든 <b>늑대</b>를 회의에서 찾아내 추방해도 승리합니다.<br><br>
 
-<b style="color:var(--duck)">🦆 오리 (마피아)</b><br>
-거위를 몰래 살해하세요. 살아있는 오리 수가 거위 수와 같아지면 승리합니다.
+<b style="color:var(--duck)">🐺 늑대 (마피아)</b><br>
+양의 탈을 쓰고 몰래 사냥하세요. 살아있는 늑대 수가 양 수와 같아지면 승리합니다.
 <b>벤트</b>로 순간이동하고, <b>사보타주</b>로 방해할 수 있습니다.<br><br>
 
 <b style="color:var(--neut)">🎭 중립</b><br>
@@ -627,7 +627,7 @@ const UI = {
 왼쪽 <b>조이스틱</b>으로 이동, 오른쪽 <b>버튼</b>으로 행동합니다.<br>
 <b>사용</b> — 임무·수리·패널<br>
 <b>신고</b> — 시체 발견 시 회의 소집<br>
-<b>살해 / 벤트 / 방해</b> — 오리 전용<br><br>
+<b>살해 / 벤트 / 방해</b> — 늑대 전용<br><br>
 
 <b>▸ 회의</b><br>
 시체를 신고하거나 카페테리아의 빨간 버튼을 누르면 회의가 열립니다.
@@ -643,8 +643,8 @@ const UI = {
 
   openRolesInfo() {
     const root = h('div', {});
-    [['거위 진영', ['goose', ...GOOSE_ROLES], 'var(--goose)'],
-     ['오리 진영', ['duck', ...DUCK_ROLES], 'var(--duck)'],
+    [['양 진영', ['goose', ...GOOSE_ROLES], 'var(--goose)'],
+     ['늑대 진영', ['duck', ...DUCK_ROLES], 'var(--duck)'],
      ['중립', NEUT_ROLES, 'var(--neut)']].forEach(([gname, keys, col]) => {
       root.appendChild(h('div', { style:{ color:col, fontWeight:800, margin:'14px 0 7px' } }, gname));
       keys.forEach(k => {
@@ -673,7 +673,7 @@ const UI = {
     if (G.ducksKnown.length > 1) {
       const names = G.ducksKnown.filter(i => i !== G.myId).map(i => G.players[i]?.name).filter(Boolean);
       if (names.length) root.appendChild(h('div', { style:{ marginTop:'16px', padding:'11px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
-        h('div', { cls:'tiny dim' }, '동료 오리'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
+        h('div', { cls:'tiny dim' }, '동료 늑대'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
     }
     const btn = h('button', { cls:'btn primary', style:{ width:'100%' }, onclick: () => UI.closeModal() }, '시작하기');
     this.modal({ title:'역할이 정해졌습니다', body: root, footer:[btn], closable:false });
@@ -731,14 +731,14 @@ const UI = {
       g.save();
       g.translate(kx, H * 0.54);
       g.scale(-2.3, 2.3);                            // 왼쪽을 바라보게 반전
-      Render.duckShape(g, K, { moving: p < 0.6, t: performance.now() });
+      Render.charShape(g, K, { moving: p < 0.6, t: performance.now() });
       g.restore();
       // 피해자 (앞쪽 — 쓰러진 모습이 가려지지 않도록 나중에 그린다)
       g.save();
       g.translate(vx, vy + fall * 18);
       g.rotate(fall * 1.35);
       g.scale(2.3, 2.3);
-      Render.duckShape(g, V, { dead: fall > 0.15, moving: false, t: 0 });
+      Render.charShape(g, V, { dead: fall > 0.15, moving: false, t: 0 });
       g.restore();
 
       // 슬래시 섬광
@@ -772,13 +772,13 @@ const UI = {
     if (d.ejectId) {
       const p = G.players[d.ejectId];
       duckEl.style.display = '';
-      duckEl.innerHTML = `<span style="filter:drop-shadow(0 0 14px ${colorOf(p?.color).hex})">🦆</span>`;
+      duckEl.innerHTML = `<span style="filter:drop-shadow(0 0 14px ${colorOf(p?.color).hex})">🐑</span>`;
       let txt = `${p?.name || '???'} 님이 우주로 추방되었습니다`;
       let sub = '';
       if (d.confirm) {
         const r = roleInfo(d.role);
         sub = `${p?.name} 님은 <b style="color:${FACTION_COLOR[r.faction]}">${r.icon} ${r.name}</b>${hasJong(r.name) ? '이었습니다' : '였습니다'}.`;
-        if (isDuck(d.role)) sub += `<br>남은 오리 ${d.remainDucks}마리`;
+        if (isDuck(d.role)) sub += `<br>남은 늑대 ${d.remainDucks}마리`;
       }
       $('#eject-text').innerHTML = txt;
       $('#eject-sub').innerHTML = sub;
@@ -794,7 +794,7 @@ const UI = {
   showResult(res) {
     this.closeAllModals();
     this.show('result');
-    const label = { goose:'거위 승리!', duck:'오리 승리!', neutral:'중립 승리!' }[res.faction];
+    const label = { goose:'양 승리!', duck:'늑대 승리!', neutral:'중립 승리!' }[res.faction];
     const col = FACTION_COLOR[res.faction];
     $('#result-title').textContent = label;
     $('#result-title').style.color = col;

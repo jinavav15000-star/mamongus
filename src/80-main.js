@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 메인 (입력 · 루프 · 액션 · 부팅)
+ *  마몽어스 · 메인 (입력 · 루프 · 액션 · 부팅)
  * ==========================================================================*/
 const Game = {
   input: { dx: 0, dy: 0, keys: {} },
@@ -29,7 +29,7 @@ const Game = {
     $('#btn-copy').onclick = () => this.copyLink();
     $('#btn-leave').onclick = () => { if (confirm('방에서 나가시겠습니까?')) location.reload(); };
     $('#in-name2').addEventListener('change', e => {
-      const n = e.target.value.trim().slice(0, 10) || '오리';
+      const n = e.target.value.trim().slice(0, 10) || '양';
       localStorage.setItem('duckus_name', n); Net.toHost('setName', { name: n });
     });
     $$('.tabs button').forEach(b => b.onclick = () => {
@@ -99,7 +99,7 @@ const Game = {
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
   async createRoom() {
-    const name = ($('#in-name').value.trim() || '오리').slice(0, 10);
+    const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방을 만드는 중…');
     try {
@@ -121,7 +121,7 @@ const Game = {
 
   async joinRoom(code) {
     if (!/^[A-Z2-9]{4}$/.test(code)) return this.err('방 코드 4자리를 입력하세요.');
-    const name = ($('#in-name').value.trim() || '오리').slice(0, 10);
+    const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방에 접속하는 중…');
     try {
@@ -233,7 +233,7 @@ const Game = {
       }
       case 'visualtask': {                      // 근처에 있던 사람에게만 도착
         const p = G.players[m.pid];
-        if (p) UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'소행성 격추', shields:'실드 정비', scan:'신체 스캔' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (거위 확정)`, 5000);
+        if (p) UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'소행성 격추', shields:'실드 정비', scan:'신체 스캔' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (양 확정)`, 5000);
         break;
       }
     }
@@ -720,7 +720,7 @@ const Game = {
                     : (r.ability === 'track' || r.ability === 'guard') ? 140 : 130;
         const tgt = this.nearestPlayer(me, range); if (!tgt) return;
         if (r.ability === 'shoot') {
-          UI.modal({ title:'⭐ 사격', body:`<div style="text-align:center;padding:10px"><b>${tgt.name}</b> 님을 사격합니다.<br><span class="dim tiny">오리·중립킬러가 아니면 당신이 죽습니다.</span></div>`,
+          UI.modal({ title:'⭐ 사격', body:`<div style="text-align:center;padding:10px"><b>${tgt.name}</b> 님을 사격합니다.<br><span class="dim tiny">늑대·중립킬러가 아니면 당신이 죽습니다.</span></div>`,
             footer:[h('button', { cls:'btn ghost grow', onclick:() => UI.closeModal() }, '취소'),
                     h('button', { cls:'btn danger grow', onclick:() => { Net.toHost('ability', { kind:'shoot', target: tgt.id }); UI.closeModal(); } }, '발사')] });
         } else { Net.toHost('ability', { kind: r.ability, target: tgt.id }); Sfx.click(); }

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 렌더러
+ *  마몽어스 · 렌더러
  * ==========================================================================*/
 /* roundRect 미지원 브라우저(구형 iOS Safari · 카톡 인앱) 대비 */
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -330,46 +330,76 @@ const Render = {
     return !lineBlocked(me.x, me.y, x, y);
   },
 
-  /* ---------------- 오리 몸체 (원점 기준) ----------------
+  /* ---------------- 양 몸체 (원점 기준) ----------------
    * 월드 렌더링과 킬 연출이 같은 그림을 쓰도록 분리해 둔다. */
-  duckShape(g, col, o = {}) {
+  /** 양 캐릭터. 양털이 플레이어 색, 얼굴은 진회색(서퍽종) — 어떤 색 양털과도 대비된다.
+   *  머리가 +x 쪽에 있어 오리 부리처럼 진행 방향을 알려준다. */
+  charShape(g, col, o = {}) {
     const { dead = false, moving = false, t = 0 } = o;
-    // 발
+    const FACE = '#3d3844', FACE_D = '#262230', LEG = '#332e3a';
+
+    // 다리 (걸을 때 앞뒤로 교차)
     if (!dead) {
-      g.fillStyle = '#e08a20';
-      const fa = moving ? Math.sin(t / 105) * 5 : 0;
-      g.beginPath(); g.ellipse(-6 + fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
-      g.beginPath(); g.ellipse(6 - fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
+      const fa = moving ? Math.sin(t / 105) * 4.5 : 0;
+      g.strokeStyle = LEG; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-7, 10); g.lineTo(-7 + fa, 18); g.stroke();
+      g.beginPath(); g.moveTo(6, 10); g.lineTo(6 - fa, 18); g.stroke();
     }
-    // 몸통
+    // 꼬리 양털 뭉치
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.2;
+    g.beginPath(); g.arc(-15, 0, 4.6, 0, 6.283); g.fill(); g.stroke();
+
+    // 몸통 양털 — 타원 + 테두리 뭉게 혹으로 구름 실루엣
     g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.6;
-    g.beginPath(); g.ellipse(0, 2, 15, 17, 0, 0, 6.283); g.fill(); g.stroke();
-    // 배 하이라이트
-    g.fillStyle = 'rgba(255,255,255,.20)';
-    g.beginPath(); g.ellipse(2, 7, 8.5, 9, 0, 0, 6.283); g.fill();
-    // 날개
-    g.fillStyle = col.dark;
-    g.beginPath(); g.ellipse(-10, 4, 5, 9, 0.25, 0, 6.283); g.fill();
-    // 머리
-    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
-    g.beginPath(); g.arc(3, -13, 11, 0, 6.283); g.fill(); g.stroke();
-    // 부리
-    g.fillStyle = '#f2a02c'; g.strokeStyle = '#c47b12'; g.lineWidth = 1.6;
-    g.beginPath(); g.ellipse(13, -11, 7, 4.2, 0, 0, 6.283); g.fill(); g.stroke();
-    // 눈
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(6, -16, 4.4, 5, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(-1, 2, 14.5, 12.5, 0, 0, 6.283); g.fill(); g.stroke();
+    g.lineWidth = 2.2;
+    for (const [bx, by, br] of [[-11,-7,5],[-2,-10,5.6],[7,-7,5],[-13,6,4.6],[9,7,4.6],[-4,12,5]]) {
+      g.beginPath(); g.arc(bx, by, br, 0, 6.283); g.fill(); g.stroke();
+    }
+    // 혹 사이 경계선 지우기 (안쪽을 다시 칠함)
+    g.fillStyle = col.hex;
+    g.beginPath(); g.ellipse(-1, 1, 13, 11, 0, 0, 6.283); g.fill();
+    // 양털 음영
+    g.fillStyle = 'rgba(255,255,255,.16)';
+    g.beginPath(); g.ellipse(-4, -3, 8, 6, -0.3, 0, 6.283); g.fill();
+
+    // 뒤 귀 (얼굴에 가려 끝만 보임)
+    g.fillStyle = FACE_D;
+    g.beginPath(); g.ellipse(2, -12, 5, 2.6, -0.5, 0, 6.283); g.fill();
+
+    // 얼굴 (진행 방향 쪽으로 내민 진회색 머리)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 2.2;
+    g.beginPath(); g.ellipse(9, -9, 8.6, 9.6, 0.18, 0, 6.283); g.fill(); g.stroke();
+    // 앞 귀 (아래로 처진 잎사귀 모양)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 1.8;
+    g.beginPath(); g.ellipse(1.5, -6.5, 3.1, 5.4, 0.5, 0, 6.283); g.fill(); g.stroke();
+    // 머리 위 양털 모자
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2;
+    g.beginPath(); g.arc(6, -16.5, 4.4, 0, 6.283); g.fill(); g.stroke();
+    g.beginPath(); g.arc(11.5, -17.5, 3.8, 0, 6.283); g.fill(); g.stroke();
+    // 콧등 하이라이트
+    g.fillStyle = 'rgba(255,255,255,.10)';
+    g.beginPath(); g.ellipse(12, -5.5, 4, 4.6, 0.2, 0, 6.283); g.fill();
+
+    // 눈 (어두운 얼굴 위 흰 눈 — 멀리서도 또렷)
     if (dead) {
-      g.strokeStyle = '#222'; g.lineWidth = 1.8;
-      g.beginPath(); g.moveTo(3.5, -18.5); g.lineTo(8.5, -13.5); g.moveTo(8.5, -18.5); g.lineTo(3.5, -13.5); g.stroke();
+      g.strokeStyle = '#e8e2ee'; g.lineWidth = 1.8; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(5.5, -12.5); g.lineTo(10, -8); g.moveTo(10, -12.5); g.lineTo(5.5, -8); g.stroke();
     } else {
-      g.fillStyle = '#151824';
-      const lookX = moving ? 1.2 : Math.sin(t / 900) * 0.9;
-      g.beginPath(); g.arc(6.8 + lookX, -15.6, 2.3, 0, 6.283); g.fill();
-      g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(7.6 + lookX, -16.6, 0.9, 0, 6.283); g.fill();
+      const lookX = moving ? 1.1 : Math.sin(t / 900) * 0.8;
+      g.fillStyle = '#fff';
+      g.beginPath(); g.ellipse(8, -10.5, 3.9, 4.4, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#151220';
+      g.beginPath(); g.arc(8.9 + lookX, -10, 2, 0, 6.283); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.9)';
+      g.beginPath(); g.arc(9.6 + lookX, -11, 0.8, 0, 6.283); g.fill();
+      // 코
+      g.fillStyle = FACE_D;
+      g.beginPath(); g.ellipse(15.5, -4.5, 1.8, 1.3, 0.3, 0, 6.283); g.fill();
     }
   },
 
-  /* ---------------- 오리 캐릭터 ---------------- */
+  /* ---------------- 양 캐릭터 ---------------- */
   drawDuck(g, p, state, isMe) {
     const col = colorOf(p.morphColor || p.color);
     const dead = !p.alive;
@@ -389,7 +419,7 @@ const Render = {
     g.translate(0, -bob);
     g.scale(flip, 1);
 
-    this.duckShape(g, col, { dead, moving: p.moving, t });
+    this.charShape(g, col, { dead, moving: p.moving, t });
     g.restore();
 
     /* 상태 배지 / 이름 */
@@ -404,7 +434,7 @@ const Render = {
     }
     if (state.duckMates?.includes(p.id) && !isMe) {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
-      g.fillText('🦆', 0, -44);
+      g.fillText('🐺', 0, -44);
     }
     const shownName = p.morphName || p.name;      // 변신술사는 이름까지 위장된다
     if (shownName) {
@@ -419,25 +449,37 @@ const Render = {
     g.restore();
   },
 
+  /** 쓰러진 양 — 옆으로 누워 다리가 뻗어 있다 */
   drawBody(g, b) {
     const col = colorOf(b.color);
+    const FACE = '#3d3844', FACE_D = '#262230', LEG = '#332e3a';
     g.save(); g.translate(b.x, b.y);
     // 핏자국
     g.fillStyle = 'rgba(140,20,30,.55)';
     g.beginPath(); g.ellipse(0, 10, 26, 12, 0, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(180,30,40,.45)';
     g.beginPath(); g.ellipse(8, 14, 12, 6, 0, 0, 6.283); g.fill();
-    // 쓰러진 오리 (반쪽 몸통)
     g.rotate(-0.45);
+    // 뻗은 다리 (뻣뻣하게 위로)
+    g.strokeStyle = LEG; g.lineWidth = 3.6; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(2, -6); g.lineTo(8, -15); g.stroke();
+    g.beginPath(); g.moveTo(8, -4); g.lineTo(15, -11); g.stroke();
+    // 양털 몸통 (옆으로 누움)
     g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
-    g.beginPath(); g.ellipse(0, 0, 16, 12, 0, 0, 6.283); g.fill(); g.stroke();
-    g.beginPath(); g.arc(-13, -4, 9, 0, 6.283); g.fill(); g.stroke();
-    g.fillStyle = '#f2a02c'; g.beginPath(); g.ellipse(-22, -3, 6, 3.6, 0, 0, 6.283); g.fill();
-    // 뼈
-    g.fillStyle = '#e8e2d0';
-    g.beginPath(); g.ellipse(9, 4, 4, 2.6, 0.4, 0, 6.283); g.fill();
-    // X 눈
-    g.strokeStyle = '#1b1b1b'; g.lineWidth = 1.7;
+    g.beginPath(); g.ellipse(0, 0, 16, 11, 0, 0, 6.283); g.fill(); g.stroke();
+    g.lineWidth = 2;
+    for (const [bx, by, br] of [[-10,-6,4.6],[0,-8,5],[9,-5,4.4],[12,4,4.2],[-12,5,4.2]]) {
+      g.beginPath(); g.arc(bx, by, br, 0, 6.283); g.fill(); g.stroke();
+    }
+    g.fillStyle = col.hex;
+    g.beginPath(); g.ellipse(0, 0, 14.5, 9.5, 0, 0, 6.283); g.fill();
+    // 얼굴 (진회색, 축 늘어짐)
+    g.fillStyle = FACE; g.strokeStyle = FACE_D; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(-15, -1, 7.4, 8, -0.25, 0, 6.283); g.fill(); g.stroke();
+    // 처진 귀
+    g.beginPath(); g.ellipse(-9, 4, 2.6, 4.6, 0.7, 0, 6.283); g.fill(); g.stroke();
+    // X 눈 (어두운 얼굴 위 밝게)
+    g.strokeStyle = '#e8e2ee'; g.lineWidth = 1.7;
     g.beginPath(); g.moveTo(-16, -7); g.lineTo(-12, -3); g.moveTo(-12, -7); g.lineTo(-16, -3); g.stroke();
     g.restore();
   },

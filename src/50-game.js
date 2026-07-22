@@ -1,5 +1,5 @@
 /* ============================================================================
- *  덕몽어스 · 게임 로직 (호스트 권한)
+ *  마몽어스 · 게임 로직 (호스트 권한)
  * ==========================================================================*/
 const DEFAULT_SETTINGS = {
   duckCount: 2, neutralCount: 1,
@@ -42,7 +42,7 @@ const G = {
 const now = () => Date.now() + Net.clockOffset;
 const genId = () => Math.random().toString(36).slice(2, 8);
 /** 닉네임은 토스트·추방 연출에서 innerHTML 로도 쓰이므로 호스트에서 한 번 걸러낸다 */
-const cleanName = n => String(n || '오리').replace(/[<>&"'`\\]/g, '').trim().slice(0, 10) || '오리';
+const cleanName = n => String(n || '양').replace(/[<>&"'`\\]/g, '').trim().slice(0, 10) || '양';
 
 /* ---------------------------------------------------------------------------
  *  임무 목록 생성
@@ -438,10 +438,10 @@ const Host = {
       this.ev('shieldblock', { at: { x: v.x, y: v.y } });
       return;
     }
-    // 캐나다거위 자폭
+    // 숫양 자폭
     if (k.role === 'canadian' && isGoose(v.role)) {
       this.doDeath(v, k.id); this.doDeath(k, k.id);
-      Net.toPeer(k.peerId, 'toast', { text: '💀 거위를 죽였습니다. 당신도 함께 쓰러집니다.' });
+      Net.toPeer(k.peerId, 'toast', { text: '💀 양을 죽였습니다. 당신도 함께 쓰러집니다.' });
       this.afterDeath(); return;
     }
     k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
@@ -596,7 +596,7 @@ const Host = {
   },
 
   /** 벤트 사용 알림.
-   *  ⚠️ 사용자 id 를 전체에 뿌리면 콘솔로 오리가 특정된다.
+   *  ⚠️ 사용자 id 를 전체에 뿌리면 콘솔로 늑대가 특정된다.
    *     전체에는 '소리용 위치'만, 사용자 정보는 조류관찰자에게만 개별 전송. */
   ventNotify(userId, entering, roomName, wx, wy) {
     this.ev('vent', { in: entering, room: roomName, at: { x: wx, y: wy } });
@@ -668,7 +668,7 @@ const Host = {
     this.pushState();
     if (t.step >= t.spots.length) {
       const sp = spotById(t.spots[0]);
-      // 시각 임무는 '그 자리에 있던 사람'에게만 보여야 한다 (전체 브로드캐스트는 거위 확정 정보 누출)
+      // 시각 임무는 '그 자리에 있던 사람'에게만 보여야 한다 (전체 브로드캐스트는 양 확정 정보 누출)
       if (sp?.vis && G.settings.visualTasks && p.alive) {
         for (const oid of G.order) {
           const o = this.P[oid];
@@ -685,7 +685,7 @@ const Host = {
     let done = 0, total = 0;
     for (const id of G.order) {
       const p = this.P[id]; if (!p) continue;
-      if (roleInfo(p.role).fakeTasks) continue;   // 오리/중립의 가짜 임무는 제외 (첩자는 예외)
+      if (roleInfo(p.role).fakeTasks) continue;   // 늑대/중립의 가짜 임무는 제외 (첩자는 예외)
       total += taskTotalSteps(p.tasks);
       done += p.tasks.reduce((a, t) => a + t.step, 0);
     }
@@ -727,7 +727,7 @@ const Host = {
         if (Math.hypot(p.x - target.x, p.y - target.y) > 150) return;
         p.abilityUses--; p.abilityCdEnd = now() + (r.cd || 25) * 1000;
         if (isSheriffTarget(target.role)) { this.doDeath(target, p.id); Net.toPeer(p.peerId, 'toast', { text: '⭐ 명중! 적을 처치했습니다.' }); }
-        else { this.doDeath(p, p.id); Net.toPeer(p.peerId, 'toast', { text: '💀 무고한 거위였습니다. 당신이 쓰러집니다.' }); }
+        else { this.doDeath(p, p.id); Net.toPeer(p.peerId, 'toast', { text: '💀 무고한 양이었습니다. 당신이 쓰러집니다.' }); }
         this.sendPrivate(id); this.afterDeath(); break;
       }
       case 'shield': {               // 의사
@@ -889,11 +889,11 @@ const Host = {
     if (neutKillers.length === 1 && alive.length === 1) return this.finish('neutral', `🪶 ${neutKillers[0].name} 님이 홀로 살아남았습니다`, [neutKillers[0].id]);
 
     // 임무 완수
-    if (G.taskBar.total > 0 && G.taskBar.done >= G.taskBar.total) return this.finish('goose', '거위들이 모든 임무를 완수했습니다');
-    // 오리 전멸
-    if (ducks.length === 0 && neutKillers.length === 0) return this.finish('goose', '오리를 모두 찾아냈습니다');
-    // 오리 과반
-    if (ducks.length > 0 && ducks.length >= others.length) return this.finish('duck', '오리의 수가 거위와 같아졌습니다');
+    if (G.taskBar.total > 0 && G.taskBar.done >= G.taskBar.total) return this.finish('goose', '양들이 모든 임무를 완수했습니다');
+    // 늑대 전멸
+    if (ducks.length === 0 && neutKillers.length === 0) return this.finish('goose', '늑대를 모두 찾아냈습니다');
+    // 늑대 과반
+    if (ducks.length > 0 && ducks.length >= others.length) return this.finish('duck', '늑대의 수가 양과 같아졌습니다');
     return false;
   },
 
