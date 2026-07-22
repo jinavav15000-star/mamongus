@@ -48,6 +48,8 @@ const Game = {
     this.bindInput();
     Render.init($('#game-canvas'));
     this.wireNet();
+    Viewport.init();
+    this.setupImmersive();
 
     // URL 해시로 자동 참가
     const m = location.hash.match(/#room=([A-Z2-9]{4})/i);
@@ -61,6 +63,21 @@ const Game = {
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('gesturestart', e => e.preventDefault());
     requestAnimationFrame(t => this.loop(t));
+  },
+
+  /* ═══════════ 몰입 모드 (가로 전체화면) ═══════════ */
+  setupImmersive() {
+    // 회전 안내에 기기별 문구를 채운다
+    const hint = $('#rotate-hint');
+    if (Viewport.isInApp)
+      hint.innerHTML = '카카오톡 안에서는 화면 고정이 되지 않습니다.<br>우측 상단 <b>⋮ → 다른 브라우저로 열기</b> 를 추천합니다.';
+    else if (Viewport.isIPhone)
+      hint.innerHTML = '아이폰은 사파리가 화면 고정을 지원하지 않습니다.<br>제어센터의 <b>세로 방향 잠금</b>이 켜져 있다면 꺼주세요.';
+
+    // 인앱 브라우저 안내 (전체화면·방향고정이 모두 막힌 환경)
+    if (Viewport.shouldHintInApp()) setTimeout(() => UI.openInAppHint(), 900);
+    // 아이폰 전체화면 안내
+    else if (Viewport.shouldHintIOS()) setTimeout(() => UI.openIOSHint(), 900);
   },
 
   /** 화면 꺼짐 방지.
@@ -118,7 +135,8 @@ const Game = {
   },
 
   copyLink() {
-    const url = location.origin + location.pathname + '#room=' + Net.code;
+    const base = location.origin + location.pathname;
+    const url = Net.code ? base + '#room=' + Net.code : base;
     const done = () => UI.toast('🔗 초대 링크를 복사했습니다!<br><span class="tiny dim">' + url + '</span>', 5000);
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => prompt('아래 주소를 복사하세요', url));
     else prompt('아래 주소를 복사하세요', url);

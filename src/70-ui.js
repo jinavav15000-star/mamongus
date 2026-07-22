@@ -514,6 +514,18 @@ const UI = {
   openMenu() {
     const root = h('div', { cls:'col' });
     root.appendChild(h('button', { cls:'btn', onclick: () => { Game.copyLink(); } }, '🔗 초대 링크 복사'));
+
+    // 전체화면 토글 — 아이폰 사파리는 API 자체가 없어 대신 안내를 연다
+    const fsLabel = () => Viewport.inFullscreen ? '🗗 전체화면 끄기' : '⛶ 전체화면 켜기';
+    const fsBtn = h('button', { cls:'btn' + (Viewport.inFullscreen ? ' primary' : ''), onclick: async () => {
+      if (Viewport.isIPhone && !Viewport.standalone) { UI.closeModal(); UI.openIOSHint(); return; }
+      await Viewport.toggle();
+      fsBtn.textContent = fsLabel();
+      fsBtn.classList.toggle('primary', Viewport.inFullscreen);
+    } }, Viewport.isIPhone && !Viewport.standalone ? '⛶ 전체화면으로 하려면' : fsLabel());
+    root.appendChild(fsBtn);
+    if (!Viewport.lockOk && Viewport.isPhone)
+      root.appendChild(h('div', { cls:'tiny dim' }, '이 기기는 가로 고정이 지원되지 않아, 폰을 눕히면 가로로 전환됩니다.'));
     const sfxBtn = h('button', { cls:'btn', onclick: () => { Sfx.muted = !Sfx.muted; sfxBtn.textContent = Sfx.muted ? '🔇 효과음 꺼짐' : '🔊 효과음 켜짐'; } },
       Sfx.muted ? '🔇 효과음 꺼짐' : '🔊 효과음 켜짐');
     root.appendChild(sfxBtn);
@@ -541,6 +553,60 @@ const UI = {
       root.appendChild(h('button', { cls:'btn danger', onclick: () => { if (confirm('게임을 끝내고 로비로 돌아갈까요?')) { Net.toHost('restart', {}); UI.closeModal(); } } }, '⏹ 게임 종료 (방장)'));
     root.appendChild(h('button', { cls:'btn danger', onclick: () => { if (confirm('정말 나가시겠습니까?')) location.reload(); } }, '🚪 방 나가기'));
     this.modal({ title:'☰ 메뉴', body: root });
+  },
+
+  /** 아이폰 전용 안내 — 애플이 사파리에서 전체화면 API 를 막아놔서
+   *  홈 화면 추가가 유일한 진짜 전체화면 방법이다. 1회만 띄우고 다시 안 뜬다. */
+  openIOSHint() {
+    const root = h('div', {});
+    root.innerHTML = `
+<div style="text-align:center;font-size:44px;line-height:1;margin-bottom:8px">📲</div>
+<div style="font-size:14px;line-height:1.7">
+아이폰 사파리는 <b>전체화면 기능 자체를 제공하지 않습니다</b>(애플 정책).<br>
+아래 3초짜리 과정을 <b>한 번만</b> 해두면, 다음부터는 아이콘을 누르는 것만으로
+<b style="color:var(--acc)">주소창 없는 가로 전체화면</b>으로 바로 실행됩니다.
+</div>
+<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
+  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
+    <div style="font-size:22px">1️⃣</div><div style="font-size:13.5px">화면 <b>맨 아래 가운데</b>의 <b>공유 버튼</b><br><span class="tiny dim">네모 위로 화살표가 솟은 모양 ⬆️</span></div></div>
+  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
+    <div style="font-size:22px">2️⃣</div><div style="font-size:13.5px">목록을 내려서 <b>"홈 화면에 추가"</b> 탭</div></div>
+  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
+    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🦆 아이콘으로 실행</div></div>
+</div>
+<div class="tiny dim" style="margin-top:12px;line-height:1.6">
+지금 그냥 하셔도 됩니다. 폰을 <b>가로로 눕히면</b> 사파리 주소창이 대부분 사라져
+거의 전체화면으로 플레이할 수 있습니다.
+</div>`;
+    const skip = h('button', { cls:'btn ghost grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '괜찮아요, 그냥 할게요');
+    const ok = h('button', { cls:'btn primary grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '알겠어요');
+    this.modal({ title:'📲 아이폰 전체화면', body: root, footer:[skip, ok], onClose: () => Viewport.dismissIOSHint() });
+  },
+
+  /** 카톡 등 인앱 브라우저 — 전체화면·방향고정이 모두 차단된다 */
+  openInAppHint() {
+    const isKakao = Viewport.isKakao;
+    const root = h('div', {});
+    root.innerHTML = `
+<div style="text-align:center;font-size:44px;line-height:1;margin-bottom:8px">🌐</div>
+<div style="font-size:14px;line-height:1.7">
+지금 <b>${isKakao ? '카카오톡 안의 브라우저' : '앱 안의 브라우저'}</b>로 열려 있습니다.
+여기서는 <b>전체화면과 가로 고정이 막혀 있어</b> 화면이 좁고 조작이 불편합니다.
+</div>
+<div style="margin-top:14px;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:12px">
+  <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">밖으로 여는 법</div>
+  <div style="font-size:13px;line-height:1.7;color:var(--dim)">
+  ${isKakao
+    ? '오른쪽 아래 <b style="color:var(--txt)">⋮</b> (또는 우측 상단) → <b style="color:var(--txt)">다른 브라우저로 열기</b><br>아이폰이면 <b style="color:var(--txt)">Safari로 열기</b>'
+    : '브라우저 메뉴에서 <b style="color:var(--txt)">기본 브라우저로 열기</b>'}
+  </div>
+</div>
+<div class="tiny dim" style="margin-top:12px;line-height:1.6">
+그냥 여기서 하셔도 게임은 정상 작동합니다. 화면만 조금 좁습니다.
+</div>`;
+    const copy = h('button', { cls:'btn grow', onclick: () => { Game.copyLink(); } }, '🔗 주소 복사');
+    const ok = h('button', { cls:'btn primary grow', onclick: () => { Viewport.dismissInAppHint(); UI.closeModal(); } }, '이대로 할게요');
+    this.modal({ title:'🌐 더 넓게 즐기려면', body: root, footer:[copy, ok], onClose: () => Viewport.dismissInAppHint() });
   },
 
   openHowTo() {

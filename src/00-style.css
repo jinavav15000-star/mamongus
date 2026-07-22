@@ -183,6 +183,18 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .alertbar{font-size:12px;padding:7px 12px;max-width:92vw;white-space:normal;text-align:center}
 }
 
+/* ══════════ 가로로 돌려주세요 게이트 ══════════ */
+.rotate-gate{
+  position:fixed;inset:0;z-index:9000;background:#050810;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  padding:24px;text-align:center;
+}
+.rotate-phone{font-size:74px;line-height:1;animation:rot 2.2s ease-in-out infinite;transform-origin:50% 50%}
+@keyframes rot{0%,45%{transform:rotate(0)}70%,100%{transform:rotate(-90deg)}}
+.rotate-title{font-size:21px;font-weight:900}
+.rotate-sub{font-size:14px;color:var(--dim);line-height:1.6}
+.rotate-hint{font-size:12.5px;color:var(--warn);line-height:1.6;max-width:340px}
+
 /* ---------- 모달 ---------- */
 .modal{position:fixed;inset:0;z-index:60;background:rgba(2,5,14,.86);display:flex;align-items:center;justify-content:center;
   padding:calc(14px + var(--safe-t)) 14px calc(14px + var(--safe-b));backdrop-filter:blur(3px)}
@@ -406,3 +418,67 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:200}
 .spinner{width:44px;height:44px;border:4px solid #22304d;border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══════════ 가로 모드(높이가 좁은 화면) 보정 ══════════
+   폰을 눕히면 세로 375px 밖에 안 남는다. 세로 기준으로 잡은 비율들이
+   그대로면 임무 목록이 잘리고 회의 채팅이 화면의 1/3로 줄어든다. */
+@media (orientation:landscape) and (max-height:560px){
+  /* --- 게임 HUD --- */
+  .topbar{top:calc(5px + var(--safe-t))}
+  .taskbar-wrap{padding:5px 10px}
+  .taskbar-label{font-size:10px}
+  .iconbtn{width:36px;height:36px;font-size:17px;border-radius:10px}
+
+  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:56%;font-size:10px;padding:5px 8px;line-height:1.25}
+  .tasklist .hd{font-size:9px;margin-bottom:2px}
+  .tasklist .ti{margin-bottom:1px}
+
+  /* 역할 설명은 길안내 화살표를 가린다 → 이름만, 자세한 건 탭하면 나온다 */
+  .rolechip{top:calc(48px + var(--safe-t));max-width:26%;padding:5px 9px}
+  .rolechip .rn{font-size:12px}
+  .rolechip .rd{display:none}
+
+  .stick{width:104px;height:104px;left:calc(12px + var(--safe-b));bottom:calc(12px + var(--safe-b))}
+  .stick .knob{width:46px;height:46px;margin:-23px 0 0 -23px}
+  .actions{right:calc(10px + var(--safe-b));bottom:calc(10px + var(--safe-b));gap:7px;max-width:60vw}
+  .actrow{gap:7px}
+  .abtn{width:62px;height:62px;font-size:10px}
+  .abtn .ic{font-size:20px}
+  .abtn.small{width:50px;height:50px;font-size:9px}
+  .abtn.small .ic{font-size:17px}
+  .toasts{bottom:calc(88px + var(--safe-b))}
+
+  /* --- 회의 --- */
+  .meet-hd{padding:calc(4px + var(--safe-t)) 12px 5px}
+  .meet-title{font-size:14px}
+  .meet-sub{font-size:10.5px;margin-top:0}
+  .meet-timer{font-size:20px;line-height:1}
+  .meet-left{width:40%;padding:6px}
+  .vcard{padding:5px 7px;margin-bottom:4px;border-radius:10px}
+  .vcard .pdot{width:24px;height:24px;border-radius:7px}
+  .vcard .nm{font-size:12px}
+  .vcard .seen{font-size:9.5px}
+  .vcard .vbtn{padding:5px 9px;font-size:11px}
+  .chat{padding:6px 9px;gap:3px}
+  .msg{font-size:12.5px;line-height:1.35}
+  .chatbar{padding:5px 6px;gap:4px}
+  .qc button{padding:5px 9px;font-size:11.5px}
+  .chatinput input{padding:8px 11px}
+  .chatinput button{padding:0 13px}
+
+  /* --- 홈 / 로비 --- */
+  #screen-home,#screen-lobby{padding-top:calc(8px + var(--safe-t));padding-bottom:calc(8px + var(--safe-b))}
+  .duck-hero{font-size:38px}
+  .logo{margin:6px 0 12px}
+  .logo .big{font-size:32px}
+  .logo .sub{font-size:12px}
+  .card{padding:12px}
+  .swatch{border-radius:9px}
+
+  /* --- 결과 --- */
+  .result-hd{padding:12px 16px 8px}
+  .result-title{font-size:26px}
+}
+
+/* 전체화면 진입 시 브라우저 UI 가 없어 여백을 더 줄 수 있다 */
+body.immersive .topbar{top:8px}
