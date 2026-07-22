@@ -36,7 +36,9 @@ input,textarea{font-family:inherit;font-size:16px}
 .btn:disabled{opacity:.42;cursor:default;transform:none}
 .btn.small{padding:8px 13px;font-size:13.5px;border-radius:11px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
-.row{display:flex;gap:9px;align-items:center}
+.row{display:flex;gap:9px;align-items:center;min-width:0}
+/* flex 안의 input 은 기본 최소폭(~20자)을 고집해 옆 버튼을 화면 밖으로 밀어낸다 */
+.row>input,.grow{min-width:0}
 .col{display:flex;flex-direction:column;gap:9px}
 .grow{flex:1}
 .dim{color:var(--dim)}
@@ -66,7 +68,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   background:#0b1224;border:1px solid #2a3d63;border-radius:12px;padding:13px 15px;color:var(--txt);outline:none;
 }
 .field input:focus{border-color:var(--acc)}
-.code-input{text-transform:uppercase;letter-spacing:7px;font-weight:800;text-align:center;font-size:24px!important}
+.code-input{text-transform:uppercase;letter-spacing:7px;font-weight:800;text-align:center;font-size:24px!important;min-width:0;width:100%}
 .colorgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px}
 .swatch{aspect-ratio:1;border-radius:11px;border:2.5px solid transparent;position:relative;transition:.12s}
 .swatch.sel{border-color:#fff;transform:scale(1.12)}
@@ -78,7 +80,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .codechip{background:#0d1730;border:1.5px dashed #3a5486;border-radius:12px;padding:9px 15px;
   font-weight:900;letter-spacing:5px;font-size:20px;color:var(--warn)}
 .plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-.pcard{display:flex;gap:9px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:13px;padding:9px 11px}
+.pcard{display:flex;gap:9px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:13px;padding:9px 11px;min-width:0}
+.pcard.me{border-color:#4d7dd0;background:#12203a}
 .pdot{width:26px;height:26px;border-radius:9px;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3)}
 .pname{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hostbadge{font-size:10.5px;background:var(--warn);color:#241c00;padding:1px 6px;border-radius:6px;font-weight:900}

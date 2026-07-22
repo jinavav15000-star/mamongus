@@ -107,11 +107,12 @@ const UI = {
     const list = $('#plist'); list.innerHTML = '';
     st.players.forEach(p => {
       const c = colorOf(p.color);
-      list.appendChild(h('div', { cls:'pcard' },
+      const mine = p.id === G.myId;
+      list.appendChild(h('div', { cls:'pcard' + (mine ? ' me' : '') },
         h('div', { cls:'pdot', style:{ background: c.hex } }),
         h('div', { cls:'grow', style:{ minWidth:0 } },
-          h('div', { cls:'pname' }, p.name + (p.id === G.myId ? ' (나)' : '')),
-          h('div', { cls:'tiny dim' }, c.name)),
+          h('div', { cls:'pname' }, p.name),
+          h('div', { cls:'tiny dim' }, mine ? c.name + ' · 나' : c.name)),
         p.id === st.hostId ? h('span', { cls:'hostbadge' }, '방장') : null,
         !p.connected ? h('span', { cls:'tiny', style:{color:'var(--bad)'} }, '끊김') : null,
       ));
@@ -146,7 +147,9 @@ const UI = {
     if (!isHost) body.appendChild(h('div', { cls:'tiny dim', style:{ marginBottom:'10px' } }, '방장만 변경할 수 있습니다.'));
     const grid = h('div', { cls:'setgrid' });
     SETTING_DEFS.forEach(d => {
-      if (d.g) { grid.appendChild(h('div', { cls:'tiny', style:{ gridColumn:'1/-1', color:'var(--acc)', fontWeight:800, marginTop:'6px' } }, d.g)); grid.appendChild(h('div')); return; }
+      // 그룹 제목은 한 줄 전체를 차지한다. 여기서 셀을 하나라도 더 넣으면
+      // 이후 모든 라벨·컨트롤 짝이 한 칸씩 밀린다.
+      if (d.g) { grid.appendChild(h('div', { cls:'tiny setgroup', style:{ gridColumn:'1 / -1', color:'var(--acc)', fontWeight:800, marginTop:'6px' } }, d.g)); return; }
       grid.appendChild(h('div', { cls:'lbl' }, d.label));
       if (d.bool) {
         const b = h('button', { cls:'btn small' + (st.settings[d.k] ? ' primary' : ' ghost'),
