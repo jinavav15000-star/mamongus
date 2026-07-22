@@ -1,0 +1,12 @@
+{
+  "name": "duckamongus",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "링크 하나로 하는 오리 마피아 — 브라우저 P2P 소셜 추리 게임",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/host-sim.mjs && node test/client-sim.mjs",
+    "serve": "python3 -m http.server 8899 --directory docs"
+  }
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050810">
+<meta name="description" content="브라우저에서 바로 하는 마피아 추리 게임. 링크만 공유하면 최대 16명이 함께 플레이합니다.">
+<meta property="og:title" content="덕몽어스 — 링크 하나로 하는 오리 마피아">
+<meta property="og:description" content="설치 없이 브라우저에서 바로. 16개 직업, 18종 임무, 사보타주. 최대 16명.">
+<meta property="og:type" content="website">
+<title>덕몽어스 · 오리 마피아</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+
+<!-- ══════════ 홈 ══════════ -->
+<div id="screen-home" class="screen">
+  <div class="wrap">
+    <div class="duck-hero">🦆</div>
+    <div class="logo">
+      <div class="big">덕몽어스</div>
+      <div class="sub">링크 하나로 시작하는 오리 마피아 · 최대 16명</div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="field">
+        <label>닉네임</label>
+        <input id="in-name" maxlength="10" placeholder="오리1" autocomplete="off">
+      </div>
+      <button id="btn-create" class="btn primary" style="width:100%;margin-bottom:9px">🏠 방 만들기</button>
+      <div class="row">
+        <input id="in-code" class="code-input grow" maxlength="4" placeholder="CODE" autocomplete="off"
+               style="background:#0b1224;border:1px solid #2a3d63;border-radius:12px;padding:12px;color:var(--txt);outline:none">
+        <button id="btn-join" class="btn">참가</button>
+      </div>
+      <div id="home-err" class="err"></div>
+    </div>
+
+    <div class="card tiny dim">
+      <b style="color:var(--txt)">🎮 어떻게 하나요?</b><br>
+      1. <b>방 만들기</b>를 누르면 초대 링크가 만들어집니다.<br>
+      2. 그 링크를 카카오톡 단톡방에 붙여넣으세요.<br>
+      3. 친구들이 링크를 누르면 바로 참가됩니다. 설치 필요 없음.<br>
+      <span style="color:var(--warn)">※ 방을 만든 사람이 나가면 게임이 끝납니다. 브라우저를 켜 두세요.</span>
+      <div style="margin-top:9px">
+        <button id="btn-howto" class="btn ghost small">📖 게임 방법 자세히</button>
+        <button id="btn-roles-info" class="btn ghost small">🎭 직업 목록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 로비 ══════════ -->
+<div id="screen-lobby" class="screen hidden">
+  <div class="wrap">
+    <div class="lobbybar">
+      <div class="codechip" id="lobby-code">----</div>
+      <button id="btn-copy" class="btn small">🔗 초대링크 복사</button>
+      <div class="grow"></div>
+      <button id="btn-leave" class="btn ghost small">나가기</button>
+    </div>
+
+    <div class="card" style="margin-bottom:11px">
+      <h3>내 오리</h3>
+      <div class="row" style="margin-bottom:10px">
+        <input id="in-name2" maxlength="10"
+               style="flex:1;background:#0b1224;border:1px solid #2a3d63;border-radius:11px;padding:10px 13px;color:var(--txt);outline:none">
+      </div>
+      <div class="colorgrid" id="colorgrid"></div>
+    </div>
+
+    <div class="tabs">
+      <button data-tab="players" class="on">참가자 <span id="tab-count">0</span></button>
+      <button data-tab="settings">⚙️ 설정</button>
+      <button data-tab="roles">🎭 직업</button>
+    </div>
+
+    <div id="tab-players" class="card" style="margin-bottom:11px">
+      <div class="plist" id="plist"></div>
+    </div>
+
+    <div id="tab-settings" class="card hidden" style="margin-bottom:11px">
+      <div id="settings-body"></div>
+    </div>
+
+    <div id="tab-roles" class="card hidden" style="margin-bottom:11px">
+      <div class="tiny dim" style="margin-bottom:10px">
+        직업별 등장 확률을 정합니다. <b>끔 / 가끔 / 자주</b><br>
+        음성 없이 채팅으로만 해도 직업이 많을수록 대화거리가 늘어납니다.
+      </div>
+      <div id="roles-body"></div>
+    </div>
+
+    <div id="lobby-foot"></div>
+  </div>
+</div>
+
+<!-- ══════════ 게임 ══════════ -->
+<div id="screen-game" class="screen hidden">
+  <canvas id="game-canvas"></canvas>
+  <div class="hud">
+    <div class="topbar">
+      <div class="taskbar-wrap">
+        <div class="taskbar-label"><span>임무 진행도</span><span id="taskbar-num">0 / 0</span></div>
+        <div class="taskbar"><div class="taskbar-fill" id="taskbar-fill" style="width:0%"></div></div>
+      </div>
+      <button class="iconbtn hidden" id="btn-ghostchat">👻</button>
+      <button class="iconbtn" id="btn-map">🗺️</button>
+      <button class="iconbtn" id="btn-menu">☰</button>
+    </div>
+    <div class="tasklist" id="tasklist"></div>
+    <div class="rolechip" id="rolechip"></div>
+    <div class="alertbar hidden" id="alertbar"></div>
+
+    <div class="stick" id="stick"><div class="knob" id="stick-knob"></div></div>
+    <div class="actions" id="actions">
+      <div class="actrow">
+        <button class="abtn use" id="btn-use"><span class="ic">✋</span><span>사용</span></button>
+      </div>
+      <div class="actrow" id="actrow2"></div>
+    </div>
+    <div class="toasts" id="toasts"></div>
+  </div>
+</div>
+
+<!-- ══════════ 회의 ══════════ -->
+<div id="screen-meeting" class="screen hidden">
+  <div class="meet-hd">
+    <div class="meet-title" id="meet-title">긴급 회의</div>
+    <div class="meet-sub" id="meet-sub"></div>
+    <div class="meet-timer" id="meet-timer">00</div>
+  </div>
+  <div class="meet-body">
+    <div class="meet-left scroll" id="meet-left"></div>
+    <div class="meet-right">
+      <div class="chat scroll" id="chat"></div>
+      <div class="chatbar">
+        <div class="qc" id="qc-cats"></div>
+        <div class="qc" id="qc-items"></div>
+        <div class="chatinput">
+          <input id="chat-in" placeholder="메시지 입력…" maxlength="160" autocomplete="off">
+          <button id="chat-send">전송</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 추방 연출 ══════════ -->
+<div id="screen-eject" class="screen hidden">
+  <div class="eject-space" id="eject-space"></div>
+  <div class="eject-duck" id="eject-duck">🦆</div>
+  <div class="eject-text" id="eject-text"></div>
+  <div class="eject-sub" id="eject-sub"></div>
+</div>
+
+<!-- ══════════ 결과 ══════════ -->
+<div id="screen-result" class="screen hidden" style="overflow-y:auto;padding-bottom:calc(20px + var(--safe-b))">
+  <div class="wrap">
+    <div class="result-hd">
+      <div class="result-title" id="result-title"></div>
+      <div class="result-reason" id="result-reason"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px"><div id="result-roster"></div></div>
+    <div id="result-foot" style="padding:0 0 20px"></div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div class="loading hidden" id="loading">
+  <div class="spinner"></div>
+  <div id="loading-text" class="dim">연결 중…</div>
+</div>
+
+<script>/*__PEERJS__*/</script>
+<script>/*__JS__*/</script>
+</body>
+</html>
