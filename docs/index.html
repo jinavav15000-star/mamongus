@@ -3625,6 +3625,9 @@ const Render = {
   /* ---------------- 메인 프레임 ---------------- */
   draw(state) {
     const g = this.g, me = state.me;
+    // 캔버스가 아직 배치되지 않았거나(화면 전환·회전 순간) 크기가 0이면 그리지 않는다.
+    // 0 크기로 그리면 안개 레이어 drawImage 가 매 프레임 예외를 던진다.
+    if (!g || !(this.W > 0) || !(this.H > 0)) { this.resize(); return; }
     g.save();
     g.fillStyle = '#02040a'; g.fillRect(0, 0, this.W, this.H);
 
