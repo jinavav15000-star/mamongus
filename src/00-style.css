@@ -23,6 +23,19 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 input,textarea{font-family:inherit;font-size:16px}
 .hidden{display:none!important}
 
+
+/* ---------- 디스플레이 폰트 (Jua) ----------
+   로고·직업명·회의 제목·결과 화면에만. 본문은 시스템 폰트 유지. */
+.logo .big, .rotate-title, .meet-title, .result-title,
+.eject-text, .rolechip .rn, .roleitem .nm, .modal-hd h2,
+.codechip, .abtn span:not(.ic):not(.cd){
+  font-family:'MamongDisplay','Pretendard','Apple SD Gothic Neo',system-ui,sans-serif;
+  font-weight:400;
+}
+/* Jua 는 굵기가 하나뿐이라 letter-spacing 으로 무게감을 보완 */
+.logo .big{letter-spacing:-1px}
+.result-title,.meet-title{letter-spacing:-.5px}
+
 /* ---------- 공용 ---------- */
 .btn{
   background:linear-gradient(180deg,#2a3d63,#1b2947); border:1px solid #3a5486; color:#e8eefb;

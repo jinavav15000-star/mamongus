@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url));
 const src = join(root, 'src');
 
-const css = readFileSync(join(src, '00-style.css'), 'utf8');
+/* CSS 는 파일명 순서대로 이어 붙인다 (01-font.css 는 tools/subset-font.mjs 가 생성) */
+const cssFiles = readdirSync(src).filter(f => f.endsWith('.css')).sort();
+const css = cssFiles.map(f => readFileSync(join(src, f), 'utf8')).join('\n');
 const peer = readFileSync(join(root, 'vendor', 'peerjs.min.js'), 'utf8');
 
 const jsFiles = readdirSync(src).filter(f => f.endsWith('.js')).sort();
@@ -24,4 +26,4 @@ writeFileSync(out, html);
 
 const kb = (Buffer.byteLength(html) / 1024).toFixed(0);
 console.log(`✔ docs/index.html  (${kb} KB)  ←  ${jsFiles.length}개 JS + CSS + PeerJS`);
-console.log('  포함:', jsFiles.join(', '));
+console.log('  포함:', [...cssFiles, ...jsFiles].join(', '));

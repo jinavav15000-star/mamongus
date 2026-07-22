@@ -3,3 +3,10 @@ node_modules/
 *.log
 .vscode/
 .idea/
+
+# 폰트 원본 (서브셋 결과만 src/01-font.css 로 커밋)
+vendor/font/*.ttf
+vendor/font/*.woff2
+vendor/font/subset/
+# Playwright 스크린샷
+test-shots/

@@ -8,5 +8,8 @@
     "build": "node build.mjs",
     "test": "node test/host-sim.mjs && node test/client-sim.mjs",
     "serve": "python3 -m http.server 8899 --directory docs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }
