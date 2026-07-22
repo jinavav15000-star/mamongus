@@ -61,6 +61,12 @@ const Viewport = {
         }
       }
     } catch { this.fsOk = false; }
+    // 시도했는데 안 들어가진 경우만 실패로 센다 (지원 안 되는 브라우저에서 무한 재시도 방지)
+    if (!this.fsOk && !this.isIPhone) {
+      this._failCount++;
+      if (this._failCount === 3 && this.isPhone && typeof UI !== 'undefined')
+        UI.toast('이 브라우저는 전체화면을 막고 있습니다.<br>☰ 메뉴 → <b>전체화면 켜기</b>를 눌러보거나, 브라우저 메뉴의 <b>홈 화면에 추가</b>로 실행하면 주소창 없이 플레이됩니다.', 9000);
+    }
 
     // 2) 방향 고정 — 전체화면 성패와 무관하게 반드시 시도한다
     try {
@@ -100,10 +106,16 @@ const Viewport = {
     this._fire = null; this.armed = false;
   },
 
+  _failCount: 0,
+
   arm() {
     this.disarm();                       // 중복 등록 방지 (재무장 시 이전 리스너가 남으면 enter 가 두 번 돈다)
     this.armed = true;
-    this._fire = () => {
+    this._fire = (e) => {
+      // 입력창을 누른 탭은 건너뛴다 — 키보드가 올라오며 전체화면을 도로 해제해버린다.
+      // (첫 탭은 대부분 닉네임 칸이라, 여기서 발동하면 "전체화면이 안 된다"로 보인다)
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       this.disarm();                     // 먼저 해제해야 pointerdown→click 로 두 번 실행되지 않는다
       if (!this.userExited && this.isPhone) this.enter();
     };
@@ -139,7 +151,13 @@ const Viewport = {
 
     ['fullscreenchange', 'webkitfullscreenchange'].forEach(e =>
       document.addEventListener(e, () => {
-        if (!this.inFullscreen) this.fsOk = false;
+        if (!this.inFullscreen) {
+          this.fsOk = false;
+          // 키보드·뒤로 제스처·알림창이 전체화면을 풀어버린다 →
+          // 다음 터치에 다시 들어가도록 재무장한다. (게임 중이면 조이스틱 첫 터치가 곧 재진입)
+          // 이게 없으면 한 번 풀린 뒤 세션 내내 주소창이 떠 있게 된다.
+          if (!this.userExited && this.isPhone && this._failCount < 3) this.arm();
+        } else this._failCount = 0;
         this.sync();
       }));
     ['resize', 'orientationchange'].forEach(e =>

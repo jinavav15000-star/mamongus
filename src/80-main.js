@@ -99,6 +99,7 @@ const Game = {
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
   async createRoom() {
+    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방을 만드는 중…');
@@ -120,6 +121,7 @@ const Game = {
   },
 
   async joinRoom(code) {
+    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     if (!/^[A-Z2-9]{4}$/.test(code)) return this.err('방 코드 4자리를 입력하세요.');
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
@@ -747,7 +749,10 @@ const Game = {
   setColor(c) { Net.toHost('setColor', { color: c }); },
   setSetting(k, v) { Net.toHost('settings', { s: { [k]: v } }); },
   setRoleWeight(k, v) { const w = { ...G.settings.roleWeights, [k]: v }; Net.toHost('settings', { s: { roleWeights: w } }); },
-  start() { Net.toHost('start', {}); },
+  start() {
+    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 게임 시작 순간이 전체화면의 최적 타이밍
+    Net.toHost('start', {});
+  },
 
   /* ═══════════ 음성 ═══════════ */
   /** 내가 음성을 켰다고 알린다. 켤 때 한 번만 호출할 것.
