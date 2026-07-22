@@ -37,7 +37,7 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, ROLES, roleInfo, isDuck, isGoose, isNeut, COLORS,
   DEFAULT_SETTINGS, TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, SAB_SPOTS, spotById,
-  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, WALLS, spawnPoints, assignRoles };
+  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, lineBlocked, WALLS, spawnPoints, assignRoles };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -515,6 +515,212 @@ section('재접속 복구');
   ok('peerId 갱신', Host.P[oldId].peerId === 'newpeer' && Host.peerToId['newpeer'] === oldId);
   ok('게임 중 새 uid 는 입장 거부',
      (() => { const n = G.order.length; Host.onMsg({ t:'hello', uid:'stranger', name:'난입' }, 'p9'); return G.order.length === n; })());
+}
+
+section('경호원 · 추적자 · 펠리컨');
+{
+  // 경호원 — 대신 죽고 대상은 산다
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'bodyguard', 파랑:'goose', 초록:'duck', 분홍:'goose', 노랑:'goose' });
+  const bg = byName('호스트'), prot = byName('파랑'), dk = byName('초록');
+  bg.abilityUses = 1;
+  put(bg, 1888, 400); put(prot, 1888, 430);
+  Host.onAbility(bg.id, { kind:'guard', target: prot.id });
+  ok('경호 대상 지정됨', bg.guarding === prot.id);
+  dk.killCdEnd = 0; put(dk, 1888, 420);
+  Host.onKill(dk.id, prot.id);
+  ok('경호원이 대신 죽는다', bg.alive === false);
+  ok('경호 대상은 살아남는다', prot.alive === true);
+  ok('경호는 1회로 소진', bg.guarding === null);
+  ok('경호 발동 후에도 킬 쿨다운은 돈다', dk.killCdEnd > Date.now());
+
+  // 경호 소진 후에는 정상 사망
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'bodyguard', 파랑:'goose', 초록:'duck', 분홍:'goose', 노랑:'goose' });
+  const bg2 = byName('호스트'), pr2 = byName('파랑'), dk2 = byName('초록');
+  bg2.abilityUses = 0;                          // 이미 다 씀
+  put(bg2, 1888, 400); put(pr2, 1888, 430); put(dk2, 1888, 420);
+  Host.onAbility(bg2.id, { kind:'guard', target: pr2.id });
+  ok('횟수 없으면 경호 지정 불가', bg2.guarding == null);
+  dk2.killCdEnd = 0; Host.onKill(dk2.id, pr2.id);
+  ok('경호 없으면 정상 사망', pr2.alive === false && bg2.alive === true);
+
+  // 추적자
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'tracker', 파랑:'duck', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const tr = byName('호스트'), tgt = byName('파랑');
+  tr.abilityCdEnd = 0;
+  put(tr, 1888, 400); put(tgt, 1888, 450);
+  Host.onAbility(tr.id, { kind:'track', target: tgt.id });
+  ok('추적 대상 지정', tr.trackTarget === tgt.id && tr.trackEnd > Date.now());
+  put(tgt, 300, 1600);                          // 시야 밖으로 멀리 보낸다
+  sent.length = 0; Host.sendSnap();
+  const snapToTracker = sent.find(s => s.t === 'snap' && s.to === tr.peerId);
+  ok('추적자는 시야 밖 대상 좌표를 받는다',
+     !!snapToTracker?.d.trk && snapToTracker.d.trk[0] === 300, snapToTracker?.d.trk);
+  ok('추적해도 대상이 화면에 그려지진 않음 (스냅샷 목록엔 없음)',
+     !snapToTracker.d.p.some(a => a[0] === tgt.id));
+  const snapToOther = sent.find(s => s.t === 'snap' && s.to === byName('초록').peerId);
+  ok('다른 사람에게는 추적 좌표가 안 감', !snapToOther?.d.trk);
+  tr.trackEnd = Date.now() - 1;
+  sent.length = 0; Host.sendSnap();
+  ok('추적 시간이 끝나면 좌표 전송 중단',
+     !sent.find(s => s.t === 'snap' && s.to === tr.peerId)?.d.trk);
+
+  // 펠리컨 — 시체가 남지 않는다
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'pelican', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const pel = byName('호스트'), v = byName('파랑');
+  pel.killCdEnd = 0; put(pel, 1888, 400); put(v, 1888, 430);
+  Host.onKill(pel.id, v.id);
+  ok('펠리컨에게 죽으면 사망은 한다', v.alive === false);
+  ok('펠리컨은 시체를 남기지 않는다', G.bodies.length === 0, G.bodies.length);
+
+  // 일반 오리는 시체를 남긴다 (대조군)
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const d2 = byName('호스트'), v2 = byName('파랑');
+  d2.killCdEnd = 0; put(d2, 1888, 400); put(v2, 1888, 430);
+  Host.onKill(d2.id, v2.id);
+  ok('일반 오리는 시체를 남긴다', G.bodies.length === 1);
+}
+
+section('시야 컬링 (치트 방지)');
+{
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'goose', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'duck' });
+  const me = byName('호스트'), near = byName('파랑'), far = byName('초록'), duck = byName('노랑');
+
+  // state 브로드캐스트에 좌표가 없어야 한다
+  sent.length = 0; Host.pushState();
+  const st = sent.find(s => s.t === 'state');
+  ok('state 에 좌표가 들어있지 않음',
+     st.d.players.every(p => p.x === undefined && p.y === undefined),
+     Object.keys(st.d.players[0]));
+
+  // 같은 방 · 가까움 → 보인다
+  put(me, 1888, 400); put(near, 1930, 410);
+  ok('가까운 사람은 보인다', Host.visibleTo(me).some(p => p.id === near.id));
+
+  // 멀리 → 안 보인다
+  put(far, 300, 1600);
+  ok('먼 사람은 스냅샷에서 제외', !Host.visibleTo(me).some(p => p.id === far.id));
+
+  // 벽 너머 → 안 보인다 (카페테리아 좌상단 ↔ 의무실 복도, 사이에 카페테리아 왼쪽 벽)
+  put(me,  49 * 32 + 16,  6 * 32 + 16);
+  put(far, 45 * 32 + 16, 12 * 32 + 16);
+  const d = Math.hypot(me.x - far.x, me.y - far.y);
+  ok('테스트 전제: 시야 반경 안', d < G.settings.visionCrew, Math.round(d));
+  ok('테스트 전제: 둘 다 통행 가능 지점',
+     A.walkablePx(me.x, me.y) && A.walkablePx(far.x, far.y));
+  ok('테스트 전제: 두 점 사이가 벽으로 막힘', A.lineBlocked(me.x, me.y, far.x, far.y));
+  ok('벽 뒤 사람은 안 보인다', !Host.visibleTo(me).some(p => p.id === far.id));
+
+  // 자기 자신은 항상 포함
+  ok('자기 자신은 항상 포함', Host.visibleTo(me).some(p => p.id === me.id));
+
+  // 벤트 안 사람은 안 보인다
+  put(duck, me.x + 30, me.y);
+  duck.ventId = 'v1';
+  ok('벤트 안은 산 사람에게 안 보임', !Host.visibleTo(me).some(p => p.id === duck.id));
+  duck.ventId = null;
+
+  // 유령은 전원 다 보인다
+  put(far, 300, 1600);
+  me.alive = false;
+  ok('유령은 전원이 보인다', Host.visibleTo(me).length === G.order.length, Host.visibleTo(me).length);
+  me.alive = true;
+
+  // 죽은 사람은 산 사람에게 안 보인다
+  near.alive = false;
+  put(near, me.x + 30, me.y);
+  ok('유령은 산 사람에게 안 보임', !Host.visibleTo(me).some(p => p.id === near.id));
+  near.alive = true;
+
+  // 오리는 시야가 더 넓다
+  const g1 = byName('분홍'); g1.role = 'goose';
+  put(g1, me.x + G.settings.visionCrew + 100, me.y);
+  const duckViewer = duck; duckViewer.role = 'duck';
+  put(duckViewer, me.x, me.y);
+  ok('오리 시야가 거위보다 넓다', G.settings.visionDuck > G.settings.visionCrew);
+
+  // 관리실 정보는 서버가 계산해 준다
+  sent.length = 0;
+  Host.onReqInfo(me.id, 'admin');
+  const info = sent.find(s => s.t === 'info');
+  ok('관리실은 방별 인원수만 응답 (누구인지는 없음)',
+     !!info && info.d.kind === 'admin' && typeof info.d.counts === 'object'
+     && JSON.stringify(info.d).indexOf('"id"') === -1, info?.d);
+  // 통신 두절 중에는 차단
+  G.sabotage = { kind:'comms', endsAt:0, data:{ dials:[0,0] } };
+  sent.length = 0; Host.onReqInfo(me.id, 'admin');
+  ok('통신 두절 시 관리실 차단', sent.find(s => s.t === 'info')?.d.blocked === true);
+  G.sabotage = null;
+}
+
+section('방장 마이그레이션');
+{
+  reset(6); Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'detective', 초록:'goose', 분홍:'engineer', 노랑:'vulture', 보라:'goose' });
+  const 파랑 = byName('파랑'), 초록 = byName('초록'), 분홍 = byName('분홍');
+  // 진행 상태를 만들어 둔다
+  파랑.tasks[0].step = 1; Host.recalcTaskBar();
+  분홍.abilityUses = 0;
+  const dk = byName('호스트'); dk.killCdEnd = 0;
+  put(dk, 1888, 400); put(byName('보라'), 1888, 420);
+  Host.onKill(dk.id, byName('보라').id);
+  G.sabCdEnd = 0; Host.onSabotage(dk.id, 'oxygen');
+  const bodyCount = G.bodies.length, taskDone = G.taskBar.done;
+  const sabEndsAt = G.sabotage.endsAt, sabCode = G.sabotage.data.code;
+
+  ok('후계자는 방장 다음의 접속자', Host.successorId() === 파랑.id, Host.successorId());
+
+  sent.length = 0;
+  Host.pushMigration();
+  const mig = sent.find(s => s.t === 'migstate');
+  ok('후계자에게만 상태 전송', !!mig && mig.to === 파랑.peerId, sent.map(s => s.t + '→' + s.to));
+  ok('후계자 지정이 방송됨', sent.some(s => s.t === 'successor' && s.d.id === 파랑.id));
+
+  /* ── 파랑이 방장을 인계받는다. 파랑의 시계가 3초 빠르다고 가정 ── */
+  const snap = JSON.parse(JSON.stringify(mig.d.s));
+  const OLD_OFFSET = -3000;                       // 이전방장시각 − 내시각 = -3000 (내 시계가 3초 빠름)
+  const newHostId = 파랑.id;
+  Host.P = {}; Host.M = null; Host.peerToId = {};  // 새 프로세스라고 가정
+  Host.importState(snap, newHostId, OLD_OFFSET);
+
+  ok('전원 역할이 보존됨',
+     Host.P[초록.id].role === 'goose' && Host.P[분홍.id].role === 'engineer' && Host.P[newHostId].role === 'detective',
+     Object.values(Host.P).map(p => p.name + ':' + p.role));
+  ok('임무 진행이 보존됨', Host.P[newHostId].tasks[0].step === 1);
+  ok('임무바가 보존됨', G.taskBar.done === taskDone, { now: G.taskBar.done, was: taskDone });
+  ok('시체가 보존됨', G.bodies.length === bodyCount);
+  ok('사망 상태가 보존됨', Host.P[byName('보라').id].alive === false);
+  ok('능력 사용 횟수 보존', Host.P[분홍.id].abilityUses === 0);
+  ok('사보타주가 보존됨', G.sabotage?.kind === 'oxygen' && G.sabotage.data.code === sabCode);
+  ok('사보타주 마감시각이 내 시계로 보정됨',
+     Math.abs(G.sabotage.endsAt - (sabEndsAt - OLD_OFFSET)) < 2,
+     { now: G.sabotage.endsAt, expect: sabEndsAt - OLD_OFFSET });
+  ok('새 방장이 hostId 로 설정됨', G.hostId === newHostId && G.myId === newHostId);
+  ok('새 방장만 접속 상태', Host.P[newHostId].connected === true && Host.P[초록.id].connected === false);
+  ok('재접속 유예가 설정됨', Host._graceUntil > Date.now());
+
+  // 유예 중에는 자동 개표가 터지지 않아야 한다
+  Host.startMeeting(newHostId, null);
+  Host.M.phase = 'vote';
+  Host.onVote(newHostId, 'skip');
+  ok('유예 중 자동 개표 안 됨 (혼자 남았다고 개표하면 안 됨)', Host.M.tally === null);
+
+  // 다른 사람들이 재접속하면 정상 복귀 (이름은 보내지 않는다 → 기존 이름 유지)
+  Host._graceUntil = 0;
+  Host.onMsg({ t:'hello', uid: snap.players.find(p => p.id === 초록.id).uid }, 'peerX');
+  ok('재접속 시 같은 슬롯 복귀', Host.P[초록.id].connected === true && Host.P[초록.id].role === 'goose');
+  ok('재접속해도 닉네임이 유지됨', Host.P[초록.id].name === '초록', Host.P[초록.id].name);
+
+  // 게임이 끝난 뒤에는 마이그레이션 상태를 보내지 않는다
+  sent.length = 0;
+  G.phase = 'over';
+  Host.pushMigration();
+  ok('게임 종료 후에는 상태 전송 안 함', !sent.some(s => s.t === 'migstate'));
 }
 
 section('닉네임 위생 처리');

@@ -1,6 +1,20 @@
 /* ============================================================================
  *  덕몽어스 · 렌더러
  * ==========================================================================*/
+/* roundRect 미지원 브라우저(구형 iOS Safari · 카톡 인앱) 대비 */
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    this.moveTo(x + rr, y);
+    this.arcTo(x + w, y, x + w, y + h, rr);
+    this.arcTo(x + w, y + h, x, y + h, rr);
+    this.arcTo(x, y + h, x, y, rr);
+    this.arcTo(x, y, x + w, y, rr);
+    this.closePath();
+    return this;
+  };
+}
+
 const Render = {
   cv: null, g: null, W: 0, H: 0, scale: 1,
   cam: { x: 0, y: 0 },
@@ -249,6 +263,64 @@ const Render = {
       g.drawImage(f, 0, 0);
       g.restore();
     }
+
+    // 길안내 (안개 위에 그려야 보인다)
+    if (state.guides?.length) this.drawGuides(g, state, cx, cy, sc, shx, shy);
+  },
+
+  /* ---------------- 길안내 화살표 ----------------
+   * 처음 하는 사람은 "전기실"이라고 써 있어도 전기실이 어딘지 모른다.
+   * 화면 밖 목표는 가장자리 화살표로, 화면 안 목표는 링으로 알려준다. */
+  drawGuides(g, state, cx, cy, sc, shx, shy) {
+    const W = this.W, H = this.H, me = state.me;
+    const pad = 46;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const dpr = Math.min(devicePixelRatio || 1, 2); g.scale(dpr, dpr);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+
+    for (const t of state.guides) {
+      const sx = (t.wx - cx) * sc + W / 2 + shx;
+      const sy = (t.wy - cy) * sc + H / 2 + shy;
+      const dist = Math.round(Math.hypot(t.wx - me.x, t.wy - me.y) / TILE);
+      const inside = sx > pad && sx < W - pad && sy > pad && sy < H - pad;
+
+      if (inside) continue;                      // 화면 안이면 월드 마커로 충분
+
+      // 화면 가장자리로 밀어낸 위치 계산
+      const dx = sx - W / 2, dy = sy - H / 2;
+      const ang = Math.atan2(dy, dx);
+      const hw = W / 2 - pad, hh = H / 2 - pad;
+      const scale = Math.min(hw / Math.abs(Math.cos(ang) || 1e-6), hh / Math.abs(Math.sin(ang) || 1e-6));
+      const ex = W / 2 + Math.cos(ang) * scale, ey = H / 2 + Math.sin(ang) * scale;
+
+      g.save();
+      g.translate(ex, ey);
+      // 배경 원
+      g.fillStyle = 'rgba(8,14,28,.88)';
+      g.strokeStyle = t.color; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, 21, 0, 6.283); g.fill(); g.stroke();
+      // 화살표
+      g.save(); g.rotate(ang);
+      g.fillStyle = t.color;
+      g.beginPath(); g.moveTo(17, 0); g.lineTo(7, -6.5); g.lineTo(7, 6.5); g.closePath(); g.fill();
+      g.restore();
+      // 아이콘
+      g.font = '700 15px system-ui'; g.fillStyle = '#fff';
+      g.fillText(t.icon, 0, 0.5);
+      g.restore();
+
+      // 라벨 (방 이름 + 거리) — 화면 안쪽으로 붙인다
+      const lx = ex - Math.cos(ang) * 34, ly = ey - Math.sin(ang) * 34;
+      const label = `${t.label} ${dist}m`;
+      g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+      const w = g.measureText(label).width;
+      g.fillStyle = 'rgba(8,14,28,.85)';
+      g.beginPath(); g.roundRect(lx - w / 2 - 6, ly - 9, w + 12, 18, 9); g.fill();
+      g.fillStyle = t.color;
+      g.fillText(label, lx, ly);
+    }
+    g.restore();
   },
 
   inView(x, y, me, R, poly) {
@@ -256,6 +328,45 @@ const Render = {
     if (d > R) return false;
     if (d < 40) return true;
     return !lineBlocked(me.x, me.y, x, y);
+  },
+
+  /* ---------------- 오리 몸체 (원점 기준) ----------------
+   * 월드 렌더링과 킬 연출이 같은 그림을 쓰도록 분리해 둔다. */
+  duckShape(g, col, o = {}) {
+    const { dead = false, moving = false, t = 0 } = o;
+    // 발
+    if (!dead) {
+      g.fillStyle = '#e08a20';
+      const fa = moving ? Math.sin(t / 105) * 5 : 0;
+      g.beginPath(); g.ellipse(-6 + fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(6 - fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
+    }
+    // 몸통
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.6;
+    g.beginPath(); g.ellipse(0, 2, 15, 17, 0, 0, 6.283); g.fill(); g.stroke();
+    // 배 하이라이트
+    g.fillStyle = 'rgba(255,255,255,.20)';
+    g.beginPath(); g.ellipse(2, 7, 8.5, 9, 0, 0, 6.283); g.fill();
+    // 날개
+    g.fillStyle = col.dark;
+    g.beginPath(); g.ellipse(-10, 4, 5, 9, 0.25, 0, 6.283); g.fill();
+    // 머리
+    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
+    g.beginPath(); g.arc(3, -13, 11, 0, 6.283); g.fill(); g.stroke();
+    // 부리
+    g.fillStyle = '#f2a02c'; g.strokeStyle = '#c47b12'; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(13, -11, 7, 4.2, 0, 0, 6.283); g.fill(); g.stroke();
+    // 눈
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(6, -16, 4.4, 5, 0, 0, 6.283); g.fill();
+    if (dead) {
+      g.strokeStyle = '#222'; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(3.5, -18.5); g.lineTo(8.5, -13.5); g.moveTo(8.5, -18.5); g.lineTo(3.5, -13.5); g.stroke();
+    } else {
+      g.fillStyle = '#151824';
+      const lookX = moving ? 1.2 : Math.sin(t / 900) * 0.9;
+      g.beginPath(); g.arc(6.8 + lookX, -15.6, 2.3, 0, 6.283); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(7.6 + lookX, -16.6, 0.9, 0, 6.283); g.fill();
+    }
   },
 
   /* ---------------- 오리 캐릭터 ---------------- */
@@ -278,42 +389,7 @@ const Render = {
     g.translate(0, -bob);
     g.scale(flip, 1);
 
-    // 발
-    if (!dead) {
-      g.fillStyle = '#e08a20';
-      const fa = p.moving ? Math.sin(t / 105) * 5 : 0;
-      g.beginPath(); g.ellipse(-6 + fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
-      g.beginPath(); g.ellipse(6 - fa, 17, 5.5, 3.2, 0, 0, 6.283); g.fill();
-    }
-
-    // 몸통
-    g.fillStyle = col.hex;
-    g.strokeStyle = col.dark; g.lineWidth = 2.6;
-    g.beginPath(); g.ellipse(0, 2, 15, 17, 0, 0, 6.283); g.fill(); g.stroke();
-    // 배 하이라이트
-    g.fillStyle = 'rgba(255,255,255,.20)';
-    g.beginPath(); g.ellipse(2, 7, 8.5, 9, 0, 0, 6.283); g.fill();
-    // 날개
-    g.fillStyle = col.dark;
-    g.beginPath(); g.ellipse(-10, 4, 5, 9, 0.25, 0, 6.283); g.fill();
-
-    // 머리
-    g.fillStyle = col.hex; g.strokeStyle = col.dark; g.lineWidth = 2.4;
-    g.beginPath(); g.arc(3, -13, 11, 0, 6.283); g.fill(); g.stroke();
-    // 부리
-    g.fillStyle = '#f2a02c'; g.strokeStyle = '#c47b12'; g.lineWidth = 1.6;
-    g.beginPath(); g.ellipse(13, -11, 7, 4.2, 0, 0, 6.283); g.fill(); g.stroke();
-    // 눈
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(6, -16, 4.4, 5, 0, 0, 6.283); g.fill();
-    if (dead) {
-      g.strokeStyle = '#222'; g.lineWidth = 1.8;
-      g.beginPath(); g.moveTo(3.5, -18.5); g.lineTo(8.5, -13.5); g.moveTo(8.5, -18.5); g.lineTo(3.5, -13.5); g.stroke();
-    } else {
-      g.fillStyle = '#151824';
-      const lookX = p.moving ? 1.2 : Math.sin(t / 900) * 0.9;
-      g.beginPath(); g.arc(6.8 + lookX, -15.6, 2.3, 0, 6.283); g.fill();
-      g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(7.6 + lookX, -16.6, 0.9, 0, 6.283); g.fill();
-    }
+    this.duckShape(g, col, { dead, moving: p.moving, t });
     g.restore();
 
     /* 상태 배지 / 이름 */
@@ -413,10 +489,9 @@ const Render = {
       g.fillStyle = '#ff4444';
       g.beginPath(); g.arc(ox + sp.wx * s, oy + sp.wy * s, 6, 0, 6.283); g.fill();
     }
-    // 관리실 모드: 방별 인원수
-    if (opts.admin) {
-      const counts = {};
-      for (const p of opts.adminPlayers || []) { const id = roomIdAt(p.x, p.y); if (id) counts[id] = (counts[id] || 0) + 1; }
+    // 관리실 모드: 방별 인원수 (서버가 계산해 준 값)
+    if (opts.adminCounts) {
+      const counts = opts.adminCounts;
       for (const rm of ROOMS) {
         const n = counts[rm.id] || 0; if (!n) continue;
         const cx = ox + (rm.x + rm.w / 2) * TILE * s, cy = oy + (rm.y + rm.h / 2) * TILE * s + 14;

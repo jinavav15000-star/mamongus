@@ -43,6 +43,7 @@ const Net = {
   peer: null,
   isHost: false,
   code: null,
+  gen: 0,                  // 방장 세대. 방장이 교체될 때마다 +1
   conns: new Map(),        // hostOnly: peerId -> DataConnection
   hostConn: null,          // clientOnly
   uid: myUid(),
@@ -61,18 +62,24 @@ const Net = {
   _setStatus(s, detail) { this.status = s; this.emit('status', s, detail); },
 
   /* ---------------- 호스트 ---------------- */
-  async createRoom(preferred) {
+  /** 방 코드 + 세대(gen) → PeerJS ID.
+   *  방장이 바뀌면 gen 이 올라간다. 같은 코드로 계속 접속할 수 있게 하는 장치. */
+  roomPeerId(code, gen) { return `${NET_PREFIX}${code}-g${gen}`; },
+  MAX_GEN: 6,
+
+  async createRoom(preferred, gen = 0) {
     this.isHost = true;
     for (let attempt = 0; attempt < 6; attempt++) {
-      const code = preferred && attempt === 0 ? preferred : makeCode();
-      const ok = await this._tryOpen(NET_PREFIX + code);
+      const code = preferred ? preferred : makeCode();
+      const ok = await this._tryOpen(this.roomPeerId(code, gen));
       if (ok) {
-        this.code = code;
+        this.code = code; this.gen = gen;
         this._wireHost();
         this._setStatus('hosting');
         return code;
       }
       if (this._fatal) throw new Error(this._fatal);
+      if (preferred) return null;               // 지정 코드/세대를 못 잡음 (이미 누가 차지)
     }
     throw new Error('방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
   },
@@ -119,48 +126,85 @@ const Net = {
   },
 
   /* ---------------- 클라이언트 ---------------- */
-  joinRoom(code) {
+  /** 방 코드로 접속. 방장이 교체됐을 수 있으므로 gen 을 0부터 올려가며 찾는다. */
+  async joinRoom(code, fromGen = 0) {
     this.isHost = false;
     this.code = code;
+    if (!this.peer || this.peer.destroyed) await this._openClientPeer();
+    for (let gen = fromGen; gen < this.MAX_GEN; gen++) {
+      const conn = await this._connectTo(this.roomPeerId(code, gen));
+      if (conn) { this.gen = gen; return conn; }
+    }
+    throw new Error('그런 방이 없습니다. 코드를 다시 확인하거나, 방장에게 새 링크를 받아 주세요.');
+  },
+
+  _openClientPeer() {
     return new Promise((resolve, reject) => {
-      let settled = false;
       const p = new Peer({ config: ICE, debug: 0 });
       this.peer = p;
-      const fail = m => { if (!settled) { settled = true; reject(new Error(m)); } };
-      const to = setTimeout(() => fail('연결 시간이 초과됐습니다. 방 코드를 확인하거나 다시 시도해 주세요.'), 20000);
-
-      p.on('open', () => {
-        const conn = p.connect(NET_PREFIX + code, { reliable: true, metadata: { uid: this.uid } });
-        this.hostConn = conn;
-        const to2 = setTimeout(() => fail('방에 연결하지 못했습니다. 호스트가 방을 닫았을 수 있어요.'), 18000);
-        conn.on('open', () => {
-          clearTimeout(to); clearTimeout(to2);
-          settled = true;
-          this._setStatus('connected');
-          this._startHeartbeat();
-          resolve(conn);
-        });
-        conn.on('data', d => {
-          if (d && d.t === 'pong') {
-            const rtt = Date.now() - d.n;
-            this.pingMs = rtt; this._lastPong = Date.now();
-            // RTT가 가장 짧았던 샘플로 시계 오프셋 추정 (지연이 적을수록 정확)
-            if (rtt <= this._bestRtt) { this._bestRtt = rtt; this.clockOffset = (d.h + rtt / 2) - Date.now(); }
-            return;
-          }
-          this.emit('data', d, 'host');
-        });
-        conn.on('close', () => { this._setStatus('closed'); this.emit('hostgone'); });
-        conn.on('error', () => fail('연결 오류가 발생했습니다.'));
-      });
+      const to = setTimeout(() => reject(new Error('네트워크에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.')), 20000);
+      p.on('open', () => { clearTimeout(to); resolve(p); });
       p.on('error', err => {
+        if (err.type === 'peer-unavailable') return;          // _connectTo 에서 처리
         clearTimeout(to);
-        if (err.type === 'peer-unavailable') fail('그런 방이 없습니다. 코드를 다시 확인해 주세요.');
-        else if (err.type === 'network' || err.type === 'server-error') fail('네트워크에 연결할 수 없습니다.');
-        else if (!settled) fail('연결 실패: ' + err.type);
+        if (err.type === 'network' || err.type === 'server-error') reject(new Error('네트워크에 연결할 수 없습니다.'));
       });
       p.on('disconnected', () => { this._setStatus('reconnecting'); try { p.reconnect(); } catch {} });
     });
+  },
+
+  /** 특정 peer id 로 연결 시도. 실패하면 null (예외 아님) */
+  _connectTo(peerId) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = v => { if (!done) { done = true; resolve(v); } };
+      let conn;
+      try { conn = this.peer.connect(peerId, { reliable: true, metadata: { uid: this.uid } }); }
+      catch { return finish(null); }
+      if (!conn) return finish(null);
+      const to = setTimeout(() => { try { conn.close(); } catch {} finish(null); }, 7000);
+      const onErr = err => { if (err?.type === 'peer-unavailable') { clearTimeout(to); finish(null); } };
+      this.peer.on('error', onErr);
+
+      conn.on('open', () => {
+        clearTimeout(to);
+        this.peer.off?.('error', onErr);
+        this.hostConn = conn;
+        this._setStatus('connected');
+        this._startHeartbeat();
+        finish(conn);
+      });
+      conn.on('data', d => {
+        if (d && d.t === 'pong') {
+          const rtt = Date.now() - d.n;
+          this.pingMs = rtt; this._lastPong = Date.now();
+          // RTT가 가장 짧았던 샘플로 시계 오프셋 추정 (지연이 적을수록 정확)
+          if (rtt <= this._bestRtt) { this._bestRtt = rtt; this.clockOffset = (d.h + rtt / 2) - Date.now(); }
+          return;
+        }
+        this.emit('data', d, 'host');
+      });
+      conn.on('close', () => {
+        if (this.hostConn === conn) { this._setStatus('closed'); this.emit('hostgone'); }
+        finish(null);
+      });
+      conn.on('error', () => { clearTimeout(to); finish(null); });
+    });
+  },
+
+  /** 방장 교체 후 새 방장에게 재접속 (gen 을 올려가며 재시도) */
+  async rejoinAfterMigration(code, fromGen) {
+    this.hostConn = null;
+    clearInterval(this._hb);
+    for (let round = 0; round < 10; round++) {
+      for (let gen = fromGen; gen < this.MAX_GEN; gen++) {
+        if (!this.peer || this.peer.destroyed) { try { await this._openClientPeer(); } catch { break; } }
+        const conn = await this._connectTo(this.roomPeerId(code, gen));
+        if (conn) { this.gen = gen; this.isHost = false; return conn; }
+      }
+      await new Promise(r => setTimeout(r, 1400));
+    }
+    return null;
   },
 
   /* ---------------- 송신 ---------------- */
@@ -201,6 +245,16 @@ const Net = {
     // 접속 직후 시계 동기화를 빠르게 수렴시킨다
     [0, 250, 600, 1200, 2200].forEach(d => setTimeout(beat, d));
     this._hb = setInterval(beat, 3000);
+  },
+
+  /** 클라이언트 → 방장으로 승격. 기존 peer 를 버리고 방 ID(다음 세대)를 새로 차지한다. */
+  async promoteToHost(code, gen) {
+    try { this.peer?.destroy(); } catch {}
+    this.peer = null; this.hostConn = null; this.conns.clear();
+    clearInterval(this._hb);
+    this.clockOffset = 0; this._bestRtt = Infinity;   // 이제 내 시계가 기준
+    const got = await this.createRoom(code, gen);
+    return !!got;
   },
 
   peerCount() { return this.isHost ? this.conns.size : (this.hostConn?.open ? 1 : 0); },

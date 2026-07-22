@@ -11,6 +11,8 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+/* 모바일 브라우저 주소창·툴바가 높이를 갉아먹는 문제 (카카오톡 인앱 브라우저 포함) */
+@supports (height:100dvh){ html,body{height:100dvh} }
 body{
   background:var(--bg); color:var(--txt);
   font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
@@ -47,6 +49,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 
 /* ---------- 화면 전환 ---------- */
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;z-index:10}
+@supports (height:100dvh){ .screen{height:100dvh;bottom:auto} }
 #screen-home,#screen-lobby{overflow-y:auto;padding:calc(18px + var(--safe-t)) 16px calc(18px + var(--safe-b));align-items:center}
 .wrap{width:100%;max-width:520px;margin:auto}
 
@@ -311,13 +314,23 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .meet-timer{font-size:31px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
 .meet-timer.urgent{color:var(--bad);animation:pulse .6s infinite}
 .meet-body{flex:1;display:flex;min-height:0}
-.meet-left{width:44%;padding:9px;overflow-y:auto;border-right:1px solid var(--line)}
+.meet-left{width:44%;padding:9px;overflow-y:auto;border-right:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:6px;align-content:start}
+.meet-left > .meet-note{grid-column:1/-1}
 .meet-right{flex:1;display:flex;flex-direction:column;min-width:0}
 @media(max-width:640px){
   .meet-body{flex-direction:column}
-  .meet-left{width:100%;max-height:38%;border-right:none;border-bottom:1px solid var(--line)}
+  /* 16명이면 세로로만 쌓으면 스크롤 지옥 → 2열 그리드 + 카드 압축 */
+  .meet-left{width:100%;max-height:42%;border-right:none;border-bottom:1px solid var(--line);
+    grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:5px;padding:7px}
+  .vcard{padding:5px 7px;gap:6px;margin-bottom:0}
+  .vcard .pdot{width:24px;height:24px;border-radius:7px}
+  .vcard .nm{font-size:12px}
+  .vcard .seen{font-size:9.5px}
+  .vcard .vbtn{padding:5px 8px;font-size:11px}
 }
-.vcard{display:flex;align-items:center;gap:8px;background:#0e1728;border:1.5px solid #23334f;border-radius:12px;padding:7px 9px;margin-bottom:6px;position:relative}
+.vcard{display:flex;align-items:center;gap:8px;background:#0e1728;border:1.5px solid #23334f;border-radius:12px;padding:7px 9px;position:relative}
+.vcard.afk{opacity:.62;border-style:dashed}
 .vcard.dead{opacity:.4}
 .vcard.me{border-color:#3a5486}
 .vcard.voted{border-color:var(--warn)}
@@ -343,6 +356,17 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .qc::-webkit-scrollbar{height:0}
 .qc button{flex:none;padding:7px 11px;border-radius:9px;background:#1a2540;font-size:12.5px;font-weight:700;white-space:nowrap;border:1px solid #26375a}
 .qc button.act{background:#25406e;border-color:#3a5486}
+
+/* ---------- 킬 연출 ---------- */
+.killcine{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;background:radial-gradient(ellipse at center,rgba(60,4,10,.86),rgba(2,4,10,.97));
+  animation:kcIn .18s ease-out;pointer-events:none}
+@keyframes kcIn{from{opacity:0}}
+.killcine-cv{filter:drop-shadow(0 8px 24px rgba(0,0,0,.7))}
+.killcine-cap{font-size:26px;font-weight:900;letter-spacing:-.6px;text-shadow:0 3px 14px rgba(255,40,60,.6);
+  animation:kcPop .4s .5s both cubic-bezier(.2,1.6,.4,1)}
+@keyframes kcPop{from{transform:scale(.5);opacity:0}}
+.killcine-sub{font-size:13px;color:var(--dim);animation:kcPop .4s .75s both}
 
 /* ---------- 추방 연출 ---------- */
 #screen-eject{background:#02040a;z-index:70;align-items:center;justify-content:center;text-align:center}

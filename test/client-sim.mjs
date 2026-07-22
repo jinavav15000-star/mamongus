@@ -82,7 +82,7 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, Game, UI, Meeting, Trail, QUICK, ROLES, roleInfo,
   TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, ADMIN_TABLE, VITALS_PANEL, CAMERA_PANEL,
-  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render };
+  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -126,7 +126,15 @@ section('로드 · 모듈 무결성');
   ok('미니게임 전부 build 구현', noBuild.length === 0, noBuild);
   ok('색상 16개 · 중복 없음',
      A.COLORS.length === 16 && new Set(A.COLORS.map(c => c.id)).size === 16);
-  ok('직업 19종 정의', Object.keys(A.ROLES).length === 19, Object.keys(A.ROLES).length);
+  ok('직업 22종 정의', Object.keys(A.ROLES).length === 22, Object.keys(A.ROLES).length);
+  const abilities = [...new Set(Object.values(A.ROLES).map(r => r.ability).filter(Boolean))];
+  const missingLabel = abilities.filter(a => !A.ABILITY_LABEL[a]);
+  ok('모든 능력에 버튼 라벨 존재', missingLabel.length === 0, missingLabel);
+  const noHandler = abilities.filter(a => {
+    const st = (() => { try { return Game.abilityState({ alive:true, x:0, y:0 }, { ability:a }); } catch { return null; } })();
+    return !st || st.label === '능력';          // default 분기로 떨어지면 미구현
+  });
+  ok('모든 능력에 활성조건 구현', noHandler.length === 0, noHandler);
   const noDesc = Object.entries(A.ROLES).filter(([, r]) => !r.desc || !r.name).map(([k]) => k);
   ok('모든 직업에 이름·설명 존재', noDesc.length === 0, noDesc);
 }

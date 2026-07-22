@@ -112,7 +112,7 @@ const Meeting = {
     left.innerHTML = '';
 
     if (m.phase === 'discuss') {
-      left.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', padding:'6px 0 10px' } },
+      left.appendChild(h('div', { cls:'meet-note tiny dim', style:{ textAlign:'center', padding:'4px 0 6px' } },
         '토론 시간 — 투표는 곧 열립니다'));
     }
 
@@ -129,11 +129,11 @@ const Meeting = {
       const c = colorOf(p.color);
       const isMe = pid === G.myId;
       const canVote = m.phase === 'vote' && G.me?.alive && this.myVote == null && p.alive;
-      const card = h('div', { cls:'vcard' + (p.alive ? '' : ' dead') + (isMe ? ' me' : '') + (this.myVote === pid ? ' voted' : '') });
+      const card = h('div', { cls:'vcard' + (p.alive ? '' : ' dead') + (isMe ? ' me' : '') + (this.myVote === pid ? ' voted' : '') + (p.afk ? ' afk' : '') });
       card.append(
         h('div', { cls:'pdot', style:{ background:c.hex } }),
         h('div', { cls:'info' },
-          h('div', { cls:'nm' }, p.name + (isMe ? ' (나)' : '') + (p.alive ? '' : ' 💀')),
+          h('div', { cls:'nm' }, p.name + (isMe ? ' (나)' : '') + (p.alive ? '' : ' 💀') + (p.afk && p.alive ? ' 💤' : '') + (!p.connected ? ' 📴' : '')),
           h('div', { cls:'seen' }, p.alive ? (isMe ? '나' : Trail.seenText(pid)) : '사망')),
       );
       // 득표 표시 (개표 후) / 투표 완료 표시 (투표 중)
@@ -153,7 +153,7 @@ const Meeting = {
 
     // 스킵
     const skipCount = (voteCounts['skip'] || []).length;
-    const skipCard = h('div', { cls:'vcard' + (this.myVote === 'skip' ? ' voted' : '') },
+    const skipCard = h('div', { cls:'vcard meet-note' + (this.myVote === 'skip' ? ' voted' : '') },
       h('div', { cls:'pdot', style:{ background:'#3a4a6a', display:'flex', alignItems:'center', justifyContent:'center' } }, '⏭'),
       h('div', { cls:'info' }, h('div', { cls:'nm' }, '스킵 (투표 안 함)')),
     );
@@ -166,11 +166,11 @@ const Meeting = {
 
     // 암살자 UI
     if (G.myRole === 'assassin' && G.me?.alive && G.abilityUses > 0) {
-      left.appendChild(h('button', { cls:'btn danger small', style:{ width:'100%', marginTop:'8px' },
+      left.appendChild(h('button', { cls:'btn danger small meet-note', style:{ width:'100%', marginTop:'6px' },
         onclick: () => this.openGuess() }, `🗡️ 직업 추측 암살 (${G.abilityUses}회 남음)`));
     }
     // 유령 안내
-    if (!G.me?.alive) left.appendChild(h('div', { cls:'tiny', style:{ color:'#9d7fd0', textAlign:'center', marginTop:'8px' } },
+    if (!G.me?.alive) left.appendChild(h('div', { cls:'meet-note tiny', style:{ color:'#9d7fd0', textAlign:'center', marginTop:'6px' } },
       '👻 유령입니다. 채팅은 유령과 영매에게만 보입니다.'));
 
     left.scrollTop = scrollTop;
@@ -211,6 +211,7 @@ const Meeting = {
     this.chatMsgs.push(m);
     if (this.chatMsgs.length > 300) this.chatMsgs.shift();
     this._append($('#chat'), m);
+    this._append($('#lobby-chat'), m);
     this._append(document.getElementById('ghost-chat'), m);
     if (!m.sys) Sfx.chat();
     // 게임 화면에서 유령끼리 대화가 오면 배지로 알림
@@ -219,7 +220,7 @@ const Meeting = {
       if (b && !b.classList.contains('hidden')) b.style.borderColor = 'var(--warn)';
     }
   },
-  clearChat() { this.chatMsgs = []; $('#chat').innerHTML = ''; },
+  clearChat() { this.chatMsgs = []; $('#chat').innerHTML = ''; $('#lobby-chat').innerHTML = ''; },
 
   /** 게임 진행 중 유령/영매용 채팅 창 */
   openGhostChat() {

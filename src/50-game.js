@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
   visionCrew: 330, visionDuck: 470, visionDark: 145,
   emergencies: 1, emergencyCd: 20,
   discussSec: 60, voteSec: 75,          // 음성 없이 타이핑하는 환경 → 넉넉하게
-  confirmEject: true, anonVotes: false,
+  confirmEject: true, anonVotes: false, showKiller: true,
   taskCommon: 1, taskShort: 4, taskLong: 2,
   visualTasks: true, ghostTasks: true,
   sabotageCd: 25, reactorSec: 40, oxygenSec: 40, doorSec: 10,
@@ -27,6 +27,8 @@ const G = {
   myId: null, myRole: null, myTasks: [], myVentId: null,
   ducksKnown: [], loversKnown: [],
   hostId: null,
+  successor: null,           // 방장이 사라지면 이 사람이 이어받는다
+  gen: 0,
   result: null,
   round: 1,
   killCdEnd: 0, abilityCdEnd: 0, abilityUses: 0, emergencyLeft: 0, sabCdEnd: 0,
@@ -101,7 +103,9 @@ const Host = {
     });
     this.tickTimer = setInterval(() => this.tick(), 50);
     this.snapTimer = setInterval(() => this.sendSnap(), 80);
+    this.migTimer  = setInterval(() => this.pushMigration(), 2500);
   },
+  stopTimers() { clearInterval(this.tickTimer); clearInterval(this.snapTimer); clearInterval(this.migTimer); },
 
   addPlayer(peerId, uid, name, color) {
     // 재접속 복구
@@ -125,7 +129,7 @@ const Host = {
       ventId: null, tasks: [], killCdEnd: 0, abilityCdEnd: 0, abilityUses: 0,
       emergencyLeft: 0, shielded: false, infected: false, eaten: 0,
       killedThisRound: false, votes: null, ready: false, morphTo: null, morphEnd: 0,
-      dragging: null,
+      dragging: null, lastActive: now(), afk: false,
     };
     this.P[p.id] = p; G.order.push(p.id); this.peerToId[peerId] = p.id;
     return p;
@@ -135,6 +139,8 @@ const Host = {
   onMsg(m, fromPeer) {
     if (m._s) return;                  // 서버발(내 브로드캐스트) — 클라이언트 요청이 아니다
     const id = fromPeer === 'self' ? G.myId : this.peerToId[fromPeer];
+    // 움직임 외의 모든 조작도 '활동'으로 친다 (임무·채팅·투표 중이면 AFK 아님)
+    if (id && this.P[id] && m.t !== 'pos') this.markActive(this.P[id]);
     switch (m.t) {
       case 'hello': {
         const p = this.addPlayer(fromPeer, m.uid, m.name, m.color);
@@ -164,6 +170,7 @@ const Host = {
       case 'sabfix':   this.onSabFix(id, m); break;
       case 'taskstep': this.onTaskStep(id, m.tid); break;
       case 'vote':     this.onVote(id, m.target); break;
+      case 'reqinfo':  this.onReqInfo(id, m.kind); break;
       case 'ability':  this.onAbility(id, m); break;
       case 'chat':     this.onChat(id, m.text, m.channel); break;
       case 'voiceon': {
@@ -178,9 +185,12 @@ const Host = {
   },
 
   /* ---------------- 상태 배포 ---------------- */
+  /** ⚠️ 좌표는 여기 넣지 않는다.
+   *  state 는 전원 브로드캐스트라, 좌표를 담으면 콘솔로 전원 위치가 노출된다.
+   *  위치는 sendSnap 에서 수신자별 시야 컬링을 거쳐 나간다. */
   pubPlayer(p) {
-    return { id: p.id, name: p.name, color: p.color, alive: p.alive, connected: p.connected,
-             x: Math.round(p.x), y: Math.round(p.y), dir: p.dir, ventId: p.ventId };
+    return { id: p.id, name: p.name, color: p.color, alive: p.alive,
+             connected: p.connected, afk: !!p.afk };
   },
   /** 투표 중에는 "누가 투표했는지"만 공개하고 "누구에게"는 감춘다 (밴드왜건 방지) */
   pubMeeting() {
@@ -199,18 +209,71 @@ const Host = {
       order: G.order, settings: G.settings, hostId: G.hostId,
       taskBar: G.taskBar, bodies: G.bodies, sabotage: G.sabotage,
       doors: G.doors, meeting: this.pubMeeting(), result: G.result,
-      sabCdEnd: G.sabCdEnd,
+      sabCdEnd: G.sabCdEnd, gen: Net.gen,
     });
+  },
+  /** 수신자가 실제로 볼 수 있는 사람만 담은 스냅샷.
+   *  전원 좌표를 브로드캐스트하면 개발자도구만 열어도 전원 위치가 보인다. */
+  visibleTo(viewer) {
+    const out = [];
+    const ghost = !viewer.alive;
+    const R = roleInfo(viewer.role).faction === F.DUCK ? G.settings.visionDuck
+            : (G.sabotage?.kind === 'lights' ? G.settings.visionDark : G.settings.visionCrew);
+    for (const id of G.order) {
+      const p = this.P[id]; if (!p) continue;
+      if (p.id === viewer.id || ghost) { out.push(p); continue; }
+      if (!p.alive || p.ventId) continue;                 // 유령·벤트 안은 산 사람에게 안 보임
+      const d = Math.hypot(p.x - viewer.x, p.y - viewer.y);
+      if (d > R + 60) continue;                           // 여유 60px (보간 튐 방지)
+      if (d > 40 && lineBlocked(viewer.x, viewer.y, p.x, p.y)) continue;
+      out.push(p);
+    }
+    return out;
+  },
+  packPlayer(p) {
+    return [p.id, Math.round(p.x), Math.round(p.y), p.dir,
+            (p.moving ? 1 : 0) | (p.alive ? 2 : 0), p.ventId || 0,
+            (p.morphEnd > now() ? p.morphTo : 0) || 0];
   },
   sendSnap() {
     if (G.phase !== 'play') return;
-    const arr = [];
     for (const id of G.order) {
-      const p = this.P[id]; if (!p) continue;
-      arr.push([p.id, Math.round(p.x), Math.round(p.y), p.dir, (p.moving ? 1 : 0) | (p.alive ? 2 : 0), p.ventId || 0,
-                (p.morphEnd > now() ? p.morphTo : 0) || 0]);
+      const viewer = this.P[id];
+      if (!viewer || !viewer.connected) continue;
+      const arr = this.visibleTo(viewer).map(p => this.packPlayer(p));
+      // 추적자에게만 대상의 좌표를 따로 실어 보낸다 (모습은 안 보이고 방향만 표시)
+      let trk = null;
+      if (viewer.role === 'tracker' && viewer.trackTarget && now() < (viewer.trackEnd || 0)) {
+        const t = this.P[viewer.trackTarget];
+        if (t && t.alive) trk = [Math.round(t.x), Math.round(t.y), t.color];
+      }
+      Net.toPeer(viewer.peerId, 'snap', trk ? { p: arr, trk } : { p: arr });
     }
-    Net.broadcast('snap', { p: arr });
+  },
+
+  /** 관리실·감시카메라는 시야 밖 정보라 서버가 계산해 준다 (클라에 원본을 주지 않기 위함) */
+  onReqInfo(id, kind) {
+    const p = this.P[id]; if (!p) return;
+    if (G.sabotage?.kind === 'comms') { Net.toPeer(p.peerId, 'info', { kind, blocked: true }); return; }
+    if (kind === 'admin') {
+      const counts = {};
+      for (const oid of G.order) {
+        const q = this.P[oid];
+        if (!q || !q.alive || q.ventId) continue;
+        const rid = roomIdAt(q.x, q.y);
+        if (rid) counts[rid] = (counts[rid] || 0) + 1;
+      }
+      Net.toPeer(p.peerId, 'info', { kind, counts });
+    } else if (kind === 'cams') {
+      const list = [];
+      for (const oid of G.order) {
+        const q = this.P[oid];
+        if (!q || !q.alive || q.ventId) continue;
+        if (!CAM_ROOMS.includes(roomIdAt(q.x, q.y))) continue;
+        list.push({ color: q.color, x: Math.round(q.x), y: Math.round(q.y) });
+      }
+      Net.toPeer(p.peerId, 'info', { kind, list });
+    }
   },
   /** 개인 정보(역할/임무/능력) 전송 */
   sendPrivate(id) {
@@ -221,6 +284,8 @@ const Host = {
       killCdEnd: p.killCdEnd, abilityCdEnd: p.abilityCdEnd, abilityUses: p.abilityUses,
       emergencyLeft: p.emergencyLeft, shielded: p.shielded, infected: p.infected, eaten: p.eaten,
       sample: p.sample || null, dragging: p.dragging || null,
+      guarding: p.guarding || null, trackEnd: p.trackEnd || 0,
+      trackName: p.trackTarget ? this.P[p.trackTarget]?.name : null,
       ducks: r.faction === F.DUCK ? Object.values(this.P).filter(q => isDuck(q.role)).map(q => q.id) : [],
       ghost: !p.alive,
       allRoles: !p.alive ? Object.fromEntries(Object.values(this.P).map(q => [q.id, q.role])) : null,
@@ -232,6 +297,63 @@ const Host = {
   /* ⚠️ 클라→호스트 타입명과 호스트→클라 타입명은 절대 겹치면 안 된다.
    *    broadcast 는 호스트 자신에게도 emit 되므로 이름이 겹치면 무한 재귀가 된다.
    *    (클라→호스트: chat / 호스트→클라: msg) */
+  /* ---------------- 방장 마이그레이션 ----------------
+   * 방장이 사라져도 게임이 계속되도록, 권한 상태 전부를 '후계자' 1명에게만
+   * 주기적으로 넘겨둔다. 전원에게 뿌리면 모든 역할이 노출되므로 후계자 1명뿐.
+   * (원래 방장도 모든 역할을 알고 있으므로 신뢰 범위가 1명 늘어나는 정도) */
+  successorId() {
+    return G.order.find(id => id !== G.hostId && this.P[id]?.connected) || null;
+  },
+  exportState() {
+    return {
+      players: G.order.map(id => ({ ...this.P[id], voicePeer: undefined })),
+      order: [...G.order], phase: G.phase, round: G.round,
+      settings: G.settings, bodies: G.bodies, sabotage: G.sabotage,
+      doors: G.doors, taskBar: G.taskBar, meeting: this.M, result: G.result,
+      sabCdEnd: G.sabCdEnd, startedAt: G.startedAt, commonTasks: this.commonTasks,
+      hostClockNow: now(),
+    };
+  },
+  pushMigration() {
+    if (G.phase === 'lobby' || G.phase === 'over') return;
+    const s = this.successorId();
+    if (!s) return;
+    if (s !== this._lastSuccessor) {
+      this._lastSuccessor = s;
+      Net.broadcast('successor', { id: s });
+    }
+    Net.toPeer(this.P[s].peerId, 'migstate', { s: this.exportState() });
+  },
+
+  /** 후계자가 방장을 인계받는다.
+   *  snap 의 절대 시각은 '이전 방장 시계' 기준이므로 내 시계로 옮긴다.
+   *  oldOffset = 승격 직전 내가 갖고 있던 Net.clockOffset (= 이전방장시각 − 내시각) */
+  importState(snap, myId, oldOffset = 0) {
+    const fix = t => (typeof t === 'number' && t > 1e12) ? t - oldOffset : t;
+
+    this.P = {};
+    for (const p of snap.players) {
+      const q = { ...p, connected: p.id === myId, peerId: p.id === myId ? 'self' : null };
+      q.killCdEnd = fix(q.killCdEnd); q.abilityCdEnd = fix(q.abilityCdEnd);
+      q.morphEnd = fix(q.morphEnd); q.lastActive = fix(q.lastActive) || now();
+      this.P[q.id] = q;
+    }
+    G.order = snap.order; G.phase = snap.phase; G.round = snap.round;
+    G.settings = snap.settings; G.bodies = (snap.bodies || []).map(b => ({ ...b, t: fix(b.t) }));
+    G.sabotage = snap.sabotage ? { ...snap.sabotage, endsAt: fix(snap.sabotage.endsAt) } : null;
+    G.doors = {}; for (const k in (snap.doors || {})) G.doors[k] = fix(snap.doors[k]);
+    G.taskBar = snap.taskBar; G.result = snap.result;
+    G.sabCdEnd = fix(snap.sabCdEnd); G.startedAt = fix(snap.startedAt);
+    this.commonTasks = snap.commonTasks || [];
+    this.M = snap.meeting ? { ...snap.meeting, endsAt: fix(snap.meeting.endsAt) } : null;
+
+    G.hostId = myId; G.myId = myId;
+    this.peerToId = { self: myId };
+    this._lastSuccessor = null;
+    // 승격 직후엔 나만 '접속 상태'라 자동 개표가 즉시 터진다 → 재접속 유예
+    this._graceUntil = now() + 12000;
+  },
+
   sys(text, channel = 'all') { Net.broadcast('msg', { sys: true, text, channel, ts: now() }); },
   ev(type, data = {}) { Net.broadcast('event', { type, ...data }); },
 
@@ -255,6 +377,8 @@ const Host = {
       p.emergencyLeft = G.settings.emergencies;
       p.shielded = false; p.infected = false; p.eaten = 0;
       p.killedThisRound = false; p.morphTo = null; p.morphEnd = 0; p.dragging = null;
+      p.lastActive = now(); p.afk = false;
+      p.trackTarget = null; p.trackEnd = 0; p.guarding = null;
     });
     // 연인(선택) — 현재 미사용
     G.bodies = []; G.sabotage = null; G.doors = {}; this.M = null; G.result = null;
@@ -275,6 +399,7 @@ const Host = {
   onPos(id, m) {
     const p = this.P[id]; if (!p || G.phase !== 'play') return;
     p.x = m.x; p.y = m.y; p.dir = m.d; p.moving = !!m.mv;
+    if (m.mv) this.markActive(p);
     if (p.dragging) {
       const b = G.bodies.find(b => b.id === p.dragging);
       if (b) { b.x = p.x; b.y = p.y; b.room = roomNameAt(p.x, p.y); }
@@ -291,6 +416,18 @@ const Host = {
     const range = G.settings.killRange * (r.killRangeMul || 1);
     if (Math.hypot(k.x - v.x, k.y - v.y) > range * 1.25) return;
 
+    // 경호원 — 방패보다 먼저 판정. 경호원이 대신 쓰러지고 대상은 산다.
+    const bg = G.order.map(i => this.P[i]).find(q => q && q.alive && q.role === 'bodyguard' && q.guarding === v.id);
+    if (bg) {
+      bg.guarding = null;
+      k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
+      this.doDeath(bg, k.id);
+      this.sys(`🛡️ 경호원 ${bg.name} 님이 ${v.name} 님을 지키고 쓰러졌습니다.`);
+      Net.toPeer(v.peerId, 'toast', { text: '🛡️ 경호원이 당신을 대신해 죽었습니다!' });
+      this.sendPrivate(k.id);
+      this.afterDeath();
+      return;
+    }
     // 의사 방패
     if (v.shielded) {
       v.shielded = false;
@@ -316,11 +453,22 @@ const Host = {
 
   doDeath(v, killerId) {
     v.alive = false; v.ventId = null;
-    const body = { id: genId(), pid: v.id, color: v.color, x: v.x, y: v.y,
-                   room: roomNameAt(v.x, v.y), t: now(), role: v.role };
-    G.bodies.push(body);
+    // 펠리컨은 삼켜버리므로 시체가 남지 않는다 (신고 불가)
+    const noBody = killerId !== v.id && roleInfo(this.P[killerId]?.role).noBody;
+    if (!noBody) {
+      const body = { id: genId(), pid: v.id, color: v.color, x: v.x, y: v.y,
+                     room: roomNameAt(v.x, v.y), t: now(), role: v.role };
+      G.bodies.push(body);
+    }
     // ⚠️ killer 는 절대 브로드캐스트하지 않는다 (콘솔만 열면 범인이 보인다)
     this.ev('kill', { victim: v.id, at: { x: v.x, y: v.y } });
+    // 킬 연출은 가해자·피해자 두 사람에게만 개별 전송
+    const k = this.P[killerId];
+    if (k && k.id !== v.id) {
+      Net.toPeer(v.peerId, 'killcine', {
+        killer: G.settings.showKiller ? k.color : null, victim: v.color, asVictim: true });
+      Net.toPeer(k.peerId, 'killcine', { killer: k.color, victim: v.color, asVictim: false });
+    }
     this.sendPrivate(v.id);
     this.recalcTaskBar();
   },
@@ -377,8 +525,9 @@ const Host = {
     this.ev('voted', { voter: id });
     this.pushState();
     // 연결이 끊긴 사람은 표를 던질 수 없으므로 개표 조건에서 제외 (회의가 멈추지 않게)
-    const aliveIds = G.order.filter(i => this.P[i]?.alive && this.P[i]?.connected);
-    if (aliveIds.length && aliveIds.every(i => this.M.votes[i] != null)) this.endVote();
+    if (now() < (this._graceUntil || 0)) return;      // 방장 교체 직후 재접속 유예
+    const aliveIds = G.order.filter(i => this.P[i]?.alive && this.P[i]?.connected && !this.P[i]?.afk);
+    if (aliveIds.length >= 2 && aliveIds.every(i => this.M.votes[i] != null)) this.endVote();
   },
 
   endVote() {
@@ -630,6 +779,24 @@ const Host = {
         Net.toPeer(p.peerId, 'toast', { text: `🕊️ 감염시켰습니다. 남은 대상 ${rest}명` });
         this.checkWin(); break;
       }
+      case 'track': {                // 추적자
+        if (p.role !== 'tracker' || !p.alive || now() < p.abilityCdEnd || !target || !target.alive) return;
+        if (Math.hypot(p.x - target.x, p.y - target.y) > 140) return;
+        p.trackTarget = target.id; p.trackEnd = now() + 15000;
+        p.abilityCdEnd = now() + (r.cd || 40) * 1000;
+        this.sendPrivate(id);
+        Net.toPeer(p.peerId, 'toast', { text: `📡 ${target.name} 님을 15초간 추적합니다.` });
+        break;
+      }
+      case 'guard': {                // 경호원
+        if (p.role !== 'bodyguard' || !p.alive || p.abilityUses <= 0 || !target || !target.alive) return;
+        if (target.id === p.id) return;
+        if (Math.hypot(p.x - target.x, p.y - target.y) > 140) return;
+        p.abilityUses--; p.guarding = target.id;
+        this.sendPrivate(id);
+        Net.toPeer(p.peerId, 'toast', { text: `🛡️ ${target.name} 님을 경호합니다. 그 사람이 노려지면 대신 죽습니다.` });
+        break;
+      }
       case 'guess': {                // 암살자 (회의 중)
         if (p.role !== 'assassin' || !p.alive || p.abilityUses <= 0 || G.phase !== 'meeting') return;
         if (!target || !target.alive || target.id === p.id) return;
@@ -661,8 +828,27 @@ const Host = {
     Net.broadcast('msg', { from: p.id, name: p.name, color: p.color, text, ts: now(), channel: 'all' });
   },
 
+  /* ---------------- 자리비움(AFK) ----------------
+   * 전화 받으러 간 사람 때문에 회의가 타이머 끝까지 멈춰 있으면 안 된다. */
+  markActive(p) {
+    if (!p) return;
+    p.lastActive = now();
+    if (p.afk) { p.afk = false; this.pushState(); }
+  },
+  updateAfk() {
+    if (G.phase === 'lobby' || G.phase === 'over') return;
+    let changed = false;
+    for (const id of G.order) {
+      const p = this.P[id]; if (!p || !p.alive) continue;
+      const idle = now() - (p.lastActive || 0) > 75000;
+      if (idle !== !!p.afk) { p.afk = idle; changed = true; }
+    }
+    if (changed) this.pushState();
+  },
+
   /* ---------------- 틱 ---------------- */
   tick() {
+    if (!this._afkTick || now() - this._afkTick > 3000) { this._afkTick = now(); this.updateAfk(); }
     if (G.phase === 'meeting' && this.M) {
       const m = this.M;
       if (m.phase === 'discuss' && now() >= m.endsAt) {

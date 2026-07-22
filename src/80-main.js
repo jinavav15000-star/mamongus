@@ -10,10 +10,12 @@ const Game = {
   killTarget: null,
   voicePeers: {},
   wakeLock: null,
+  infoCache: {},        // 관리실·카메라 서버 응답 캐시
 
   /* ═══════════ 부팅 ═══════════ */
   boot() {
     Sfx.init();
+    G.guideOn = localStorage.getItem('duckus_guide') !== '0';
     const savedName = localStorage.getItem('duckus_name') || '';
     $('#in-name').value = savedName;
     $('#in-name2').value = savedName;
@@ -39,6 +41,9 @@ const Game = {
     $('#btn-ghostchat').onclick = () => Meeting.openGhostChat();
     $('#chat-send').onclick = () => Meeting.send($('#chat-in').value);
     $('#chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') Meeting.send(e.target.value); });
+    const lobbySend = () => { const v = $('#lobby-chat-in').value.trim(); if (v) { Net.toHost('chat', { text: v }); $('#lobby-chat-in').value = ''; } };
+    $('#lobby-chat-send').onclick = lobbySend;
+    $('#lobby-chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') lobbySend(); });
 
     this.bindInput();
     Render.init($('#game-canvas'));
@@ -125,11 +130,63 @@ const Game = {
       if (Net.isHost && from !== 'self') return;      // 호스트는 Host.onMsg 에서 처리
       this.onServer(m);
     });
-    Net.on('hostgone', () => {
-      UI.closeAllModals();
-      UI.modal({ title:'연결 끊김', closable:false, body:'<div style="text-align:center;padding:14px">방장과의 연결이 끊어졌습니다.<br><span class="dim tiny">방장이 브라우저를 닫았거나 네트워크가 불안정합니다.</span></div>',
-        footer:[h('button', { cls:'btn primary', style:{width:'100%'}, onclick: () => location.reload() }, '처음으로')] });
-    });
+    Net.on('hostgone', () => this.handleHostGone());
+  },
+
+  /* ═══════════ 방장 교체 ═══════════ */
+  async handleHostGone() {
+    if (this._migrating || Net.isHost) return;
+    this._migrating = true;
+    UI.closeAllModals();
+
+    // 로비였다면 그냥 종료 (복구할 게임 상태가 없음)
+    if (G.phase === 'lobby' || G.phase === 'over' || !G.hostId) return this.migrationFailed('방장이 방을 닫았습니다.');
+
+    const oldOffset = Net.clockOffset;
+    const nextGen = (G.gen || 0) + 1;
+
+    if (G.successor === G.myId && this.migState) {
+      /* 내가 후계자 → 방장 인계 */
+      UI.loading(true, '방장이 나갔습니다. 내가 방을 이어받는 중…');
+      const okHost = await Net.promoteToHost(Net.code, nextGen);
+      if (!okHost) {
+        // 누가 먼저 차지했으면 클라이언트로 붙는다
+        return this.reconnectAsClient(nextGen);
+      }
+      Host.importState(this.migState, G.myId, oldOffset);
+      Host.init();
+      Host.pushState(); Host.sendPrivateAll();
+      Host.sys('👑 방장이 나가서 방을 이어받았습니다. 잠시 후 모두 다시 연결됩니다.');
+      Net.isHost = true;
+      this._migrating = false;
+      UI.loading(false);
+      UI.toast('👑 <b>당신이 새 방장이 되었습니다.</b> 이 탭을 켜 두세요.', 8000);
+      return;
+    }
+    /* 그 외 → 새 방장에게 재접속 */
+    return this.reconnectAsClient(nextGen);
+  },
+
+  async reconnectAsClient(fromGen) {
+    UI.loading(true, '방장이 바뀌었습니다. 다시 연결하는 중…');
+    const conn = await Net.rejoinAfterMigration(Net.code, fromGen);
+    if (!conn) return this.migrationFailed('새 방장을 찾지 못했습니다.');
+    // 이름은 보내지 않는다. 새 방장이 이미 갖고 있고, 여기서 덮어쓰면 로비에서 바꾼 이름이 날아간다.
+    Net.toHost('hello', { uid: Net.uid });
+    this._migrating = false;
+    UI.loading(false);
+    UI.toast('✅ 새 방장에게 다시 연결됐습니다.', 4000);
+  },
+
+  migrationFailed(reason) {
+    this._migrating = false;
+    UI.loading(false);
+    UI.modal({ title:'연결 끊김', closable:false,
+      body:`<div style="text-align:center;padding:14px">${reason}<br><span class="dim tiny">잠시 후 다시 시도하거나, 방장에게 새 링크를 받아 주세요.</span></div>`,
+      footer:[
+        h('button', { cls:'btn grow', onclick: () => { UI.closeModal(); this.handleHostGone(); } }, '다시 시도'),
+        h('button', { cls:'btn primary grow', onclick: () => location.reload() }, '처음으로'),
+      ] });
   },
 
   onServer(m) {
@@ -144,6 +201,12 @@ const Game = {
       case 'toast':   UI.toast(m.text, 4500); break;
       case 'privlog': Meeting.addMsg({ mylog: true, text: m.text }); G.privateLog.push(m.text); UI.toast(m.text, 6500); UI.renderRoleChip(); break;
       case 'voicepeers': this.voicePeers = m.map; this.connectVoice(); break;
+      case 'killcine':
+        UI.playKill({ killerColor: m.killer || 'black', victimColor: m.victim, asVictim: m.asVictim });
+        break;
+      case 'info':      this.infoCache[m.kind] = m; break;
+      case 'successor': G.successor = m.id; break;
+      case 'migstate':  this.migState = m.s; break;   // 후계자에게만 온다
       case 'ventalert': {                       // 조류관찰자에게만 도착
         Sfx.alert();
         UI.toast(`🔭 <b>${m.room}</b>에서 벤트 사용이 감지되었습니다!`, 5500);
@@ -163,18 +226,16 @@ const Game = {
     G.hostId = m.hostId; G.taskBar = m.taskBar; G.bodies = m.bodies;
     G.sabotage = m.sabotage; G.doors = m.doors; G.meeting = m.meeting; G.result = m.result;
     G.sabCdEnd = m.sabCdEnd || 0;
+    G.gen = m.gen || 0;
 
     const seen = new Set();
     for (const p of m.players) {
       seen.add(p.id);
       const cur = G.players[p.id];
-      if (!cur) G.players[p.id] = { ...p, rx: p.x, ry: p.y, moving: false };
-      else {
-        Object.assign(cur, { name:p.name, color:p.color, alive:p.alive, connected:p.connected, ventId:p.ventId });
-        if (p.id !== G.myId) { cur.x = p.x; cur.y = p.y; cur.dir = p.dir; }
-        // 벤트 순간이동은 호스트가 위치를 정한다 → 내 위치라도 그대로 따른다
-        else if (p.ventId) { cur.x = p.x; cur.y = p.y; }
-      }
+      // state 에는 좌표가 없다 (시야 밖 위치 노출 방지). 좌표는 snap 에서만 온다.
+      if (!cur) G.players[p.id] = { ...p, x: EMERGENCY_BTN.wx, y: EMERGENCY_BTN.wy,
+                                    rx: EMERGENCY_BTN.wx, ry: EMERGENCY_BTN.wy, dir: 1, moving: false, seen: false };
+      else Object.assign(cur, { name:p.name, color:p.color, alive:p.alive, connected:p.connected, afk:p.afk });
     }
     for (const id in G.players) if (!seen.has(id)) delete G.players[id];
     G.me = G.players[G.myId];
@@ -192,17 +253,23 @@ const Game = {
   },
 
   onSnap(m) {
+    // 스냅샷에 없는 사람 = 지금 내 시야 밖 (서버가 걸러냈다)
+    const present = new Set();
     for (const [id, x, y, dir, flags, ventId, morph] of m.p) {
+      present.add(id);
       const p = G.players[id]; if (!p) continue;
       p.dir = dir; p.moving = !!(flags & 1); p.alive = !!(flags & 2);
       p.ventId = ventId || null;
       p.morphId = morph || null;
       p.morphColor = morph ? G.players[morph]?.color : null;
       p.morphName  = morph ? G.players[morph]?.name  : null;
-      if (id === G.myId) { if (p.ventId) { p.x = x; p.y = y; } continue; }   // 내 위치는 내가 권한 (벤트 제외)
-      p.x = x; p.y = y;
-      if (p.rx == null) { p.rx = x; p.ry = y; }
+      if (id === G.myId) { p.seen = true; if (p.ventId) { p.x = x; p.y = y; } continue; }
+      const reappeared = !p.seen;
+      p.x = x; p.y = y; p.seen = true;
+      if (reappeared || p.rx == null) { p.rx = x; p.ry = y; }   // 다시 보일 땐 보간 없이 스냅
     }
+    for (const id in G.players) if (!present.has(id)) G.players[id].seen = false;
+    G.trackPos = m.trk || null;          // 추적자 전용 (없으면 null)
   },
 
   onPrivate(m) {
@@ -214,6 +281,7 @@ const Game = {
     G.allRoles = m.allRoles;
     if (G.me) G.me.shielded = m.shielded;
     G.mySample = m.sample; G.dragging = m.dragging;      // 호스트가 권한 (로컬 추측 금지)
+    G.guarding = m.guarding; G.trackEnd = m.trackEnd; G.trackName = m.trackName;
     // 유령이거나 영매면 게임 중에도 유령 채팅을 쓸 수 있다
     $('#btn-ghostchat').classList.toggle('hidden', !(G.ghost || m.role === 'medium'));
     UI.buildActionButtons(); UI.renderRoleChip(); UI.renderTaskList();
@@ -226,16 +294,12 @@ const Game = {
         setTimeout(() => UI.revealRole(), 260);
         Sfx.quack();
         break;
-      case 'kill': {
-        const v = G.players[m.victim];
-        if (m.victim === G.myId) {
-          Sfx.kill(); Render.shake = 18;
-          UI.toast('💀 살해당했습니다. 이제 유령입니다 — 임무는 계속할 수 있어요.', 6000);
-        } else if (G.me && !G.ghost && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
+      case 'kill':
+        // 당사자에게는 killcine 이 따로 간다. 여기서는 주변 사람의 '기척'만 처리.
+        if (m.victim !== G.myId && G.me && !G.ghost && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
           Sfx.kill(); Render.shake = 9;
         }
         break;
-      }
       case 'shieldblock': Sfx.fixed(); break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 380) Sfx.vent();
@@ -435,9 +499,40 @@ const Game = {
     return out;
   },
 
+  /** 화면 밖 목표를 가장자리 화살표로 안내. 처음 하는 사람이 방을 못 찾는 문제 해결. */
+  buildGuides(me) {
+    if (!G.guideOn || !me.alive) return [];
+    const out = [];
+    // 1) 사보타주 복구 지점이 최우선
+    if (G.sabotage && G.sabotage.kind !== 'doors') {
+      const icon = { lights:'💡', comms:'📡', reactor:'☢️', oxygen:'🫁' }[G.sabotage.kind] || '⚠️';
+      for (const s of (SAB_SPOTS[G.sabotage.kind] || [])) {
+        const rm = ROOMS.find(r => r.id === s.room);
+        out.push({ wx: s.wx, wy: s.wy, color:'#ff5f6d', icon, label: rm?.name || '복구' });
+      }
+      return out;
+    }
+    // 2) 추적 중인 대상 (추적자)
+    if (G.trackPos && now() < (G.trackEnd || 0)) {
+      out.push({ wx: G.trackPos[0], wy: G.trackPos[1],
+                 color: colorOf(G.trackPos[2]).hex, icon:'📡', label: G.trackName || '추적' });
+    }
+    // 3) 내 다음 임무 (가까운 순 3개)
+    if (G.sabotage?.kind === 'comms') return out;
+    const spots = this.myTaskSpots()
+      .map(s => ({ ...s, d: Math.hypot(s.wx - me.x, s.wy - me.y) }))
+      .sort((a, b) => a.d - b.d).slice(0, 3);
+    for (const s of spots) {
+      const rm = ROOMS.find(r => r.id === s.room);
+      out.push({ wx: s.wx, wy: s.wy, color:'#ffd23d', icon:'📋', label: rm?.name || '임무' });
+    }
+    return out;
+  },
+
   render(me) {
     const others = Object.values(G.players);
     Render.draw({
+      guides: this.buildGuides(me),
       me: { ...me, x: me.x, y: me.y },
       others: others.map(p => p.id === G.myId ? p : { ...p, x: p.rx ?? p.x, y: p.ry ?? p.y }),
       bodies: G.bodies, doors: G.doors, sabotage: G.sabotage,
@@ -507,6 +602,8 @@ const Game = {
       case 'drag':        return { ok: !!G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 100) || !!G.dragging, label: G.dragging ? '놓기' : '끌기' };
       case 'eat':         return { ok: !!G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 100), label:`먹기 ${G.eaten}/3` };
       case 'infect':      return { ok: cdOk && !!this.nearestPlayer(me, 120), label:'감염' };
+      case 'track':       return { ok: cdOk && !!this.nearestPlayer(me, 140), label:'추적' };
+      case 'guard':       return { ok: useOk && !!this.nearestPlayer(me, 140), label: G.guarding ? '경호중' : '경호' };
       case 'guess':       return { ok:false, label:'회의중' };
       default:            return { ok:false, label:'능력' };
     }
@@ -600,8 +697,9 @@ const Game = {
   doAbility() {
     const me = G.me, r = roleInfo(G.myRole); if (!me || !r.ability) return;
     switch (r.ability) {
-      case 'investigate': case 'shoot': case 'shield': case 'infect': {
-        const range = r.ability === 'shoot' ? 150 : r.ability === 'infect' ? 120 : 130;
+      case 'investigate': case 'shoot': case 'shield': case 'infect': case 'track': case 'guard': {
+        const range = r.ability === 'shoot' ? 150 : r.ability === 'infect' ? 120
+                    : (r.ability === 'track' || r.ability === 'guard') ? 140 : 130;
         const tgt = this.nearestPlayer(me, range); if (!tgt) return;
         if (r.ability === 'shoot') {
           UI.modal({ title:'⭐ 사격', body:`<div style="text-align:center;padding:10px"><b>${tgt.name}</b> 님을 사격합니다.<br><span class="dim tiny">오리·중립킬러가 아니면 당신이 죽습니다.</span></div>`,

@@ -6,8 +6,14 @@
 <meta name="theme-color" content="#050810">
 <meta name="description" content="브라우저에서 바로 하는 마피아 추리 게임. 링크만 공유하면 최대 16명이 함께 플레이합니다.">
 <meta property="og:title" content="덕몽어스 — 링크 하나로 하는 오리 마피아">
-<meta property="og:description" content="설치 없이 브라우저에서 바로. 16개 직업, 18종 임무, 사보타주. 최대 16명.">
+<meta property="og:description" content="설치 없이 브라우저에서 바로. 직업 22종 · 임무 18종 · 사보타주. 최대 16명.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦆</text></svg>">
 <title>덕몽어스 · 오리 마피아</title>
 <style>/*__CSS__*/</style>
 </head>
@@ -41,7 +47,7 @@
       1. <b>방 만들기</b>를 누르면 초대 링크가 만들어집니다.<br>
       2. 그 링크를 카카오톡 단톡방에 붙여넣으세요.<br>
       3. 친구들이 링크를 누르면 바로 참가됩니다. 설치 필요 없음.<br>
-      <span style="color:var(--warn)">※ 방을 만든 사람이 나가면 게임이 끝납니다. 브라우저를 켜 두세요.</span>
+      <span style="color:var(--warn)">※ 방장이 나가면 다음 사람이 자동으로 방을 이어받습니다. 게임은 계속됩니다.</span>
       <div style="margin-top:9px">
         <button id="btn-howto" class="btn ghost small">📖 게임 방법 자세히</button>
         <button id="btn-roles-info" class="btn ghost small">🎭 직업 목록</button>
@@ -89,6 +95,15 @@
         음성 없이 채팅으로만 해도 직업이 많을수록 대화거리가 늘어납니다.
       </div>
       <div id="roles-body"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:11px">
+      <h3>💬 대기실 채팅</h3>
+      <div class="chat scroll" id="lobby-chat" style="height:150px;background:#0a1020;border-radius:11px;padding:8px 10px"></div>
+      <div class="chatinput" style="margin-top:8px">
+        <input id="lobby-chat-in" placeholder="메시지 입력…" maxlength="160" autocomplete="off">
+        <button id="lobby-chat-send">전송</button>
+      </div>
     </div>
 
     <div id="lobby-foot"></div>

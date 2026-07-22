@@ -22,6 +22,7 @@ const SETTING_DEFS = [
   { k:'voteSec',     label:'투표 시간',        min:15, max:180, step:15, unit:'초' },
   { k:'confirmEject',label:'추방 시 직업 공개', bool:true },
   { k:'anonVotes',   label:'익명 투표',        bool:true },
+  { k:'showKiller',  label:'죽을 때 범인 보임', bool:true },
   { g:'임무' },
   { k:'taskCommon',  label:'공통 임무',        min:0, max:2, step:1, unit:'개' },
   { k:'taskShort',   label:'짧은 임무',        min:1, max:8, step:1, unit:'개' },
@@ -128,7 +129,7 @@ const UI = {
       foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
         '오리 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 거위'));
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
-        '⚠️ 방장 화면이 꺼지거나 다른 앱으로 넘어가면 모두의 게임이 멈춥니다.'));
+        '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
       foot.appendChild(h('div', { cls:'card', style:{ textAlign:'center' } },
         h('div', { cls:'dim' }, '방장이 시작하기를 기다리는 중…')));
@@ -324,22 +325,34 @@ const UI = {
     if (mode === 'admin') info.textContent = '각 방에 몇 명이 있는지 표시됩니다. 누구인지는 알 수 없습니다.';
     if (mode === 'cams') info.innerHTML = '카메라 설치 구역: <b>' + CAM_ROOMS.map(id => ROOMS.find(r => r.id === id).name).join(' · ') + '</b><br>해당 방에 있는 사람이 실시간으로 보입니다.';
     if (mode === 'map') info.textContent = G.ghost ? '유령은 모든 위치를 볼 수 있습니다.' : '노란 점 = 내 임무 위치';
+
+    // 관리실·감시카메라는 '시야 밖' 정보다. 클라이언트가 원본을 갖고 있으면
+    // 콘솔로 전원 위치를 볼 수 있으므로, 서버가 계산한 결과만 받아 쓴다.
+    let iv = null;
+    const needsServer = (mode === 'admin' || mode === 'cams');
+    if (needsServer) {
+      Game.infoCache[mode] = null;
+      const ask = () => Net.toHost('reqinfo', { kind: mode });
+      ask(); iv = setInterval(ask, 600);
+    }
     let raf;
     const loop = () => {
-      const all = Object.values(G.players);
+      const data = needsServer ? Game.infoCache[mode] : null;
+      if (data?.blocked) {
+        info.innerHTML = '<span style="color:var(--bad)">📡 통신이 끊겨 사용할 수 없습니다.</span>';
+      }
       Render.drawMinimap(cv, { sabotage: G.sabotage }, {
         me: G.players[G.myId],
         tasks: mode === 'map' ? Game.myTaskSpots() : null,
-        admin: mode === 'admin',
-        adminPlayers: mode === 'admin' ? all.filter(p => p.alive && !p.ventId) : null,
-        camRooms: mode === 'cams' ? CAM_ROOMS : null,
-        showAll: mode === 'cams' ? all.filter(p => p.alive && !p.ventId && CAM_ROOMS.includes(roomIdAt(p.x, p.y)))
-               : (G.ghost && mode === 'map') ? all : null,
+        adminCounts: mode === 'admin' ? (data?.counts || {}) : null,
+        camRooms:    mode === 'cams'  ? CAM_ROOMS : null,
+        showAll:     mode === 'cams'  ? (data?.list || [])
+                   : (G.ghost && mode === 'map') ? Object.values(G.players) : null,
       });
       raf = requestAnimationFrame(loop);
     };
     loop();
-    m.bd._cleanup = () => cancelAnimationFrame(raf);
+    m.bd._cleanup = () => { cancelAnimationFrame(raf); if (iv) clearInterval(iv); Game.infoCache[mode] = null; };
   },
 
   openVitals() {
@@ -511,6 +524,14 @@ const UI = {
     } }, Voice.enabled ? '🎙️ 음성채팅 켜짐 (누르면 끔)' : '🎙️ 음성채팅 켜기');
     root.appendChild(vBtn);
     root.appendChild(h('div', { cls:'tiny dim' }, '음성은 켠 사람끼리만 연결됩니다. 대부분 못 쓰는 상황을 고려해 채팅·퀵챗이 기본입니다.'));
+    const gBtn = h('button', { cls:'btn' + (G.guideOn ? ' primary' : ''), onclick: () => {
+      G.guideOn = !G.guideOn;
+      localStorage.setItem('duckus_guide', G.guideOn ? '1' : '0');
+      gBtn.textContent = G.guideOn ? '🧭 길안내 켜짐 (누르면 끔)' : '🧭 길안내 꺼짐';
+      gBtn.classList.toggle('primary', G.guideOn);
+    } }, G.guideOn ? '🧭 길안내 켜짐 (누르면 끔)' : '🧭 길안내 꺼짐');
+    root.appendChild(gBtn);
+    root.appendChild(h('div', { cls:'tiny dim' }, '화면 가장자리 화살표로 다음 임무·수리 지점 방향을 알려줍니다. 익숙해지면 끄세요.'));
     root.appendChild(h('button', { cls:'btn ghost', onclick: () => { UI.closeModal(); UI.openHowTo(); } }, '📖 게임 방법'));
     root.appendChild(h('button', { cls:'btn ghost', onclick: () => { UI.closeModal(); UI.openRolesInfo(); } }, '🎭 직업 목록'));
     if (G.myId === G.hostId && G.phase !== 'lobby')
@@ -590,6 +611,87 @@ const UI = {
     setTimeout(() => { if (UI.modalStack.length) UI.closeModal(); }, 9000);
   },
 
+  /* ---------------- 킬 연출 ----------------
+   * 갑자기 시체가 되면 긴장감이 없다. 가해자·피해자에게만 짧은 컷신을 보여준다. */
+  playKill({ killerColor, victimColor, asVictim }) {
+    if (this._killCine) return;
+    const wrap = h('div', { cls:'killcine' });
+    const cv = h('canvas', { cls:'killcine-cv' });
+    const cap = h('div', { cls:'killcine-cap' },
+      asVictim ? '💀 살해당했습니다' : '🔪 처리했습니다');
+    const sub = h('div', { cls:'killcine-sub' },
+      asVictim ? '이제 유령입니다 — 임무는 계속할 수 있어요' : '들키기 전에 자리를 뜨세요');
+    wrap.append(cv, cap, sub);
+    document.body.appendChild(wrap);
+    this._killCine = wrap;
+
+    const g = cv.getContext('2d');
+    const K = colorOf(killerColor), V = colorOf(victimColor);
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const W = 340, H = 190;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    g.scale(dpr, dpr);
+
+    const t0 = performance.now();
+    const DUR = 1900;
+    let raf;
+    const loop = () => {
+      const p = Math.min(1, (performance.now() - t0) / DUR);
+      g.clearRect(0, 0, W, H);
+      // 배경 방사
+      const grad = g.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W / 2);
+      grad.addColorStop(0, `rgba(120,10,20,${0.55 * (1 - p) + 0.1})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, W, H);
+
+      const vx = W * 0.34, vy = H * 0.56;            // 피해자 자리
+      const fall = p < 0.55 ? 0 : (p - 0.55) / 0.45;  // 쓰러지는 정도
+      const lunge = Math.min(1, p / 0.55);
+      const back  = p < 0.6 ? 0 : (p - 0.6) / 0.4;
+      // 가해자: 오른쪽 밖 → 피해자 옆까지 달려들고 → 살짝 물러난다
+      const kx = p < 0.55 ? W * 1.25 + (W * 0.60 - W * 1.25) * (lunge ** 0.6)
+                          : W * 0.60 + (W * 0.74 - W * 0.60) * back;
+
+      // 핏자국 먼저 (바닥)
+      if (fall > 0) {
+        g.fillStyle = `rgba(150,20,30,${Math.min(0.55, fall * 0.8)})`;
+        g.beginPath(); g.ellipse(vx + 10, vy + 34, 46 * fall, 12 * fall, 0, 0, 6.283); g.fill();
+      }
+      // 가해자 (뒤쪽)
+      g.save();
+      g.translate(kx, H * 0.54);
+      g.scale(-2.3, 2.3);                            // 왼쪽을 바라보게 반전
+      Render.duckShape(g, K, { moving: p < 0.6, t: performance.now() });
+      g.restore();
+      // 피해자 (앞쪽 — 쓰러진 모습이 가려지지 않도록 나중에 그린다)
+      g.save();
+      g.translate(vx, vy + fall * 18);
+      g.rotate(fall * 1.35);
+      g.scale(2.3, 2.3);
+      Render.duckShape(g, V, { dead: fall > 0.15, moving: false, t: 0 });
+      g.restore();
+
+      // 슬래시 섬광
+      if (p > 0.5 && p < 0.68) {
+        const a = 1 - (p - 0.5) / 0.18;
+        g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 6 * a + 1;
+        g.beginPath(); g.moveTo(vx - 34, vy - 46); g.lineTo(vx + 52, vy + 40); g.stroke();
+        g.fillStyle = `rgba(255,255,255,${a * 0.32})`; g.fillRect(0, 0, W, H);
+      }
+      if (p < 1) raf = requestAnimationFrame(loop);
+    };
+    loop();
+
+    Sfx.kill();
+    Render.shake = 20;
+    setTimeout(() => {
+      cancelAnimationFrame(raf);
+      wrap.style.transition = 'opacity .35s'; wrap.style.opacity = 0;
+      setTimeout(() => { wrap.remove(); this._killCine = null; }, 380);
+    }, DUR + 500);
+  },
+
   /* ---------------- 추방 연출 ---------------- */
   playEject(d) {
     this.closeAllModals();
@@ -656,4 +758,5 @@ const UI = {
 const ABILITY_LABEL = {
   investigate:'조사', autopsy:'부검', remotefix:'원격수리', shoot:'사격', shield:'방패',
   morph:'변신', drag:'시체끌기', eat:'먹기', infect:'감염', guess:'추측',
+  track:'추적', guard:'경호',
 };

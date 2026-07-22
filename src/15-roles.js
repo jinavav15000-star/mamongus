@@ -87,6 +87,16 @@ const ROLES = {
     desc:'플레이어 1명에게 방패를 부여합니다. 살해 시도 1회를 막습니다.',
     tip:'방패가 발동하면 공격자의 킬 쿨다운만 돌아갑니다. 누가 노렸는지 추리하세요.',
   },
+  tracker: {
+    name:'추적자', faction:F.GOOSE, icon:'📡', tier:2, ability:'track', cd:40,
+    desc:'플레이어 1명을 지목하면 15초간 그 사람의 방향이 화살표로 표시됩니다.',
+    tip:'"지금 빨강 전기실에 있어" 같은 확인 가능한 정보는 회의에서 가장 강력합니다.',
+  },
+  bodyguard: {
+    name:'경호원', faction:F.GOOSE, icon:'🛡️', tier:2, ability:'guard', uses:1,
+    desc:'플레이어 1명을 경호합니다. 그 사람이 살해당할 때 대신 죽고 살려냅니다.',
+    tip:'경호가 발동하면 전원에게 알려집니다. 누구를 노렸는지가 그대로 드러나요.',
+  },
   canadian: {
     name:'캐나다거위', faction:F.GOOSE, icon:'🥊', tier:2, canKill:true, cdMul:1.4,
     desc:'살해할 수 있습니다. 하지만 거위를 죽이면 자신도 함께 죽습니다.',
@@ -123,8 +133,14 @@ const ROLES = {
     desc:'시체를 끌고 이동해 다른 곳에 버릴 수 있습니다.',
     tip:'시체를 벤트 근처나 사각지대로 옮기면 발각이 크게 늦어집니다.',
   },
+  pelican: {
+    name:'펠리컨', faction:F.DUCK, icon:'🦩', tier:3, canKill:true, canVent:true, fakeTasks:true,
+    cdMul:1.25, noBody:true,
+    desc:'삼켜버립니다. 시체가 전혀 남지 않아 아무도 신고할 수 없습니다.',
+    tip:'사람이 조용히 사라지므로 발각이 늦습니다. 대신 생체신호로 사망은 드러납니다.',
+  },
   spy: {
-    name:'첩자', faction:F.DUCK, icon:'📡', tier:1, canKill:true, canVent:true,
+    name:'첩자', faction:F.DUCK, icon:'🕵️', tier:1, canKill:true, canVent:true,
     desc:'가짜 임무가 실제 임무 진행바를 채웁니다. 거위를 착각하게 만드세요.',
     tip:'진행바를 일부러 올려 "임무 다 끝났다"고 방심시키세요.',
   },
@@ -207,7 +223,7 @@ function assignRoles(playerIds, S) {
 /* 기본 역할 가중치 (0=끔 1=가끔 2=자주) */
 const DEFAULT_WEIGHTS = {
   detective:2, mortician:2, engineer:2, medium:2, sheriff:1, birdwatcher:2,
-  politician:1, doctor:1, canadian:1,
-  assassin:1, professional:1, morphling:1, undertaker:1, spy:1,
+  politician:1, doctor:1, canadian:1, tracker:2, bodyguard:1,
+  assassin:1, professional:1, morphling:1, undertaker:1, spy:1, pelican:1,
   vulture:1, pigeon:1, falcon:0,
 };
