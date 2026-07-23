@@ -47,6 +47,13 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 방귀 — 낮은 톱니파가 떨리며 내려간다. 대기실 장난용 */
+  fart() {
+    this.tone(140, 0.09, 'sawtooth', 0,    95, 0.5);
+    this.tone(110, 0.13, 'sawtooth', 0.07, 70, 0.55);
+    this.tone(85,  0.22, 'sawtooth', 0.16, 45, 0.5);
+    this.noise?.(0.28, 300, 0.25, 120);
+  },
   step()       { this.tone(180, 0.04, 'sine', 0, 120, 0.12); },
   taskStep()   { this.tone(660, 0.08, 'triangle', 0, 880, 0.5); },
   taskDone()   { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.13, 'triangle', i * 0.07, null, 0.5)); },

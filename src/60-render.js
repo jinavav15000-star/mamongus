@@ -58,6 +58,20 @@ const Render = {
                    r: rnd(5, 9), life: rnd(420, 700), soft: col });
     }
   },
+  /** 방귀 💨 — 초록 가스구름 + 떠오르는 냄새선. 대기실 장난용 */
+  fartAt(x, y, dir = 1) {
+    const back = -dir;                       // 엉덩이 쪽 (바라보는 반대 방향)
+    for (let i = 0; i < 7; i++) {
+      this.addFx({ kind:'dust',
+        x: x + back * rnd(6, 14), y: y + rnd(6, 13),
+        vx: back * rnd(.4, 1.1), vy: rnd(-.5, -.1),
+        r: rnd(4.5, 8.5), life: rnd(550, 900),
+        soft: 'rgba(150,195,95,' });
+    }
+    this.addFx({ kind:'ring', x: x + back * 10, y: y + 9, r0: 6, r1: 30, life: 380, col: '#9cc46a' });
+    this.addFx({ kind:'emoji', x, y: y - 8, vx: back * .3, vy: -.8, r: 13, life: 950, txt: '💨' });
+  },
+
   /** 충격파 (킬·사보타주) */
   ringAt(x, y, col = '#ff4d5e', r1 = 90) {
     this.addFx({ kind:'ring', x, y, r0: 10, r1, life: 460, col });
@@ -87,6 +101,12 @@ const Render = {
         g.strokeStyle = f.col; g.globalAlpha = a * 0.75;
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
+        g.globalAlpha = 1;
+      } else if (f.kind === 'emoji') {
+        g.globalAlpha = a;
+        g.font = `700 ${f.r * (1 + p * 0.6)}px system-ui`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(f.txt, f.x, f.y);
         g.globalAlpha = 1;
       } else if (f.kind === 'star') {
         g.fillStyle = f.col; g.globalAlpha = a;

@@ -417,7 +417,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 
 /* ---------- 회의 ---------- */
 #screen-meeting{background:radial-gradient(ellipse at top,#2b1f14,#150f0a);z-index:50}
-.meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none}
+.meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none;position:relative}
+.meet-fs{position:absolute;right:10px;top:calc(8px + var(--safe-t))}
 .meet-title{font-size:17px;font-weight:900}
 .meet-sub{font-size:12.5px;color:var(--dim);margin-top:2px}
 .meet-timer{font-size:31px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -671,6 +672,11 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
+/* 대기실 장난 버튼 */
+#btn-fart{position:absolute;right:14px;bottom:calc(18px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#7ba05a,#42592e);border:2px solid #a4c97e;font-size:23px}
+#btn-fart:active{transform:scale(.92)}
+#btn-fart:disabled{filter:grayscale(.7) brightness(.6)}
 /* 채팅 버튼·패널 */
 #btn-chat{position:absolute;top:calc(104px + var(--safe-t));right:8px;z-index:5}
 #screen-game.lobby-mode #btn-chat{top:calc(58px + var(--safe-t))}
@@ -836,9 +842,11 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
         <div class="codechip lb-code" id="lobby-code2">----</div>
         <button class="btn small" id="btn-copy2">🔗 복사</button>
         <div class="grow"></div>
+        <button class="iconbtn hidden" id="btn-fs-lobby" title="전체화면">⛶</button>
         <button class="iconbtn" id="btn-lobbypanel" title="설정·직업·참가자">☰</button>
       </div>
       <button class="btn primary hidden" id="btn-lobby-start">게임 시작</button>
+      <button class="abtn small emote" id="btn-fart" title="방귀">💨</button>
     </div>
 
     <!-- 채팅 (대기실 + 게임 중) -->
@@ -854,6 +862,7 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
 <!-- ══════════ 회의 ══════════ -->
 <div id="screen-meeting" class="screen hidden">
   <div class="meet-hd">
+    <button class="iconbtn hidden meet-fs" id="btn-fs-meet" title="전체화면">⛶</button>
     <div class="meet-title" id="meet-title">긴급 회의</div>
     <div class="meet-sub" id="meet-sub"></div>
     <div class="meet-timer" id="meet-timer">00</div>
@@ -1076,7 +1085,7 @@ const Viewport = {
    *  이미 전체화면이거나 홈화면 앱으로 실행 중이면 버튼은 쓸모가 없어 숨긴다. */
   syncButtons() {
     const show = !this.standalone && !this.inFullscreen;
-    for (const id of ['btn-fs', 'btn-fs-home', 'btn-fs-gate']) {
+    for (const id of ['btn-fs', 'btn-fs-home', 'btn-fs-gate', 'btn-fs-lobby', 'btn-fs-meet']) {
       const el = document.getElementById(id);
       if (el) el.classList.toggle('hidden', !show);
     }
@@ -1159,7 +1168,8 @@ const Viewport = {
     // 백그라운드 다녀오면 전체화면이 풀리는 기기가 있다 → 다음 터치에 복구
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && !this.userExited && this.wantsImmersive && !this.inFullscreen) {
-        this.arm();
+        this._failCount = 0;      // 과거 실패는 다른 상황이었다 — 복귀할 때마다 새로 기회를 준다
+        this.arm();               // 다음 터치 한 번에 전체화면 재진입
       }
     });
 
@@ -2166,6 +2176,13 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 방귀 — 낮은 톱니파가 떨리며 내려간다. 대기실 장난용 */
+  fart() {
+    this.tone(140, 0.09, 'sawtooth', 0,    95, 0.5);
+    this.tone(110, 0.13, 'sawtooth', 0.07, 70, 0.55);
+    this.tone(85,  0.22, 'sawtooth', 0.16, 45, 0.5);
+    this.noise?.(0.28, 300, 0.25, 120);
+  },
   step()       { this.tone(180, 0.04, 'sine', 0, 120, 0.12); },
   taskStep()   { this.tone(660, 0.08, 'triangle', 0, 880, 0.5); },
   taskDone()   { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.13, 'triangle', i * 0.07, null, 0.5)); },
@@ -3070,6 +3087,7 @@ const Host = {
       case 'reqinfo':  this.onReqInfo(id, m.kind); break;
       case 'ability':  this.onAbility(id, m); break;
       case 'chat':     this.onChat(id, m.text, m.channel); break;
+      case 'emote':    this.onEmote(id, m.kind); break;
       case 'voiceon': {
         const p = this.P[id]; if (!p) break;
         p.voicePeer = m.peerId || (fromPeer === 'self' ? Net.peer?.id : fromPeer);
@@ -3729,6 +3747,15 @@ const Host = {
   },
 
   /* ---------------- 채팅 ---------------- */
+  /** 대기실 장난 이모트. 게임 중에는 끈다 — 위치가 소리로 새는 건 곤란하다 */
+  onEmote(id, kind) {
+    const p = this.P[id]; if (!p || G.phase !== 'lobby') return;
+    if (kind !== 'fart') return;
+    if (now() < (p._emoteAt || 0)) return;                 // 도배 방지
+    p._emoteAt = now() + 1500;
+    this.ev('emote', { pid: id, kind, at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });
+  },
+
   onChat(id, text, channel) {
     const p = this.P[id]; if (!p || !text) return;
     text = String(text).slice(0, 160);
@@ -3793,6 +3820,7 @@ const Host = {
             p.x = r.x; p.y = r.y; p.moving = true;
           }
         }
+        if (Math.random() < 0.0006) this.ev('emote', { pid: id, kind: 'fart', at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });
         continue;
       }
 
@@ -3985,6 +4013,20 @@ const Render = {
                    r: rnd(5, 9), life: rnd(420, 700), soft: col });
     }
   },
+  /** 방귀 💨 — 초록 가스구름 + 떠오르는 냄새선. 대기실 장난용 */
+  fartAt(x, y, dir = 1) {
+    const back = -dir;                       // 엉덩이 쪽 (바라보는 반대 방향)
+    for (let i = 0; i < 7; i++) {
+      this.addFx({ kind:'dust',
+        x: x + back * rnd(6, 14), y: y + rnd(6, 13),
+        vx: back * rnd(.4, 1.1), vy: rnd(-.5, -.1),
+        r: rnd(4.5, 8.5), life: rnd(550, 900),
+        soft: 'rgba(150,195,95,' });
+    }
+    this.addFx({ kind:'ring', x: x + back * 10, y: y + 9, r0: 6, r1: 30, life: 380, col: '#9cc46a' });
+    this.addFx({ kind:'emoji', x, y: y - 8, vx: back * .3, vy: -.8, r: 13, life: 950, txt: '💨' });
+  },
+
   /** 충격파 (킬·사보타주) */
   ringAt(x, y, col = '#ff4d5e', r1 = 90) {
     this.addFx({ kind:'ring', x, y, r0: 10, r1, life: 460, col });
@@ -4014,6 +4056,12 @@ const Render = {
         g.strokeStyle = f.col; g.globalAlpha = a * 0.75;
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
+        g.globalAlpha = 1;
+      } else if (f.kind === 'emoji') {
+        g.globalAlpha = a;
+        g.font = `700 ${f.r * (1 + p * 0.6)}px system-ui`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(f.txt, f.x, f.y);
         g.globalAlpha = 1;
       } else if (f.kind === 'star') {
         g.fillStyle = f.col; g.globalAlpha = a;
@@ -6565,6 +6613,8 @@ const Game = {
     });
     // 전체화면 버튼 — 메뉴 안에 숨어 있으면 아무도 못 찾는다. 눈에 보이는 곳에 둔다.
     $('#btn-fs').onclick      = () => Viewport.pressFullscreen();
+    $('#btn-fs-lobby').onclick = () => Viewport.pressFullscreen();
+    $('#btn-fs-meet').onclick  = () => Viewport.pressFullscreen();
     $('#btn-fs-home').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-gate').onclick = () => Viewport.pressFullscreen();
     $('#btn-map').onclick = () => UI.openMap('map');
@@ -6582,6 +6632,15 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
+    { // 💨 — 누르면 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
+      const fb = $('#btn-fart');
+      onPress(fb, () => {
+        if (fb.disabled) return;
+        Net.toHost('emote', { kind: 'fart' });
+        fb.disabled = true;
+        setTimeout(() => { fb.disabled = false; }, 1500);
+      });
+    }
     $('#play-chat-close').onclick = () => UI.closePlayChat();
     const playSend = () => {
       const v = $('#play-chat-in').value.trim();
@@ -6925,6 +6984,15 @@ const Game = {
           Sfx.vent(); Render.puffAt(m.at.x, m.at.y);
         }
         break;
+      case 'emote': {                            // 대기실 장난
+        if (m.kind === 'fart' && m.at) {
+          const ep = G.players[m.pid];
+          Render.fartAt(m.at.x, m.at.y, m.dir || ep?.dir || 1);
+          Sfx.fart();
+          if (ep) ep.bubble = { text: '💨…', until: Date.now() + 1400 };
+        }
+        break;
+      }
       case 'meeting': Sfx.bodyFound(); Render.shake = 12; break;   // 종이 울리면 화면이 덜컹
       case 'votestart': Sfx.alarm(); Meeting.render({ meeting: G.meeting }); break;
       case 'voted': Sfx.vote(); break;

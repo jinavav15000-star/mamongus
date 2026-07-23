@@ -193,6 +193,23 @@ section('대기실 맵 · 게임 중 채팅');
      deadMsgs.length > 0 && deadMsgs.every(s => s.d.channel === 'dead'), deadMsgs.map(s => s.d.channel));
 }
 
+section('대기실 이모트');
+{
+  reset(5);
+  const a = byName('호스트');
+  sent.length = 0;
+  Host.onEmote(a.id, 'fart');
+  ok('로비에서 방귀 이모트 브로드캐스트', sent.some(x => x.t === 'event' && x.d.type === 'emote' && x.d.kind === 'fart'));
+  sent.length = 0;
+  Host.onEmote(a.id, 'fart');
+  ok('1.5초 안 연타는 무시 (도배 방지)', !sent.some(x => x.t === 'event' && x.d.type === 'emote'));
+  Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  a._emoteAt = 0; sent.length = 0;
+  Host.onEmote(a.id, 'fart');
+  ok('게임 중에는 이모트 차단 (위치 노출 방지)', !sent.some(x => x.t === 'event' && x.d.type === 'emote'));
+}
+
 section('벤트 안 행동 차단');
 {
   reset(5);

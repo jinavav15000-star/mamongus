@@ -178,6 +178,7 @@ const Host = {
       case 'reqinfo':  this.onReqInfo(id, m.kind); break;
       case 'ability':  this.onAbility(id, m); break;
       case 'chat':     this.onChat(id, m.text, m.channel); break;
+      case 'emote':    this.onEmote(id, m.kind); break;
       case 'voiceon': {
         const p = this.P[id]; if (!p) break;
         p.voicePeer = m.peerId || (fromPeer === 'self' ? Net.peer?.id : fromPeer);
@@ -837,6 +838,15 @@ const Host = {
   },
 
   /* ---------------- 채팅 ---------------- */
+  /** 대기실 장난 이모트. 게임 중에는 끈다 — 위치가 소리로 새는 건 곤란하다 */
+  onEmote(id, kind) {
+    const p = this.P[id]; if (!p || G.phase !== 'lobby') return;
+    if (kind !== 'fart') return;
+    if (now() < (p._emoteAt || 0)) return;                 // 도배 방지
+    p._emoteAt = now() + 1500;
+    this.ev('emote', { pid: id, kind, at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });
+  },
+
   onChat(id, text, channel) {
     const p = this.P[id]; if (!p || !text) return;
     text = String(text).slice(0, 160);
@@ -901,6 +911,7 @@ const Host = {
             p.x = r.x; p.y = r.y; p.moving = true;
           }
         }
+        if (Math.random() < 0.0006) this.ev('emote', { pid: id, kind: 'fart', at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });
         continue;
       }
 

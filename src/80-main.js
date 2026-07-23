@@ -38,6 +38,8 @@ const Game = {
     });
     // 전체화면 버튼 — 메뉴 안에 숨어 있으면 아무도 못 찾는다. 눈에 보이는 곳에 둔다.
     $('#btn-fs').onclick      = () => Viewport.pressFullscreen();
+    $('#btn-fs-lobby').onclick = () => Viewport.pressFullscreen();
+    $('#btn-fs-meet').onclick  = () => Viewport.pressFullscreen();
     $('#btn-fs-home').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-gate').onclick = () => Viewport.pressFullscreen();
     $('#btn-map').onclick = () => UI.openMap('map');
@@ -55,6 +57,15 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
+    { // 💨 — 누르면 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
+      const fb = $('#btn-fart');
+      onPress(fb, () => {
+        if (fb.disabled) return;
+        Net.toHost('emote', { kind: 'fart' });
+        fb.disabled = true;
+        setTimeout(() => { fb.disabled = false; }, 1500);
+      });
+    }
     $('#play-chat-close').onclick = () => UI.closePlayChat();
     const playSend = () => {
       const v = $('#play-chat-in').value.trim();
@@ -398,6 +409,15 @@ const Game = {
           Sfx.vent(); Render.puffAt(m.at.x, m.at.y);
         }
         break;
+      case 'emote': {                            // 대기실 장난
+        if (m.kind === 'fart' && m.at) {
+          const ep = G.players[m.pid];
+          Render.fartAt(m.at.x, m.at.y, m.dir || ep?.dir || 1);
+          Sfx.fart();
+          if (ep) ep.bubble = { text: '💨…', until: Date.now() + 1400 };
+        }
+        break;
+      }
       case 'meeting': Sfx.bodyFound(); Render.shake = 12; break;   // 종이 울리면 화면이 덜컹
       case 'votestart': Sfx.alarm(); Meeting.render({ meeting: G.meeting }); break;
       case 'voted': Sfx.vote(); break;

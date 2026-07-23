@@ -393,7 +393,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 
 /* ---------- 회의 ---------- */
 #screen-meeting{background:radial-gradient(ellipse at top,#2b1f14,#150f0a);z-index:50}
-.meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none}
+.meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none;position:relative}
+.meet-fs{position:absolute;right:10px;top:calc(8px + var(--safe-t))}
 .meet-title{font-size:17px;font-weight:900}
 .meet-sub{font-size:12.5px;color:var(--dim);margin-top:2px}
 .meet-timer{font-size:31px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -647,6 +648,11 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
+/* 대기실 장난 버튼 */
+#btn-fart{position:absolute;right:14px;bottom:calc(18px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#7ba05a,#42592e);border:2px solid #a4c97e;font-size:23px}
+#btn-fart:active{transform:scale(.92)}
+#btn-fart:disabled{filter:grayscale(.7) brightness(.6)}
 /* 채팅 버튼·패널 */
 #btn-chat{position:absolute;top:calc(104px + var(--safe-t));right:8px;z-index:5}
 #screen-game.lobby-mode #btn-chat{top:calc(58px + var(--safe-t))}

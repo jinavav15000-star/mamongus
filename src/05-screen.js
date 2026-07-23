@@ -152,7 +152,7 @@ const Viewport = {
    *  이미 전체화면이거나 홈화면 앱으로 실행 중이면 버튼은 쓸모가 없어 숨긴다. */
   syncButtons() {
     const show = !this.standalone && !this.inFullscreen;
-    for (const id of ['btn-fs', 'btn-fs-home', 'btn-fs-gate']) {
+    for (const id of ['btn-fs', 'btn-fs-home', 'btn-fs-gate', 'btn-fs-lobby', 'btn-fs-meet']) {
       const el = document.getElementById(id);
       if (el) el.classList.toggle('hidden', !show);
     }
@@ -235,7 +235,8 @@ const Viewport = {
     // 백그라운드 다녀오면 전체화면이 풀리는 기기가 있다 → 다음 터치에 복구
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && !this.userExited && this.wantsImmersive && !this.inFullscreen) {
-        this.arm();
+        this._failCount = 0;      // 과거 실패는 다른 상황이었다 — 복귀할 때마다 새로 기회를 준다
+        this.arm();               // 다음 터치 한 번에 전체화면 재진입
       }
     });
 
