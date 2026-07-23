@@ -57,13 +57,14 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
-    { // 💨 — 누르면 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
-      const fb = $('#btn-fart');
-      onPress(fb, () => {
-        if (fb.disabled) return;
-        Net.toHost('emote', { kind: 'fart' });
-        fb.disabled = true;
-        setTimeout(() => { fb.disabled = false; }, 1500);
+    // 이모트 — 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
+    for (const [id, kind] of [['#btn-fart', 'fart'], ['#btn-wave', 'wave']]) {
+      const eb = $(id);
+      onPress(eb, () => {
+        if (eb.disabled) return;
+        Net.toHost('emote', { kind });
+        eb.disabled = true;
+        setTimeout(() => { eb.disabled = false; }, 1500);
       });
     }
     $('#play-chat-close').onclick = () => UI.closePlayChat();
@@ -132,6 +133,18 @@ const Game = {
 
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
+  /** 방장이 게임 도중 탭을 닫거나 새로고침하면 모두의 게임이 흔들린다.
+   *  실수로 닫는 것만 막는다 (로비에서는 묻지 않는다). */
+  guardUnload() {
+    if (this._unloadGuarded) return;
+    this._unloadGuarded = true;
+    window.addEventListener('beforeunload', e => {
+      if (Net.isHost && G.phase !== 'lobby' && G.phase !== 'over') {
+        e.preventDefault(); e.returnValue = '';
+      }
+    });
+  },
+
   async createRoom() {
     if (Viewport.wantsImmersive && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
@@ -151,6 +164,7 @@ const Game = {
       UI.hintLobbyMenu();
       $('#in-name2').value = name;
       this.keepAwake();
+      this.guardUnload();
       UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
   },
@@ -410,11 +424,15 @@ const Game = {
         }
         break;
       case 'emote': {                            // 대기실 장난
+        const ep = G.players[m.pid];
         if (m.kind === 'fart' && m.at) {
-          const ep = G.players[m.pid];
           Render.fartAt(m.at.x, m.at.y, m.dir || ep?.dir || 1);
           Sfx.fart();
           if (ep) ep.bubble = { text: '💨…', until: Date.now() + 1400 };
+        } else if (m.kind === 'wave' && m.at) {
+          Render.addFx({ kind:'emoji', x: m.at.x + 12, y: m.at.y - 26, vx: 0, vy: -.55, r: 15, life: 1100, txt: '👋' });
+          Sfx.wave();
+          if (ep) ep.bubble = { text: '👋 안녕!', until: Date.now() + 1600 };
         }
         break;
       }

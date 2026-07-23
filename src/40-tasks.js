@@ -36,17 +36,21 @@ function onDrag(el, { start, move, end }) {
  *  뒤따라오는 click 은 무시해 두 번 실행되지 않게 한다. */
 function onPress(el, fn) {
   if (!el) return;
+  // 같은 요소에 두 번 달면 탭 한 번에 fn 이 여러 번 불린다.
+  // (고정 버튼 #btn-use 는 상태 수신마다 buildActionButtons 를 타면서 실제로 수십 번 중복됐다)
+  if (el._pressBound) { el._pressFn = fn; return; }
+  el._pressBound = true; el._pressFn = fn;
   let guard = 0;
   el.addEventListener('pointerdown', e => {
     if (el.disabled || e.button > 0) return;
     e.preventDefault();
     guard = Date.now();
-    fn(e);
+    el._pressFn(e);
   });
   el.addEventListener('click', e => {
     if (Date.now() - guard < 700) { e.preventDefault(); return; }   // pointerdown 이 이미 처리함
     if (el.disabled) return;
-    fn(e);                                                          // 포인터 이벤트가 없는 환경 대비
+    el._pressFn(e);                                                 // 포인터 이벤트가 없는 환경 대비
   });
 }
 

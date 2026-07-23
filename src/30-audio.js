@@ -47,6 +47,8 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 인사 — 밝게 두 번 통통 */
+  wave() { this.tone(620, 0.07, 'triangle', 0, 780, 0.4); this.tone(780, 0.09, 'triangle', 0.09, 990, 0.4); },
   /** 방귀 — 낮은 톱니파가 떨리며 내려간다. 대기실 장난용 */
   fart() {
     this.tone(140, 0.09, 'sawtooth', 0,    95, 0.5);

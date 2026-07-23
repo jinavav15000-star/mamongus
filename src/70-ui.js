@@ -67,7 +67,13 @@ const UI = {
     if (footer) { const ft = h('div', { cls:'modal-ft' }); footer.forEach(f => ft.appendChild(f)); box.appendChild(ft); }
     const wrap = h('div', { cls:'modal' }, box);
     wrap._onClose = onClose;
-    if (closable) wrap.addEventListener('click', e => { if (e.target === wrap) this.closeModal(); });
+    /* 행동 버튼은 pointerdown(누르는 즉시)으로 열리는데, 손가락을 떼는 순간
+     * 브라우저가 쏘는 click 이 '방금 나타난' 이 배경에 떨어져 모달을 닫아버렸다.
+     * "누르고 있으면 보이고 떼면 꺼진다"의 원인. 열린 직후 잠깐은 배경 클릭을 무시한다. */
+    const openedAt = Date.now();
+    if (closable) wrap.addEventListener('click', e => {
+      if (e.target === wrap && Date.now() - openedAt > 500) this.closeModal();
+    });
     $('#modal-root').appendChild(wrap);
     this.modalStack.push(wrap);
     return { wrap, box, bd, hd };

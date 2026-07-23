@@ -673,6 +673,10 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
 /* 대기실 장난 버튼 */
+#btn-wave{position:absolute;right:14px;bottom:calc(88px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#d9a95a,#7a5a22);border:2px solid #f0cc8a;font-size:22px}
+#btn-wave:active{transform:scale(.92)}
+#btn-wave:disabled{filter:grayscale(.7) brightness(.6)}
 #btn-fart{position:absolute;right:14px;bottom:calc(18px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#7ba05a,#42592e);border:2px solid #a4c97e;font-size:23px}
 #btn-fart:active{transform:scale(.92)}
@@ -846,6 +850,7 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
         <button class="iconbtn" id="btn-lobbypanel" title="설정·직업·참가자">☰</button>
       </div>
       <button class="btn primary hidden" id="btn-lobby-start">게임 시작</button>
+      <button class="abtn small emote" id="btn-wave" title="인사">👋</button>
       <button class="abtn small emote" id="btn-fart" title="방귀">💨</button>
     </div>
 
@@ -2176,6 +2181,8 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 인사 — 밝게 두 번 통통 */
+  wave() { this.tone(620, 0.07, 'triangle', 0, 780, 0.4); this.tone(780, 0.09, 'triangle', 0.09, 990, 0.4); },
   /** 방귀 — 낮은 톱니파가 떨리며 내려간다. 대기실 장난용 */
   fart() {
     this.tone(140, 0.09, 'sawtooth', 0,    95, 0.5);
@@ -2242,17 +2249,21 @@ function onDrag(el, { start, move, end }) {
  *  뒤따라오는 click 은 무시해 두 번 실행되지 않게 한다. */
 function onPress(el, fn) {
   if (!el) return;
+  // 같은 요소에 두 번 달면 탭 한 번에 fn 이 여러 번 불린다.
+  // (고정 버튼 #btn-use 는 상태 수신마다 buildActionButtons 를 타면서 실제로 수십 번 중복됐다)
+  if (el._pressBound) { el._pressFn = fn; return; }
+  el._pressBound = true; el._pressFn = fn;
   let guard = 0;
   el.addEventListener('pointerdown', e => {
     if (el.disabled || e.button > 0) return;
     e.preventDefault();
     guard = Date.now();
-    fn(e);
+    el._pressFn(e);
   });
   el.addEventListener('click', e => {
     if (Date.now() - guard < 700) { e.preventDefault(); return; }   // pointerdown 이 이미 처리함
     if (el.disabled) return;
-    fn(e);                                                          // 포인터 이벤트가 없는 환경 대비
+    el._pressFn(e);                                                 // 포인터 이벤트가 없는 환경 대비
   });
 }
 
@@ -3750,7 +3761,7 @@ const Host = {
   /** 대기실 장난 이모트. 게임 중에는 끈다 — 위치가 소리로 새는 건 곤란하다 */
   onEmote(id, kind) {
     const p = this.P[id]; if (!p || G.phase !== 'lobby') return;
-    if (kind !== 'fart') return;
+    if (kind !== 'fart' && kind !== 'wave') return;
     if (now() < (p._emoteAt || 0)) return;                 // 도배 방지
     p._emoteAt = now() + 1500;
     this.ev('emote', { pid: id, kind, at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });
@@ -5416,7 +5427,13 @@ const UI = {
     if (footer) { const ft = h('div', { cls:'modal-ft' }); footer.forEach(f => ft.appendChild(f)); box.appendChild(ft); }
     const wrap = h('div', { cls:'modal' }, box);
     wrap._onClose = onClose;
-    if (closable) wrap.addEventListener('click', e => { if (e.target === wrap) this.closeModal(); });
+    /* 행동 버튼은 pointerdown(누르는 즉시)으로 열리는데, 손가락을 떼는 순간
+     * 브라우저가 쏘는 click 이 '방금 나타난' 이 배경에 떨어져 모달을 닫아버렸다.
+     * "누르고 있으면 보이고 떼면 꺼진다"의 원인. 열린 직후 잠깐은 배경 클릭을 무시한다. */
+    const openedAt = Date.now();
+    if (closable) wrap.addEventListener('click', e => {
+      if (e.target === wrap && Date.now() - openedAt > 500) this.closeModal();
+    });
     $('#modal-root').appendChild(wrap);
     this.modalStack.push(wrap);
     return { wrap, box, bd, hd };
@@ -6632,13 +6649,14 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
-    { // 💨 — 누르면 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
-      const fb = $('#btn-fart');
-      onPress(fb, () => {
-        if (fb.disabled) return;
-        Net.toHost('emote', { kind: 'fart' });
-        fb.disabled = true;
-        setTimeout(() => { fb.disabled = false; }, 1500);
+    // 이모트 — 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
+    for (const [id, kind] of [['#btn-fart', 'fart'], ['#btn-wave', 'wave']]) {
+      const eb = $(id);
+      onPress(eb, () => {
+        if (eb.disabled) return;
+        Net.toHost('emote', { kind });
+        eb.disabled = true;
+        setTimeout(() => { eb.disabled = false; }, 1500);
       });
     }
     $('#play-chat-close').onclick = () => UI.closePlayChat();
@@ -6707,6 +6725,18 @@ const Game = {
 
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
+  /** 방장이 게임 도중 탭을 닫거나 새로고침하면 모두의 게임이 흔들린다.
+   *  실수로 닫는 것만 막는다 (로비에서는 묻지 않는다). */
+  guardUnload() {
+    if (this._unloadGuarded) return;
+    this._unloadGuarded = true;
+    window.addEventListener('beforeunload', e => {
+      if (Net.isHost && G.phase !== 'lobby' && G.phase !== 'over') {
+        e.preventDefault(); e.returnValue = '';
+      }
+    });
+  },
+
   async createRoom() {
     if (Viewport.wantsImmersive && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
@@ -6726,6 +6756,7 @@ const Game = {
       UI.hintLobbyMenu();
       $('#in-name2').value = name;
       this.keepAwake();
+      this.guardUnload();
       UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
   },
@@ -6985,11 +7016,15 @@ const Game = {
         }
         break;
       case 'emote': {                            // 대기실 장난
+        const ep = G.players[m.pid];
         if (m.kind === 'fart' && m.at) {
-          const ep = G.players[m.pid];
           Render.fartAt(m.at.x, m.at.y, m.dir || ep?.dir || 1);
           Sfx.fart();
           if (ep) ep.bubble = { text: '💨…', until: Date.now() + 1400 };
+        } else if (m.kind === 'wave' && m.at) {
+          Render.addFx({ kind:'emoji', x: m.at.x + 12, y: m.at.y - 26, vx: 0, vy: -.55, r: 15, life: 1100, txt: '👋' });
+          Sfx.wave();
+          if (ep) ep.bubble = { text: '👋 안녕!', until: Date.now() + 1600 };
         }
         break;
       }

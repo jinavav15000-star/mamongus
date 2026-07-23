@@ -841,7 +841,7 @@ const Host = {
   /** 대기실 장난 이모트. 게임 중에는 끈다 — 위치가 소리로 새는 건 곤란하다 */
   onEmote(id, kind) {
     const p = this.P[id]; if (!p || G.phase !== 'lobby') return;
-    if (kind !== 'fart') return;
+    if (kind !== 'fart' && kind !== 'wave') return;
     if (now() < (p._emoteAt || 0)) return;                 // 도배 방지
     p._emoteAt = now() + 1500;
     this.ev('emote', { pid: id, kind, at: { x: Math.round(p.x), y: Math.round(p.y) }, dir: p.dir });

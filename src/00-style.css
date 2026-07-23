@@ -649,6 +649,10 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
 /* 대기실 장난 버튼 */
+#btn-wave{position:absolute;right:14px;bottom:calc(88px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#d9a95a,#7a5a22);border:2px solid #f0cc8a;font-size:22px}
+#btn-wave:active{transform:scale(.92)}
+#btn-wave:disabled{filter:grayscale(.7) brightness(.6)}
 #btn-fart{position:absolute;right:14px;bottom:calc(18px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#7ba05a,#42592e);border:2px solid #a4c97e;font-size:23px}
 #btn-fart:active{transform:scale(.92)}
