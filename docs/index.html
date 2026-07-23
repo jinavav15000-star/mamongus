@@ -466,6 +466,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .chatinput{display:flex;gap:7px}
 .chatinput input{flex:1;background:#1c140d;border:1px solid #4b3623;border-radius:11px;padding:11px 13px;color:var(--txt);outline:none}
 .chatinput button{padding:0 16px;border-radius:11px;background:#d9862f;font-weight:800}
+#qc-toggle{flex:none;padding:0 13px;background:#3c2c1d;border:1px solid #6d4e30;border-radius:11px}
+#qc-toggle.on{background:#d9862f;border-color:#f0ac4d}
 .qc{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
 .qc::-webkit-scrollbar{height:0}
 .qc button{flex:none;padding:7px 11px;border-radius:9px;background:#2d2116;font-size:12.5px;font-weight:700;white-space:nowrap;border:1px solid #503a27}
@@ -880,10 +882,13 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
     <div class="meet-right">
       <div class="chat scroll" id="chat"></div>
       <div class="chatbar">
-        <div class="qc" id="qc-cats"></div>
-        <div class="qc" id="qc-items"></div>
+        <!-- 퀵챗은 기본으로 접는다 — 실전 피드백: "자유 채팅이 자연스럽고, 고정 문구는 의미 없다".
+             다만 음성·타자 둘 다 어려운 사람(수업 중 등)을 위해 버튼으로 남긴다 -->
+        <div class="qc hidden" id="qc-cats"></div>
+        <div class="qc hidden" id="qc-items"></div>
         <div class="chatinput">
-          <input id="chat-in" placeholder="메시지 입력…" maxlength="160" autocomplete="off">
+          <button id="qc-toggle" title="빠른 문구">⚡</button>
+          <input id="chat-in" placeholder="본 것을 말해보세요 — 예: 곡물창고에서 빨강 봤어" maxlength="160" autocomplete="off">
           <button id="chat-send">전송</button>
         </div>
       </div>
@@ -6296,21 +6301,54 @@ const UI = {
   revealRole() {
     const r = roleInfo(G.myRole);
     const col = FACTION_COLOR[r.faction];
-    const root = h('div', { style:{ textAlign:'center', padding:'14px 0' } });
+    const firstTime = !localStorage.getItem('duckus_played');
+
+    // 진영별 "지금 뭘 해야 하나" 3줄 — 이 장르가 처음인 사람 기준으로 쓴다
+    const todo = r.faction === F.DUCK ? [
+      ['🤫', '<b>정체를 숨기세요.</b> 임무를 하는 척하며 돌아다닙니다'],
+      ['🔪', '단둘이 됐을 때 <b>살해</b> 버튼 — 아무도 못 봐야 합니다'],
+      ['💬', '회의에서 시치미 떼고 <b>다른 사람을 의심</b>하세요'],
+    ] : r.faction === F.NEUT ? [
+      ['🎭', '<b>혼자만의 승리 조건</b>이 있습니다 — 위 설명을 확인하세요'],
+      ['🗺️', '양도 늑대도 아닙니다. 상황에 따라 편을 고르세요'],
+      ['💬', '회의에서 정체를 들키면 추방당하기 쉽습니다'],
+    ] : [
+      ['📋', '<b>노란 표시</b>를 따라가 <b>✋ 사용</b> — 임무를 하면 승리에 가까워집니다'],
+      ['📢', '<b>시체를 발견하면 신고</b> — 즉시 전원 회의가 열립니다'],
+      ['💬', '회의에서 <b>본 것을 채팅</b>으로 말하고, 늑대 같은 사람에게 투표하세요'],
+    ];
+
+    // 가로 화면(높이 360px)에서 세로로 쌓으면 '이렇게 하세요'가 화면 밖으로 밀린다.
+    // 왼쪽 = 정체, 오른쪽 = 설명+행동 — 스크롤 없이 한눈에.
+    const root = h('div', { style:{ padding:'2px 0' } });
     root.innerHTML = `
-      <div style="font-size:76px;line-height:1;margin-bottom:6px">${r.icon}</div>
-      <div style="font-size:13px;color:${col};font-weight:800">${FACTION_LABEL[r.faction]} 진영</div>
-      <div style="font-size:31px;font-weight:900;margin:4px 0 10px">${r.name}</div>
-      <div style="font-size:14px;line-height:1.55;color:var(--txt);max-width:340px;margin:0 auto">${r.desc}</div>
-      <div style="font-size:13px;line-height:1.5;color:var(--warn);margin-top:12px;max-width:340px;margin-left:auto;margin-right:auto">💡 ${r.tip || ''}</div>`;
+      <div style="display:flex;gap:16px;align-items:center;max-width:560px;margin:0 auto">
+        <div style="flex:none;width:118px;text-align:center">
+          <div style="font-size:46px;line-height:1;margin-bottom:4px">${r.icon}</div>
+          <div style="font-size:12px;color:${col};font-weight:800">${FACTION_LABEL[r.faction]} 진영</div>
+          <div style="font-size:22px;font-weight:900;margin-top:2px">${r.name}</div>
+        </div>
+        <div style="flex:1;min-width:0;text-align:left">
+          <div style="font-size:12.5px;line-height:1.45;color:var(--txt)">${r.desc}</div>
+          ${r.tip ? `<div style="font-size:11.5px;line-height:1.4;color:var(--warn);margin-top:5px">💡 ${r.tip}</div>` : ''}
+          <div style="margin-top:8px;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:8px 11px">
+            <div style="font-size:11px;font-weight:800;color:var(--dim);margin-bottom:5px">이렇게 하세요</div>
+            ${todo.map(([ic, tx]) => `<div style="display:flex;gap:8px;font-size:12px;line-height:1.45;margin-bottom:3px"><span>${ic}</span><span>${tx}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>`;
     if (G.ducksKnown.length > 1) {
       const names = G.ducksKnown.filter(i => i !== G.myId).map(i => G.players[i]?.name).filter(Boolean);
-      if (names.length) root.appendChild(h('div', { style:{ marginTop:'16px', padding:'11px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
+      if (names.length) root.appendChild(h('div', { style:{ marginTop:'10px', padding:'9px', background:'#2a1b28', borderRadius:'12px', border:'1px solid #63384f' } },
         h('div', { cls:'tiny dim' }, '동료 늑대'), h('div', { style:{ fontWeight:800, color:'var(--duck)' } }, names.join(', '))));
     }
-    const btn = h('button', { cls:'btn primary', style:{ width:'100%' }, onclick: () => UI.closeModal() }, '시작하기');
-    this.modal({ title:'역할이 정해졌습니다', body: root, footer:[btn], closable:false });
-    setTimeout(() => { if (UI.modalStack.length) UI.closeModal(); }, 9000);
+    const btn = h('button', { cls:'btn primary', style:{ width:'100%' }, onclick: () => {
+      localStorage.setItem('duckus_played', '1');
+      UI.closeModal();
+    } }, '시작하기');
+    this.modal({ title: firstTime ? '내 역할 (나에게만 보입니다)' : '역할이 정해졌습니다', body: root, footer:[btn], closable:false });
+    // 처음 하는 사람은 읽을 시간이 필요하다 — 자동 닫힘을 늦춘다
+    setTimeout(() => { if (UI.modalStack.length) UI.closeModal(); }, firstTime ? 20000 : 9000);
   },
 
   /* ---------------- 킬 연출 ----------------
@@ -6567,6 +6605,7 @@ const Meeting = {
   },
 
   render(st) {
+    this.bindQcToggle();
     const m = st.meeting; if (!m) return;
     const body = m.body;
     $('#meet-title').innerHTML = body
@@ -6728,7 +6767,19 @@ const Meeting = {
     $('#chat-in').value = '';
   },
 
-  /* ---------------- 퀵챗 ---------------- */
+  /* ---------------- 퀵챗 (기본 접힘 — ⚡ 로 펼침) ---------------- */
+  bindQcToggle() {
+    const b = $('#qc-toggle');
+    if (!b || b._bound) return;
+    b._bound = true;
+    b.onclick = () => {
+      const opening = $('#qc-cats').classList.contains('hidden');
+      $('#qc-cats').classList.toggle('hidden', !opening);
+      $('#qc-items').classList.toggle('hidden', !opening);
+      b.classList.toggle('on', opening);
+    };
+  },
+
   renderQuickCats() {
     const el = $('#qc-cats'); el.innerHTML = '';
     el.appendChild(h('button', { cls:'act', onclick: () => { this.send(Trail.myPath()); } }, '📍 내 동선'));

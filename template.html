@@ -189,10 +189,13 @@
     <div class="meet-right">
       <div class="chat scroll" id="chat"></div>
       <div class="chatbar">
-        <div class="qc" id="qc-cats"></div>
-        <div class="qc" id="qc-items"></div>
+        <!-- 퀵챗은 기본으로 접는다 — 실전 피드백: "자유 채팅이 자연스럽고, 고정 문구는 의미 없다".
+             다만 음성·타자 둘 다 어려운 사람(수업 중 등)을 위해 버튼으로 남긴다 -->
+        <div class="qc hidden" id="qc-cats"></div>
+        <div class="qc hidden" id="qc-items"></div>
         <div class="chatinput">
-          <input id="chat-in" placeholder="메시지 입력…" maxlength="160" autocomplete="off">
+          <button id="qc-toggle" title="빠른 문구">⚡</button>
+          <input id="chat-in" placeholder="본 것을 말해보세요 — 예: 곡물창고에서 빨강 봤어" maxlength="160" autocomplete="off">
           <button id="chat-send">전송</button>
         </div>
       </div>

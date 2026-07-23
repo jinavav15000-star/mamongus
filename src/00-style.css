@@ -442,6 +442,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .chatinput{display:flex;gap:7px}
 .chatinput input{flex:1;background:#1c140d;border:1px solid #4b3623;border-radius:11px;padding:11px 13px;color:var(--txt);outline:none}
 .chatinput button{padding:0 16px;border-radius:11px;background:#d9862f;font-weight:800}
+#qc-toggle{flex:none;padding:0 13px;background:#3c2c1d;border:1px solid #6d4e30;border-radius:11px}
+#qc-toggle.on{background:#d9862f;border-color:#f0ac4d}
 .qc{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
 .qc::-webkit-scrollbar{height:0}
 .qc button{flex:none;padding:7px 11px;border-radius:9px;background:#2d2116;font-size:12.5px;font-weight:700;white-space:nowrap;border:1px solid #503a27}

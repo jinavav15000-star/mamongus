@@ -97,6 +97,7 @@ const Meeting = {
   },
 
   render(st) {
+    this.bindQcToggle();
     const m = st.meeting; if (!m) return;
     const body = m.body;
     $('#meet-title').innerHTML = body
@@ -258,7 +259,19 @@ const Meeting = {
     $('#chat-in').value = '';
   },
 
-  /* ---------------- 퀵챗 ---------------- */
+  /* ---------------- 퀵챗 (기본 접힘 — ⚡ 로 펼침) ---------------- */
+  bindQcToggle() {
+    const b = $('#qc-toggle');
+    if (!b || b._bound) return;
+    b._bound = true;
+    b.onclick = () => {
+      const opening = $('#qc-cats').classList.contains('hidden');
+      $('#qc-cats').classList.toggle('hidden', !opening);
+      $('#qc-items').classList.toggle('hidden', !opening);
+      b.classList.toggle('on', opening);
+    };
+  },
+
   renderQuickCats() {
     const el = $('#qc-cats'); el.innerHTML = '';
     el.appendChild(h('button', { cls:'act', onclick: () => { this.send(Trail.myPath()); } }, '📍 내 동선'));
