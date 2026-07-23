@@ -32,6 +32,10 @@
   --warn:#ffd23d; --bad:#ff4d5e; --good:#3ddc84;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* 아이폰 가로모드: 노치가 좌/우 한쪽을 덮는다 (약 47px).
+     이걸 더하지 않으면 왼쪽 채팅창·임무목록이 노치에 가려진다 */
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
@@ -89,7 +93,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 /* ---------- 화면 전환 ---------- */
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;z-index:10}
 @supports (height:100dvh){ .screen{height:100dvh;bottom:auto} }
-#screen-home,#screen-lobby{overflow-y:auto;padding:calc(18px + var(--safe-t)) 16px calc(18px + var(--safe-b));align-items:center}
+#screen-home,#screen-lobby{overflow-y:auto;padding:calc(18px + var(--safe-t)) calc(16px + var(--safe-r)) calc(18px + var(--safe-b)) calc(16px + var(--safe-l));align-items:center}
 .wrap{width:100%;max-width:520px;margin:auto}
 
 /* ---------- 홈 ---------- */
@@ -144,7 +148,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .hud{position:absolute;inset:0;pointer-events:none;z-index:20}
 .hud > *{pointer-events:auto}
 
-.topbar{position:absolute;top:calc(8px + var(--safe-t));left:8px;right:8px;display:flex;gap:8px;align-items:flex-start}
+.topbar{position:absolute;top:calc(8px + var(--safe-t));left:calc(8px + var(--safe-l));right:calc(8px + var(--safe-r));display:flex;gap:8px;align-items:flex-start}
 .taskbar-wrap{flex:1;background:rgba(26,17,10,.88);border:1px solid #4b3623;border-radius:12px;padding:7px 11px;backdrop-filter:blur(6px)}
 .taskbar-label{font-size:11px;color:var(--dim);font-weight:700;display:flex;justify-content:space-between}
 .taskbar{height:8px;background:#281d13;border-radius:5px;overflow:hidden;margin-top:4px}
@@ -152,14 +156,14 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .iconbtn{width:42px;height:42px;border-radius:12px;background:rgba(26,17,10,.88);border:1px solid #4b3623;
   display:flex;align-items:center;justify-content:center;font-size:19px;flex:none;backdrop-filter:blur(6px)}
 
-.tasklist{position:absolute;top:calc(60px + var(--safe-t));left:8px;max-width:52%;max-height:38%;
+.tasklist{position:absolute;top:calc(60px + var(--safe-t));left:calc(8px + var(--safe-l));max-width:52%;max-height:38%;
   background:rgba(26,17,10,.76);border-radius:12px;padding:8px 10px;font-size:12px;backdrop-filter:blur(4px);overflow-y:auto}
 .tasklist .ti{display:flex;gap:6px;margin-bottom:3px;line-height:1.3}
 .tasklist .ti.done{color:#4d6b4d;text-decoration:line-through}
 .tasklist .ti .rm{color:var(--warn);flex:none}
 .tasklist .hd{font-size:11px;color:var(--dim);font-weight:800;margin-bottom:5px}
 
-.rolechip{position:absolute;top:calc(60px + var(--safe-t));right:8px;background:rgba(26,17,10,.88);
+.rolechip{position:absolute;top:calc(60px + var(--safe-t));right:calc(8px + var(--safe-r));background:rgba(26,17,10,.88);
   border:1px solid #4b3623;border-radius:12px;padding:7px 11px;font-size:12.5px;font-weight:800;text-align:right;max-width:44%}
 .rolechip .rn{font-size:14px}
 .rolechip .rd{font-size:10.5px;color:var(--dim);font-weight:600;line-height:1.3;margin-top:2px}
@@ -170,7 +174,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.62}}
 
 /* 조이스틱 */
-.stick{position:absolute;left:calc(16px + var(--safe-b));bottom:calc(22px + var(--safe-b));
+.stick{position:absolute;left:calc(16px + var(--safe-l));bottom:calc(22px + var(--safe-b));
   width:132px;height:132px;border-radius:50%;background:rgba(58,42,28,.55);border:2px solid rgba(226,180,110,.30);
   touch-action:none}
 .stick .knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;
@@ -178,7 +182,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   box-shadow:0 4px 14px rgba(0,0,0,.5)}
 
 /* 액션 버튼 */
-.actions{position:absolute;right:calc(14px + var(--safe-b));bottom:calc(18px + var(--safe-b));
+.actions{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(18px + var(--safe-b));
   display:flex;flex-direction:column-reverse;gap:10px;align-items:flex-end;max-width:72vw}
 /* 늑대는 버튼이 5개까지 늘어난다 → 좁은 화면에서 줄바꿈 */
 .actrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap-reverse;justify-content:flex-end}
@@ -416,9 +420,9 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .mg-chart{width:100%}
 
 /* ---------- 회의 ---------- */
-#screen-meeting{background:radial-gradient(ellipse at top,#2b1f14,#150f0a);z-index:50}
+#screen-meeting{padding-left:var(--safe-l);padding-right:var(--safe-r);background:radial-gradient(ellipse at top,#2b1f14,#150f0a);z-index:50}
 .meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none;position:relative}
-.meet-fs{position:absolute;right:10px;top:calc(8px + var(--safe-t))}
+.meet-fs{position:absolute;right:calc(10px + var(--safe-r));top:calc(8px + var(--safe-t))}
 .meet-title{font-size:17px;font-weight:900}
 .meet-sub{font-size:12.5px;color:var(--dim);margin-top:2px}
 .meet-timer{font-size:31px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -557,18 +561,18 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .taskbar-label{font-size:10px}
   .iconbtn{width:36px;height:36px;font-size:17px;border-radius:10px}
 
-  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
+  .tasklist{top:calc(48px + var(--safe-t));left:calc(8px + var(--safe-l));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
   .tasklist .hd{font-size:9px;margin-bottom:2px}
   .tasklist .ti{margin-bottom:1px}
 
   /* 역할 설명은 길안내 화살표를 가린다 → 이름만, 자세한 건 탭하면 나온다 */
-  .rolechip{top:calc(48px + var(--safe-t));max-width:26%;padding:5px 9px}
+  .rolechip{top:calc(48px + var(--safe-t));right:calc(8px + var(--safe-r));max-width:26%;padding:5px 9px}
   .rolechip .rn{font-size:12px}
   .rolechip .rd{display:none}
 
-  .stick{width:104px;height:104px;left:calc(12px + var(--safe-b));bottom:calc(12px + var(--safe-b))}
+  .stick{width:104px;height:104px;left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b))}
   .stick .knob{width:46px;height:46px;margin:-23px 0 0 -23px}
-  .actions{right:calc(10px + var(--safe-b));bottom:calc(10px + var(--safe-b));gap:7px;max-width:60vw}
+  .actions{right:calc(10px + var(--safe-r));bottom:calc(10px + var(--safe-b));gap:7px;max-width:60vw}
   .actrow{gap:7px}
   .abtn{width:62px;height:62px;font-size:10px}
   .abtn .ic{font-size:20px}
@@ -668,30 +672,29 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 #screen-game.lobby-mode .actions{display:none}
 #lobby-hud{position:absolute;inset:0;pointer-events:none}
 #lobby-hud>*{pointer-events:auto}
-.lb-top{position:absolute;top:calc(8px + var(--safe-t));left:8px;right:8px;display:flex;gap:8px;align-items:center}
+.lb-top{position:absolute;top:calc(8px + var(--safe-t));left:calc(8px + var(--safe-l));right:calc(8px + var(--safe-r));display:flex;gap:8px;align-items:center}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
 /* 대기실 장난 버튼 */
-#btn-wave{position:absolute;right:14px;bottom:calc(88px + var(--safe-b));
+#btn-wave{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(88px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#d9a95a,#7a5a22);border:2px solid #f0cc8a;font-size:22px}
 #btn-wave:active{transform:scale(.92)}
 #btn-wave:disabled{filter:grayscale(.7) brightness(.6)}
-#btn-fart{position:absolute;right:14px;bottom:calc(18px + var(--safe-b));
+#btn-fart{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(18px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#7ba05a,#42592e);border:2px solid #a4c97e;font-size:23px}
 #btn-fart:active{transform:scale(.92)}
 #btn-fart:disabled{filter:grayscale(.7) brightness(.6)}
 /* 채팅 버튼·패널 */
-#btn-chat{position:absolute;top:calc(104px + var(--safe-t));right:8px;z-index:5}
+#btn-chat{position:absolute;top:calc(104px + var(--safe-t));right:calc(8px + var(--safe-r));z-index:5}
 #screen-game.lobby-mode #btn-chat{top:calc(58px + var(--safe-t))}
-#play-chat-wrap{position:absolute;left:8px;bottom:calc(8px + var(--safe-b));z-index:30;
-  width:min(340px,72vw);height:min(300px,62vh);display:flex;flex-direction:column;
-  background:rgba(22,15,9,.94);border:1px solid #503a27;border-radius:14px;overflow:hidden;
-  backdrop-filter:blur(6px)}
+#play-chat-wrap{position:absolute;left:calc(8px + var(--safe-l));bottom:calc(8px + var(--safe-b));z-index:30;
+  width:min(360px,74vw);height:min(300px,64vh);display:flex;flex-direction:column;
+  background:rgba(20,14,8,.97);border:1px solid #6d4e30;border-radius:14px;overflow:hidden}
 .pc-hd{display:flex;justify-content:space-between;align-items:center;padding:7px 11px;
   font-weight:800;font-size:13px;background:#2b2016;border-bottom:1px solid #503a27}
 .pc-hd button{font-size:14px;padding:2px 7px;color:var(--dim)}
-#play-chat{flex:1;padding:7px 9px;display:flex;flex-direction:column;gap:3px}
+#play-chat{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:4px;font-size:13.5px;line-height:1.45}
 #play-chat-wrap .chatinput{display:flex;gap:5px;padding:6px}
 #play-chat-wrap .chatinput input{flex:1;min-width:0;background:#1c140d;border:1px solid #4b3623;
   border-radius:10px;padding:8px 11px;color:var(--txt);outline:none}
