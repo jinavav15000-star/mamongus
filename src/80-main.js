@@ -124,6 +124,8 @@ const Game = {
       this.keepAwake();
       // 백그라운드에서 시그널링이 끊겼으면 즉시 복구 — 초대 링크가 계속 살아 있어야 한다
       try { if (Net.peer && !Net.peer.destroyed && Net.peer.disconnected) Net.peer.reconnect(); } catch {}
+      // iOS 가 백그라운드 중 맵 캔버스를 비웠을 수 있다 — 돌아오면 즉시 검사
+      try { Render._mapCheckAt = 0; Render.ensureMap(); } catch {}
       // 방장이 오래 자리를 비우면 모두의 화면이 끊긴다 → 돌아왔을 때 알려준다
       const away = Date.now() - (this._hiddenAt || 0);
       if (Net.isHost && G.phase !== 'lobby' && away > 8000)
@@ -565,7 +567,16 @@ const Game = {
         const k = Math.min(1, dt / 60);
         p.rx += (p.x - p.rx) * k * 3.2; p.ry += (p.y - p.ry) * k * 3.2;
       }
-      this.render(me);
+      // 렌더 중 예외가 나면 그 프레임 이후 세상이 검게 남는다.
+      // 원인 무관하게 화면이 죽지 않도록 잡고, 맵 재생성을 한 번 시도한다.
+      try { this.render(me); }
+      catch (e) {
+        if (!this._renderErrAt || Date.now() - this._renderErrAt > 5000) {
+          this._renderErrAt = Date.now();
+          console.error('render 예외:', e);
+          try { Render.buildMap(); } catch {}
+        }
+      }
       if (inLobby) return;
       // 동선 기록
       Trail.track(me, this.visibleOthers(me));

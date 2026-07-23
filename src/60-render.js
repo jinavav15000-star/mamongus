@@ -31,7 +31,7 @@ const Render = {
 
   addFx(o) {
     if (this.fx.length >= this.FX_MAX) this.fx.splice(0, this.fx.length - this.FX_MAX + 1);
-    this.fx.push({ t: 0, ...o });
+    this.fx.push({ t: o.delay ? -o.delay : 0, ...o });   // delay 는 음수 t 로 시작해 그동안 안 보인다
   },
   /** 걸을 때 발밑에서 피어오르는 흙먼지. dir 은 진행 방향(먼지는 뒤로 남는다) */
   dustAt(x, y, dir = 0) {
@@ -58,18 +58,29 @@ const Render = {
                    r: rnd(5, 9), life: rnd(420, 700), soft: col });
     }
   },
-  /** 방귀 💨 — 초록 가스구름 + 떠오르는 냄새선. 대기실 장난용 */
+  /** 방귀 💨 — 뒤로 자욱하게 퍼지는 초록 가스구름.
+   *  뒤에 서 있는 캐릭터(~50px)가 연기에 뒤덮일 만큼 크고 오래 간다. */
   fartAt(x, y, dir = 1) {
-    const back = -dir;                       // 엉덩이 쪽 (바라보는 반대 방향)
-    for (let i = 0; i < 7; i++) {
+    const back = -dir;
+    // 1파: 엉덩이에서 터지는 진한 구름
+    for (let i = 0; i < 14; i++) {
       this.addFx({ kind:'dust',
-        x: x + back * rnd(6, 14), y: y + rnd(6, 13),
-        vx: back * rnd(.4, 1.1), vy: rnd(-.5, -.1),
-        r: rnd(4.5, 8.5), life: rnd(550, 900),
-        soft: 'rgba(150,195,95,' });
+        x: x + back * rnd(4, 18), y: y + rnd(2, 14),
+        vx: back * rnd(.5, 1.6), vy: rnd(-.55, -.05),
+        r: rnd(6, 12), life: rnd(800, 1300),
+        a0: .55, soft: 'rgba(150,195,95,' });
     }
-    this.addFx({ kind:'ring', x: x + back * 10, y: y + 9, r0: 6, r1: 30, life: 380, col: '#9cc46a' });
-    this.addFx({ kind:'emoji', x, y: y - 8, vx: back * .3, vy: -.8, r: 13, life: 950, txt: '💨' });
+    // 2파: 잠시 뒤 더 멀리 번지는 옅은 구름 (뒤에 선 상대를 뒤덮는다)
+    for (let i = 0; i < 10; i++) {
+      this.addFx({ kind:'dust', delay: rnd(140, 320),
+        x: x + back * rnd(18, 42), y: y + rnd(-6, 14),
+        vx: back * rnd(.3, .9), vy: rnd(-.4, .05),
+        r: rnd(8, 15), life: rnd(900, 1500),
+        a0: .4, soft: 'rgba(150,195,95,' });
+    }
+    this.addFx({ kind:'ring', x: x + back * 12, y: y + 8, r0: 8, r1: 46, life: 480, col: '#9cc46a' });
+    this.addFx({ kind:'emoji', x: x + back * 6, y: y - 6, vx: back * .35, vy: -.75, r: 14, life: 1100, txt: '💨' });
+    this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
   /** 충격파 (킬·사보타주) */
@@ -93,6 +104,7 @@ const Render = {
 
   drawFx(g) {
     for (const f of this.fx) {
+      if (f.t < 0) continue;                              // 아직 지연 중
       const p = f.t / f.life, a = 1 - p;
       if (f.kind === 'dust') {
         g.fillStyle = (f.soft || 'rgba(224,203,166,') + (Math.min(1, a * 1.5) * 0.4).toFixed(3) + ')';
@@ -119,6 +131,23 @@ const Render = {
         g.closePath(); g.fill(); g.globalAlpha = 1;
       }
     }
+  },
+
+  /** iOS 사파리는 메모리가 부족하면 화면 밖 캔버스를 통째로 비운다.
+   *  맵은 한 번만 프리렌더하므로, 비워지면 세상이 영영 검게 남는다
+   *  ("게임은 검은데 투표 화면은 보인다"의 원인).
+   *  바닥이 반드시 칠해져 있어야 할 픽셀 하나를 주기적으로 검사해 복구한다. */
+  _mapCheckAt: 0,
+  ensureMap() {
+    const t = performance.now();
+    if (t - this._mapCheckAt < 2000) return;
+    this._mapCheckAt = t;
+    try {
+      const g = this.mapCv.getContext('2d');
+      // 헛간 앞마당 한복판 — 항상 불투명해야 한다
+      const px = g.getImageData(59 * TILE, 12 * TILE, 1, 1).data;
+      if (px[3] === 0) this.buildMap();
+    } catch { this.buildMap(); }
   },
 
   init(canvas) {
@@ -783,6 +812,7 @@ const Render = {
     // 캔버스가 아직 배치되지 않았거나(화면 전환·회전 순간) 크기가 0이면 그리지 않는다.
     // 0 크기로 그리면 안개 레이어 drawImage 가 매 프레임 예외를 던진다.
     if (!g || !(this.W > 0) || !(this.H > 0)) { this.resize(); return; }
+    this.ensureMap();
     g.save();
     g.fillStyle = '#080b07'; g.fillRect(0, 0, this.W, this.H);
 
