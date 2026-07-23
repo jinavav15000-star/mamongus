@@ -221,6 +221,10 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 
 /* ---------- 미니게임 공통 ---------- */
 .mg{display:flex;flex-direction:column;gap:12px;align-items:center;min-height:290px;justify-content:center}
+.fsbar{background:linear-gradient(180deg,#4b3623,#352617);border:1px dashed #b98a4a;color:var(--warn);
+  font-weight:800;font-size:14px;padding:12px}
+.fsbar:active{transform:translateY(2px)}
+
 .mg-msg{font-size:13.5px;color:var(--dim);text-align:center;font-weight:700}
 .mg-msg.good{color:var(--good)}.mg-msg.bad{color:var(--bad)}
 .mg-bigbtn{background:linear-gradient(180deg,#d9862f,#a35c17);border:1px solid #f0ac4d;border-radius:14px;

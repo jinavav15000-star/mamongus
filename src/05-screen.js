@@ -31,10 +31,19 @@ const Viewport = {
         || matchMedia('(display-mode: fullscreen)').matches;
   },
   get isPortrait() { return innerHeight > innerWidth; },
-  /** 폰처럼 좁은 화면인가 (PC 창을 세로로 줄인 경우는 제외) */
+  /** 폰처럼 좁은 화면인가 (PC 창을 세로로 줄인 경우는 제외) — 회전 안내 판단용 */
   get isPhone() { return this.isTouch && Math.min(innerWidth, innerHeight) < 620; },
+  /** 몰입 모드를 시도할 만한 환경인가.
+   *  isPhone 은 620px 미만이라 태블릿·큰 폰 가로에서 빠졌다.
+   *  터치 기기면 크기와 무관하게 전체화면이 이득이므로 이 값으로 판단한다. */
+  get wantsImmersive() { return this.isTouch && !this.standalone; },
   get inFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  },
+  /** 이 브라우저에 전체화면 API 가 있는가 (아이폰 사파리는 없다) */
+  get fsSupported() {
+    const el = document.documentElement;
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen);
   },
 
   /* ---------------- 진입 ---------------- */
@@ -92,6 +101,38 @@ const Viewport = {
   async toggle() {
     if (this.inFullscreen) await this.exit();
     else { this.userExited = false; await this.enter(); }
+    this.syncButtons();
+  },
+
+  /** 사용자가 전체화면 버튼을 직접 누른 경우.
+   *  자동 진입과 달리 "왜 안 됐는지"를 반드시 알려 준다.
+   *  아무 반응 없이 실패하면 사용자는 버튼이 고장 났다고 생각한다. */
+  async pressFullscreen() {
+    if (this.isIPhone && !this.standalone) { UI.openIOSHint(); return; }
+    if (this.inFullscreen) { await this.exit(); return; }
+    if (!this.fsSupported) {
+      UI.toast('이 브라우저는 전체화면 기능을 제공하지 않습니다.<br>브라우저 메뉴의 <b>홈 화면에 추가</b>로 실행하면 주소창 없이 플레이됩니다.', 8000);
+      return;
+    }
+    this.userExited = false;
+    const r = await this.enter();
+    if (!r.fullscreen) {
+      UI.toast(this.isInApp
+        ? '카카오톡 안에서는 전체화면이 막혀 있습니다.<br>오른쪽 위 <b>⋮ → 다른 브라우저로 열기</b>를 눌러 주세요.'
+        : '전체화면이 거부되었습니다.<br>브라우저 메뉴의 <b>홈 화면에 추가</b>로 실행하면 주소창 없이 플레이됩니다.', 8000);
+    } else if (!r.orientation && this.isPhone) {
+      UI.toast('전체화면이 켜졌습니다. 방향 고정은 이 기기에서 지원되지 않아<br>폰을 가로로 돌려 주세요.', 5000);
+    }
+  },
+
+  /** 전체화면 버튼의 표시 여부·모양을 화면 상태에 맞춘다.
+   *  이미 전체화면이거나 홈화면 앱으로 실행 중이면 버튼은 쓸모가 없어 숨긴다. */
+  syncButtons() {
+    const show = !this.standalone && !this.inFullscreen;
+    for (const id of ['btn-fs', 'btn-fs-home', 'btn-fs-gate']) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('hidden', !show);
+    }
   },
 
   /* ---------------- 자동 진입 준비 ----------------
@@ -117,7 +158,7 @@ const Viewport = {
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       this.disarm();                     // 먼저 해제해야 pointerdown→click 로 두 번 실행되지 않는다
-      if (!this.userExited && this.isPhone) this.enter();
+      if (!this.userExited && this.wantsImmersive) this.enter();
     };
     this._EVTS.forEach(e => document.addEventListener(e, this._fire, true));
   },
@@ -143,6 +184,7 @@ const Viewport = {
       if (typeof Render !== 'undefined') Render.resize?.();   // 캔버스 재계산
     }
     document.body.classList.toggle('immersive', this.inFullscreen);
+    this.syncButtons();
   },
 
   init() {
@@ -156,7 +198,7 @@ const Viewport = {
           // 키보드·뒤로 제스처·알림창이 전체화면을 풀어버린다 →
           // 다음 터치에 다시 들어가도록 재무장한다. (게임 중이면 조이스틱 첫 터치가 곧 재진입)
           // 이게 없으면 한 번 풀린 뒤 세션 내내 주소창이 떠 있게 된다.
-          if (!this.userExited && this.isPhone && this._failCount < 3) this.arm();
+          if (!this.userExited && this.wantsImmersive && this._failCount < 3) this.arm();
         } else this._failCount = 0;
         this.sync();
       }));
@@ -169,7 +211,7 @@ const Viewport = {
 
     // 백그라운드 다녀오면 전체화면이 풀리는 기기가 있다 → 다음 터치에 복구
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && !this.userExited && this.isPhone && !this.inFullscreen) {
+      if (document.visibilityState === 'visible' && !this.userExited && this.wantsImmersive && !this.inFullscreen) {
         this.arm();
       }
     });

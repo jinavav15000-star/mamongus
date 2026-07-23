@@ -36,6 +36,10 @@ const Game = {
       $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
       ['players','settings','roles'].forEach(t => $('#tab-' + t).classList.toggle('hidden', t !== b.dataset.tab));
     });
+    // 전체화면 버튼 — 메뉴 안에 숨어 있으면 아무도 못 찾는다. 눈에 보이는 곳에 둔다.
+    $('#btn-fs').onclick      = () => Viewport.pressFullscreen();
+    $('#btn-fs-home').onclick = () => Viewport.pressFullscreen();
+    $('#btn-fs-gate').onclick = () => Viewport.pressFullscreen();
     $('#btn-map').onclick = () => UI.openMap('map');
     $('#btn-menu').onclick = () => UI.openMenu();
     $('#btn-ghostchat').onclick = () => Meeting.openGhostChat();
@@ -99,7 +103,7 @@ const Game = {
   err(msg) { $('#home-err').textContent = msg; UI.loading(false); },
 
   async createRoom() {
-    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
+    if (Viewport.wantsImmersive && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
     UI.loading(true, '방을 만드는 중…');
@@ -121,7 +125,7 @@ const Game = {
   },
 
   async joinRoom(code) {
-    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
+    if (Viewport.wantsImmersive && !Viewport.userExited) Viewport.enter();   // 클릭 제스처 안 — 전체화면 재보장
     if (!/^[A-Z2-9]{4}$/.test(code)) return this.err('방 코드 4자리를 입력하세요.');
     const name = ($('#in-name').value.trim() || '양').slice(0, 10);
     localStorage.setItem('duckus_name', name);
@@ -759,7 +763,7 @@ const Game = {
   setSetting(k, v) { Net.toHost('settings', { s: { [k]: v } }); },
   setRoleWeight(k, v) { const w = { ...G.settings.roleWeights, [k]: v }; Net.toHost('settings', { s: { roleWeights: w } }); },
   start() {
-    if (Viewport.isPhone && !Viewport.userExited) Viewport.enter();   // 게임 시작 순간이 전체화면의 최적 타이밍
+    if (Viewport.wantsImmersive && !Viewport.userExited) Viewport.enter();   // 게임 시작 순간이 전체화면의 최적 타이밍
     Net.toHost('start', {});
   },
 

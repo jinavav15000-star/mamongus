@@ -49,6 +49,10 @@
       <div id="home-err" class="err"></div>
     </div>
 
+    <button id="btn-fs-home" class="btn fsbar hidden" style="width:100%;margin-bottom:12px">
+      <span>⛶ 주소창 없이 전체화면으로 하기</span>
+    </button>
+
     <div class="card tiny dim">
       <b style="color:var(--txt)">🎮 어떻게 하나요?</b><br>
       1. <b>방 만들기</b>를 누르면 초대 링크가 만들어집니다.<br>
@@ -127,6 +131,7 @@
         <div class="taskbar"><div class="taskbar-fill" id="taskbar-fill" style="width:0%"></div></div>
       </div>
       <button class="iconbtn hidden" id="btn-ghostchat">👻</button>
+      <button class="iconbtn hidden" id="btn-fs" title="전체화면">⛶</button>
       <button class="iconbtn" id="btn-map">🗺️</button>
       <button class="iconbtn" id="btn-menu">☰</button>
     </div>
@@ -193,6 +198,9 @@
   <div class="rotate-phone">📱</div>
   <div class="rotate-title">가로로 돌려주세요</div>
   <div class="rotate-sub">마몽어스는 가로 화면에 맞춰져 있습니다.<br>폰을 눕히면 바로 시작됩니다.</div>
+  <!-- 회전 안내가 화면을 덮고 있으면 뒤의 전체화면 버튼을 누를 수 없다.
+       여기에도 두어, 한 번 누르면 전체화면 + 가로 고정이 같이 걸리게 한다. -->
+  <button id="btn-fs-gate" class="btn primary hidden" style="margin-top:6px">⛶ 눌러서 가로 전체화면으로</button>
   <div class="rotate-hint" id="rotate-hint"></div>
 </div>
 
