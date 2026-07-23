@@ -258,8 +258,18 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .mg-wire{position:relative;display:flex;justify-content:space-between;width:100%;height:250px;padding:0 6px;touch-action:none}
 .mg-wire-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .mg-wire-col{display:flex;flex-direction:column;justify-content:space-around;z-index:2}
-.mg-node{width:52px;height:32px;border-radius:8px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.35);border:2px solid rgba(0,0,0,.4)}
+.mg-node{width:52px;height:32px;border-radius:8px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.35);border:2px solid rgba(0,0,0,.4);position:relative}
+/* 애자 목 — 기둥에 물려 있는 것처럼 보이게 */
+.mg-node::after{content:'';position:absolute;top:50%;width:14px;height:7px;margin-top:-3.5px;
+  background:#5a3f24;border-radius:3px}
+.mg-node:not(.r)::after{left:-14px}
+.mg-node.r::after{right:-14px}
 .mg-node.done{outline:2.5px solid #fff}
+/* 양쪽 울타리 기둥 */
+.mg-post{position:absolute;top:-4px;bottom:-4px;width:22px;border-radius:5px;
+  background:linear-gradient(90deg,#4e3319,#8a6134 45%,#5c3d1e);
+  box-shadow:inset 0 0 0 2px #3b2410, 0 3px 10px rgba(0,0,0,.45)}
+.mg-post.l{left:2px}.mg-post.r{right:2px}
 
 .mg-card-box{width:100%;display:flex;flex-direction:column;gap:14px;align-items:center}
 .mg-card-slot{width:100%;height:110px;background:#1c140d;border:2px solid #4b3623;border-radius:14px;position:relative;
@@ -285,9 +295,18 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .mg-gauge-fill{width:100%;background:linear-gradient(180deg,#ffd23d,#e08a20);height:0%;transition:height .05s}
 .mg-gauge-tick{position:absolute;left:0;right:0;height:1.5px;background:rgba(255,255,255,.2)}
 
-.mg-keypad{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;max-width:330px}
-.mg-key{width:62px;height:56px;border-radius:12px;background:#3c2c1d;border:2px solid #6d4e30;font-weight:900;font-size:19px}
-.mg-key.ok{background:#1e5a34;border-color:#3ddc84;color:#8ef0b5}
+.mg-keypad{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;max-width:330px;
+  padding:12px;border-radius:14px;background:linear-gradient(180deg,#5c3d1e,#3d2812);
+  box-shadow:inset 0 0 0 2px #2b1a0a}
+.mg-key{width:62px;height:56px;border-radius:10px;font-weight:900;font-size:19px;color:#efe6d4;
+  background:linear-gradient(180deg,#9a958c,#5f5a52);border:2px solid #37332d;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.28), 0 3px 0 #2b2822}
+.mg-key:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,.2)}
+.mg-key.ok{background:linear-gradient(180deg,#4fbf78,#1e7a45);border-color:#1a5c34;color:#eaffef;box-shadow:none}
+/* 자물쇠 — 다 맞히면 열린다 */
+.mg-lock{font-size:44px;line-height:1;margin:0 auto 6px;align-self:center;text-align:center;transition:.2s;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
+.mg-lock.open{transform:rotate(-14deg) scale(1.12)}
+.mg-lock.shake{animation:sh .38s}
 
 .mg-align{display:flex;justify-content:center;width:100%}
 .mg-align-lane{width:96px;height:250px;background:#1c140d;border:2px solid #4b3623;border-radius:12px;position:relative;touch-action:none}
@@ -309,9 +328,17 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--dim);font-weight:800;border-left:2px dashed #6d4e30}
 
 .mg-divert{display:flex;gap:13px;justify-content:center}
-.mg-switch{width:44px;height:96px;background:#1c140d;border:2px solid #4b3623;border-radius:10px;position:relative;padding:4px}
-.mg-switch-knob{position:absolute;left:4px;right:4px;bottom:4px;height:42px;border-radius:7px;background:linear-gradient(180deg,#8d7658,#4b3623);transition:.16s}
-.mg-switch.up .mg-switch-knob{bottom:calc(100% - 46px);background:linear-gradient(180deg,#3ddc84,#1e7a45)}
+/* 수문 손잡이 — 나무 기둥에 물린 놋쇠 손잡이 */
+.mg-switch{width:44px;height:96px;border-radius:8px;position:relative;padding:4px;
+  background:linear-gradient(90deg,#4e3319,#7d5730 45%,#553920);
+  box-shadow:inset 0 0 0 2px #33200e, 0 3px 8px rgba(0,0,0,.4)}
+.mg-switch-slot{position:absolute;left:50%;top:8px;bottom:8px;width:8px;margin-left:-4px;
+  border-radius:4px;background:#241505;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+.mg-switch-knob{position:absolute;left:3px;right:3px;bottom:4px;height:38px;border-radius:6px;
+  background:linear-gradient(180deg,#d6b26a,#8a6a2c);border:2px solid #4a3610;transition:.16s;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3)}
+.mg-switch.up .mg-switch-knob{bottom:calc(100% - 42px);
+  background:linear-gradient(180deg,#5fe09a,#1e7a45);border-color:#14512c}
 
 .mg-calib{display:flex;gap:16px;justify-content:center}
 .mg-dial{width:88px;height:88px;border-radius:50%;background:#1c140d;border:3px solid #4b3623;position:relative}
@@ -321,16 +348,28 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .mg-dial.ok{border-color:var(--good);box-shadow:0 0 14px rgba(61,220,132,.4)}
 
 .mg-temp{display:flex;flex-direction:column;align-items:center;gap:11px;width:100%}
-.mg-temp-bar{width:70px;height:170px;background:#1c140d;border:2px solid #4b3623;border-radius:35px;position:relative;display:flex;align-items:flex-end;overflow:hidden}
-.mg-temp-fill{width:100%;background:linear-gradient(180deg,#ff6b4a,#4aa8e8)}
-.mg-temp-target{position:absolute;left:-6px;right:-6px;height:3px;background:var(--warn);box-shadow:0 0 8px var(--warn)}
+/* 온실 온도계 — 나무 판에 붙은 유리관 + 아래 구슬 */
+.mg-temp-stand{position:relative;padding:10px 16px 26px;border-radius:14px;
+  background:linear-gradient(180deg,#7d5730,#4e3319);box-shadow:inset 0 0 0 2px #33200e}
+.mg-temp-bar{width:34px;height:170px;background:#efeae0;border:2px solid #b9b0a0;border-radius:17px;
+  position:relative;display:flex;align-items:flex-end;overflow:hidden;
+  box-shadow:inset -4px 0 6px rgba(0,0,0,.14), inset 4px 0 6px rgba(255,255,255,.5)}
+.mg-temp-fill{width:100%;background:linear-gradient(180deg,#e0483f,#a8221c)}
+.mg-temp-bulb{position:absolute;left:50%;bottom:6px;width:34px;height:34px;margin-left:-17px;
+  border-radius:50%;background:radial-gradient(circle at 34% 30%,#f0645a,#a8221c);
+  border:2px solid #b9b0a0}
+.mg-temp-target{position:absolute;left:-9px;right:-9px;height:3px;background:var(--warn);box-shadow:0 0 8px var(--warn);z-index:2}
 .mg-temp-read{font-size:23px;font-weight:900;font-variant-numeric:tabular-nums}
 .mg-temp-read.good{color:var(--good)}
 .mg-temp-ctl{display:flex;gap:12px}
 .mg-rbtn{padding:15px 26px;border-radius:14px;background:#3c2c1d;border:2px solid #6d4e30;font-weight:800}
 
 .mg-mem{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:320px}
-.mg-mem-card{aspect-ratio:.85;border-radius:11px;background:#3c2c1d;border:2px solid #6d4e30;display:flex;align-items:center;justify-content:center;font-size:25px}
+.mg-mem-card{aspect-ratio:.85;border-radius:11px;border:2px solid #6d4e30;display:flex;
+  align-items:center;justify-content:center;font-size:25px;transition:transform .14s;
+  background:repeating-linear-gradient(180deg,#4a3320 0 7px,#3f2b1a 7px 14px)}
+.mg-mem-card:active{transform:scale(.95)}
+.mg-mem-card.open,.mg-mem-card.done{background:#efe6d2}
 .mg-mem-card span{opacity:0;transition:.14s}
 .mg-mem-card.open span,.mg-mem-card.done span{opacity:1}
 .mg-mem-card.done{background:#1e5a34;border-color:#3ddc84}
@@ -353,6 +392,17 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .mg-scan-info{display:flex;gap:16px;font-size:12.5px;color:var(--dim);font-weight:700}
 
 .mg-dl{width:100%;display:flex;flex-direction:column;gap:12px;align-items:center}
+/* 주문서 투입구 — 종이가 실제로 밀려 나온다 */
+.mg-paper-slot{position:relative;width:150px;height:112px;overflow:hidden;border-radius:10px;
+  background:linear-gradient(180deg,#4e3319,#3a2612);box-shadow:inset 0 0 0 2px #2b1a0a}
+.mg-paper{position:absolute;left:14px;right:14px;top:12px;bottom:12px;border-radius:4px;
+  background:#f4efe2;box-shadow:0 2px 6px rgba(0,0,0,.4);padding:9px 10px;
+  display:flex;flex-direction:column;gap:6px;transform:translateY(135%);transition:transform .1s linear}
+.mg-paper-slot.up .mg-paper{transform:translateY(0)}
+.mg-paper-line{height:5px;border-radius:3px;background:#c3b79c}
+.mg-paper-line.hd{height:8px;width:62%;background:#8a6134}
+.mg-paper-mouth{position:absolute;left:0;right:0;top:50%;height:9px;margin-top:-4px;
+  background:#1e1206;box-shadow:0 2px 5px rgba(0,0,0,.6)}
 .mg-dl-label{font-weight:800}
 .mg-bar{width:100%;height:24px;background:#1c140d;border:2px solid #4b3623;border-radius:12px;overflow:hidden}
 .mg-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#3ddc84,#ffd23d)}
@@ -1966,11 +2016,12 @@ const MiniGames = {
 
 /* ─── 1. 전선 잇기 ────────────────────────────────────────────────────────*/
 wiring: {
-  title: '전선을 색깔에 맞춰 연결하세요',
+  title: '울타리 전선을 색깔에 맞춰 이으세요',
   build(root, opt, done) {
     const cols = ['#e64b4b', '#ffd23d', '#3a6fe0', '#e8ecf5'];
     const left = pickN([0,1,2,3], 4), right = pickN([0,1,2,3], 4);
     const wrap = h('div', { cls:'mg-wire' });
+    wrap.append(h('div', { cls:'mg-post l' }), h('div', { cls:'mg-post r' }));   // 양쪽 울타리 기둥
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'mg-wire-svg');
     const colL = h('div', { cls:'mg-wire-col' }), colR = h('div', { cls:'mg-wire-col' });
@@ -2205,10 +2256,15 @@ download: {
   build(root, opt, done) {
     const box = h('div', { cls:'mg-dl' });
     const label = h('div', { cls:'mg-dl-label' }, opt.up ? '주문서 보내는 중' : '주문서 받는 중');
+    // 진행 막대만 있으면 뭘 기다리는지 알 수 없다. 종이가 실제로 밀려 나오게 한다.
+    const slot = h('div', { cls:'mg-paper-slot' + (opt.up ? ' up' : '') });
+    const paper = h('div', { cls:'mg-paper' });
+    for (let i = 0; i < 5; i++) paper.appendChild(h('div', { cls:'mg-paper-line' + (i === 0 ? ' hd' : '') }));
+    slot.append(paper, h('div', { cls:'mg-paper-mouth' }));
     const bar = h('div', { cls:'mg-bar' }); const fill = h('div', { cls:'mg-bar-fill' }); bar.appendChild(fill);
     const pct = h('div', { cls:'mg-msg' }, '대기 중');
     const btn = h('button', { cls:'mg-bigbtn' }, opt.up ? '⬆ 보내기 시작' : '⬇ 받기 시작');
-    box.append(label, bar, pct, btn); root.appendChild(box);
+    box.append(label, slot, bar, pct, btn); root.appendChild(box);
     let raf, running = false, p = 0;
     btn.addEventListener('click', () => {
       if (running) return; running = true; btn.disabled = true; btn.textContent = '전송 중…';
@@ -2216,6 +2272,7 @@ download: {
       (function loop() {
         p = Math.min(1, (performance.now() - t0) / 6200);
         fill.style.width = (p * 100) + '%'; pct.textContent = Math.floor(p * 100) + '%';
+        paper.style.transform = `translateY(${(opt.up ? p : 1 - p) * 135}%)`;
         if (p >= 1) { Sfx.taskStep(); return done(); }
         raf = requestAnimationFrame(loop);
       })();
@@ -2226,8 +2283,9 @@ download: {
 
 /* ─── 7. 키패드 (순서대로) ───────────────────────────────────────────────*/
 keypad: {
-  title: '1부터 10까지 순서대로 누르세요',
+  title: '자물쇠 번호를 1부터 순서대로 누르세요',
   build(root, opt, done) {
+    const lock = h('div', { cls:'mg-lock' }, '🔒');
     const grid = h('div', { cls:'mg-keypad' });
     const order = pickN([...Array(10).keys()], 10);
     const cells = Array.from({ length: 10 }, (_, i) => h('button', { cls:'mg-key' }, String(order.indexOf(i) + 1)));
@@ -2235,14 +2293,15 @@ keypad: {
     pickN([...Array(10).keys()], 10).forEach((slot, i) => { cells[i].style.order = slot; });
     cells.forEach(c => grid.appendChild(c));
     const msg = h('div', { cls:'mg-msg' }, '다음: 1');
-    root.append(grid, msg);
+    root.append(lock, grid, msg);
     let next = 1;
     cells.forEach(c => c.addEventListener('click', () => {
       const v = +c.textContent;
       if (v === next) { c.classList.add('ok'); c.disabled = true; next++; Sfx.taskStep();
-        msg.textContent = next > 10 ? '완료' : '다음: ' + next;
-        if (next > 10) setTimeout(done, 300);
+        msg.textContent = next > 10 ? '열렸습니다' : '다음: ' + next;
+        if (next > 10) { lock.textContent = '🔓'; lock.classList.add('open'); setTimeout(done, 420); }
       } else { Sfx.tone(200, .16, 'square', 0, 140, .4); next = 1; msg.textContent = '틀렸습니다! 다음: 1';
+        lock.classList.add('shake'); setTimeout(() => lock.classList.remove('shake'), 380);
         cells.forEach(x => { x.classList.remove('ok'); x.disabled = false; }); grid.classList.add('shake'); setTimeout(() => grid.classList.remove('shake'), 380); }
     }));
   },
@@ -2340,12 +2399,14 @@ leaves: {
 
 /* ─── 11. 전력 분배 ──────────────────────────────────────────────────────*/
 divert: {
-  title: '모든 스위치를 위로 올리세요',
+  title: '수문 손잡이를 모두 올리세요',
   build(root, opt, done) {
     const box = h('div', { cls:'mg-divert' });
     const n = 6; const sw = [];
     for (let i = 0; i < n; i++) {
-      const s = h('div', { cls:'mg-switch' }); const k = h('div', { cls:'mg-switch-knob' }); s.appendChild(k);
+      const s = h('div', { cls:'mg-switch' });
+      const k = h('div', { cls:'mg-switch-knob' });
+      s.append(h('div', { cls:'mg-switch-slot' }), k);
       let up = Math.random() < 0.35; if (up) s.classList.add('up');
       s.addEventListener('click', () => { s.classList.toggle('up'); Sfx.click(); check(); });
       sw.push(s); box.appendChild(s);
@@ -2451,7 +2512,7 @@ calib: {
 
 /* ─── 14. 온도 조정 ──────────────────────────────────────────────────────*/
 temp: {
-  title: '목표 온도에 맞추세요',
+  title: '온실을 목표 온도에 맞추세요',
   build(root, opt, done) {
     const target = Math.round(rnd(-15, 60));
     const box = h('div', { cls:'mg-temp' });
@@ -2459,9 +2520,10 @@ temp: {
     const mark = h('div', { cls:'mg-temp-target' }); bar.append(fill, mark);
     const read = h('div', { cls:'mg-temp-read' }, '0.0 °C');
     const ctl = h('div', { cls:'mg-temp-ctl' });
-    const down = h('button', { cls:'mg-rbtn' }, '❄ 냉각'); const up = h('button', { cls:'mg-rbtn' }, '🔥 가열');
+    const down = h('button', { cls:'mg-rbtn' }, '🪟 창문 열기'); const up = h('button', { cls:'mg-rbtn' }, '🔥 화덕 지피기');
     ctl.append(down, up);
-    box.append(h('div', { cls:'mg-msg' }, `목표: ${target} °C (±1.5)`), bar, read, ctl); root.appendChild(box);
+    const stand = h('div', { cls:'mg-temp-stand' }, bar, h('div', { cls:'mg-temp-bulb' }));
+    box.append(h('div', { cls:'mg-msg' }, `목표: ${target} °C (±1.5)`), stand, read, ctl); root.appendChild(box);
     const T0 = -25, T1 = 75;
     mark.style.bottom = ((target - T0) / (T1 - T0) * 100) + '%';
     let v = rnd(-10, 50), dir = 0, hold = 0, raf;
@@ -2484,9 +2546,10 @@ temp: {
 
 /* ─── 15. 출입 기록 정리 (짝 맞추기) ─────────────────────────────────────*/
 records: {
-  title: '같은 기호끼리 짝을 맞추세요',
+  title: '같은 것끼리 짝을 맞추세요',
   build(root, opt, done) {
-    const syms = ['◆','●','▲','★','✚','◼'];
+    // 도형(◆●▲) 대신 목장 식구들. 멀리서도 한눈에 구분된다.
+    const syms = ['🐑','🐄','🐔','🚜','🌾','🥚'];
     const deck = pickN([...syms, ...syms], 12);
     const grid = h('div', { cls:'mg-mem' });
     let open = [], locked = false, found = 0;

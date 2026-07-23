@@ -38,11 +38,12 @@ const MiniGames = {
 
 /* ─── 1. 전선 잇기 ────────────────────────────────────────────────────────*/
 wiring: {
-  title: '전선을 색깔에 맞춰 연결하세요',
+  title: '울타리 전선을 색깔에 맞춰 이으세요',
   build(root, opt, done) {
     const cols = ['#e64b4b', '#ffd23d', '#3a6fe0', '#e8ecf5'];
     const left = pickN([0,1,2,3], 4), right = pickN([0,1,2,3], 4);
     const wrap = h('div', { cls:'mg-wire' });
+    wrap.append(h('div', { cls:'mg-post l' }), h('div', { cls:'mg-post r' }));   // 양쪽 울타리 기둥
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'mg-wire-svg');
     const colL = h('div', { cls:'mg-wire-col' }), colR = h('div', { cls:'mg-wire-col' });
@@ -277,10 +278,15 @@ download: {
   build(root, opt, done) {
     const box = h('div', { cls:'mg-dl' });
     const label = h('div', { cls:'mg-dl-label' }, opt.up ? '주문서 보내는 중' : '주문서 받는 중');
+    // 진행 막대만 있으면 뭘 기다리는지 알 수 없다. 종이가 실제로 밀려 나오게 한다.
+    const slot = h('div', { cls:'mg-paper-slot' + (opt.up ? ' up' : '') });
+    const paper = h('div', { cls:'mg-paper' });
+    for (let i = 0; i < 5; i++) paper.appendChild(h('div', { cls:'mg-paper-line' + (i === 0 ? ' hd' : '') }));
+    slot.append(paper, h('div', { cls:'mg-paper-mouth' }));
     const bar = h('div', { cls:'mg-bar' }); const fill = h('div', { cls:'mg-bar-fill' }); bar.appendChild(fill);
     const pct = h('div', { cls:'mg-msg' }, '대기 중');
     const btn = h('button', { cls:'mg-bigbtn' }, opt.up ? '⬆ 보내기 시작' : '⬇ 받기 시작');
-    box.append(label, bar, pct, btn); root.appendChild(box);
+    box.append(label, slot, bar, pct, btn); root.appendChild(box);
     let raf, running = false, p = 0;
     btn.addEventListener('click', () => {
       if (running) return; running = true; btn.disabled = true; btn.textContent = '전송 중…';
@@ -288,6 +294,7 @@ download: {
       (function loop() {
         p = Math.min(1, (performance.now() - t0) / 6200);
         fill.style.width = (p * 100) + '%'; pct.textContent = Math.floor(p * 100) + '%';
+        paper.style.transform = `translateY(${(opt.up ? p : 1 - p) * 135}%)`;
         if (p >= 1) { Sfx.taskStep(); return done(); }
         raf = requestAnimationFrame(loop);
       })();
@@ -298,8 +305,9 @@ download: {
 
 /* ─── 7. 키패드 (순서대로) ───────────────────────────────────────────────*/
 keypad: {
-  title: '1부터 10까지 순서대로 누르세요',
+  title: '자물쇠 번호를 1부터 순서대로 누르세요',
   build(root, opt, done) {
+    const lock = h('div', { cls:'mg-lock' }, '🔒');
     const grid = h('div', { cls:'mg-keypad' });
     const order = pickN([...Array(10).keys()], 10);
     const cells = Array.from({ length: 10 }, (_, i) => h('button', { cls:'mg-key' }, String(order.indexOf(i) + 1)));
@@ -307,14 +315,15 @@ keypad: {
     pickN([...Array(10).keys()], 10).forEach((slot, i) => { cells[i].style.order = slot; });
     cells.forEach(c => grid.appendChild(c));
     const msg = h('div', { cls:'mg-msg' }, '다음: 1');
-    root.append(grid, msg);
+    root.append(lock, grid, msg);
     let next = 1;
     cells.forEach(c => c.addEventListener('click', () => {
       const v = +c.textContent;
       if (v === next) { c.classList.add('ok'); c.disabled = true; next++; Sfx.taskStep();
-        msg.textContent = next > 10 ? '완료' : '다음: ' + next;
-        if (next > 10) setTimeout(done, 300);
+        msg.textContent = next > 10 ? '열렸습니다' : '다음: ' + next;
+        if (next > 10) { lock.textContent = '🔓'; lock.classList.add('open'); setTimeout(done, 420); }
       } else { Sfx.tone(200, .16, 'square', 0, 140, .4); next = 1; msg.textContent = '틀렸습니다! 다음: 1';
+        lock.classList.add('shake'); setTimeout(() => lock.classList.remove('shake'), 380);
         cells.forEach(x => { x.classList.remove('ok'); x.disabled = false; }); grid.classList.add('shake'); setTimeout(() => grid.classList.remove('shake'), 380); }
     }));
   },
@@ -412,12 +421,14 @@ leaves: {
 
 /* ─── 11. 전력 분배 ──────────────────────────────────────────────────────*/
 divert: {
-  title: '모든 스위치를 위로 올리세요',
+  title: '수문 손잡이를 모두 올리세요',
   build(root, opt, done) {
     const box = h('div', { cls:'mg-divert' });
     const n = 6; const sw = [];
     for (let i = 0; i < n; i++) {
-      const s = h('div', { cls:'mg-switch' }); const k = h('div', { cls:'mg-switch-knob' }); s.appendChild(k);
+      const s = h('div', { cls:'mg-switch' });
+      const k = h('div', { cls:'mg-switch-knob' });
+      s.append(h('div', { cls:'mg-switch-slot' }), k);
       let up = Math.random() < 0.35; if (up) s.classList.add('up');
       s.addEventListener('click', () => { s.classList.toggle('up'); Sfx.click(); check(); });
       sw.push(s); box.appendChild(s);
@@ -523,7 +534,7 @@ calib: {
 
 /* ─── 14. 온도 조정 ──────────────────────────────────────────────────────*/
 temp: {
-  title: '목표 온도에 맞추세요',
+  title: '온실을 목표 온도에 맞추세요',
   build(root, opt, done) {
     const target = Math.round(rnd(-15, 60));
     const box = h('div', { cls:'mg-temp' });
@@ -531,9 +542,10 @@ temp: {
     const mark = h('div', { cls:'mg-temp-target' }); bar.append(fill, mark);
     const read = h('div', { cls:'mg-temp-read' }, '0.0 °C');
     const ctl = h('div', { cls:'mg-temp-ctl' });
-    const down = h('button', { cls:'mg-rbtn' }, '❄ 냉각'); const up = h('button', { cls:'mg-rbtn' }, '🔥 가열');
+    const down = h('button', { cls:'mg-rbtn' }, '🪟 창문 열기'); const up = h('button', { cls:'mg-rbtn' }, '🔥 화덕 지피기');
     ctl.append(down, up);
-    box.append(h('div', { cls:'mg-msg' }, `목표: ${target} °C (±1.5)`), bar, read, ctl); root.appendChild(box);
+    const stand = h('div', { cls:'mg-temp-stand' }, bar, h('div', { cls:'mg-temp-bulb' }));
+    box.append(h('div', { cls:'mg-msg' }, `목표: ${target} °C (±1.5)`), stand, read, ctl); root.appendChild(box);
     const T0 = -25, T1 = 75;
     mark.style.bottom = ((target - T0) / (T1 - T0) * 100) + '%';
     let v = rnd(-10, 50), dir = 0, hold = 0, raf;
@@ -556,9 +568,10 @@ temp: {
 
 /* ─── 15. 출입 기록 정리 (짝 맞추기) ─────────────────────────────────────*/
 records: {
-  title: '같은 기호끼리 짝을 맞추세요',
+  title: '같은 것끼리 짝을 맞추세요',
   build(root, opt, done) {
-    const syms = ['◆','●','▲','★','✚','◼'];
+    // 도형(◆●▲) 대신 목장 식구들. 멀리서도 한눈에 구분된다.
+    const syms = ['🐑','🐄','🐔','🚜','🌾','🥚'];
     const deck = pickN([...syms, ...syms], 12);
     const grid = h('div', { cls:'mg-mem' });
     let open = [], locked = false, found = 0;
