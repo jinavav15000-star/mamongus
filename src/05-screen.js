@@ -104,10 +104,33 @@ const Viewport = {
     this.syncButtons();
   },
 
+  /** 카톡 인앱에서 현재 주소를 기본 브라우저로 넘긴다.
+   *  kakaotalk://web/openExternal 은 카카오가 제공하는 공식 스킴이라
+   *  안드로이드·아이폰 모두 한 번 탭으로 크롬/사파리가 열린다. */
+  openExternal() {
+    const url = location.href;
+    if (this.isKakao) {
+      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+      return true;
+    }
+    if (this.isAndroid) {          // 카톡 외 인앱(라인·인스타 등) — 안드로이드 인텐트로 크롬 지정
+      location.href = 'intent://' + url.replace(/^https?:\/\//, '')
+        + '#Intent;scheme=https;package=com.android.chrome;end';
+      return true;
+    }
+    return false;                   // iOS 타 인앱은 스킴이 없다 — 주소 복사로 안내
+  },
+
   /** 사용자가 전체화면 버튼을 직접 누른 경우.
    *  자동 진입과 달리 "왜 안 됐는지"를 반드시 알려 준다.
    *  아무 반응 없이 실패하면 사용자는 버튼이 고장 났다고 생각한다. */
   async pressFullscreen() {
+    // 인앱 브라우저는 전체화면이 원천 차단 — 시도 대신 밖으로 내보내는 게 답이다
+    if (this.isInApp) {
+      if (!this.openExternal())
+        UI.toast('이 앱 안에서는 전체화면이 안 됩니다.<br><b>주소를 복사</b>해 Safari/Chrome 에 붙여넣어 주세요.', 7000);
+      return;
+    }
     if (this.isIPhone && !this.standalone) { UI.openIOSHint(); return; }
     if (this.inFullscreen) { await this.exit(); return; }
     if (!this.fsSupported) {

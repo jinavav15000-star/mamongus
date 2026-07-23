@@ -645,20 +645,15 @@ const UI = {
 지금 <b>${isKakao ? '카카오톡 안의 브라우저' : '앱 안의 브라우저'}</b>로 열려 있습니다.
 여기서는 <b>전체화면과 가로 고정이 막혀 있어</b> 화면이 좁고 조작이 불편합니다.
 </div>
-<div style="margin-top:14px;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:12px">
-  <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">밖으로 여는 법</div>
-  <div style="font-size:13px;line-height:1.7;color:var(--dim)">
-  ${isKakao
-    ? '오른쪽 아래 <b style="color:var(--txt)">⋮</b> (또는 우측 상단) → <b style="color:var(--txt)">다른 브라우저로 열기</b><br>아이폰이면 <b style="color:var(--txt)">Safari로 열기</b>'
-    : '브라우저 메뉴에서 <b style="color:var(--txt)">기본 브라우저로 열기</b>'}
-  </div>
-</div>
-<div class="tiny dim" style="margin-top:12px;line-height:1.6">
-그냥 여기서 하셔도 게임은 정상 작동합니다. 화면만 조금 좁습니다.
+<div class="tiny dim" style="margin-top:10px;line-height:1.6">
+아래 버튼을 누르면 ${isKakao ? '카카오톡이 크롬/사파리로 게임을 넘겨줍니다' : '기본 브라우저로 열립니다'}.<br>
+방 코드는 그대로라 이어서 참가됩니다.
 </div>`;
-    const copy = h('button', { cls:'btn grow', onclick: () => { Game.copyLink(); } }, '🔗 주소 복사');
-    const ok = h('button', { cls:'btn primary grow', onclick: () => { Viewport.dismissInAppHint(); UI.closeModal(); } }, '이대로 할게요');
-    this.modal({ title:'🌐 더 넓게 즐기려면', body: root, footer:[copy, ok], onClose: () => Viewport.dismissInAppHint() });
+    const open_ = h('button', { cls:'btn primary grow', onclick: () => {
+      if (!Viewport.openExternal()) { Game.copyLink(); UI.toast('주소를 복사했습니다. Safari/Chrome 에 붙여넣어 주세요.', 6000); }
+    } }, '🚀 밖의 브라우저로 열기');
+    const ok = h('button', { cls:'btn ghost grow', onclick: () => { Viewport.dismissInAppHint(); UI.closeModal(); } }, '그냥 여기서 할게요');
+    this.modal({ title:'🌐 더 넓게 즐기려면', body: root, footer:[open_, ok], onClose: () => Viewport.dismissInAppHint() });
   },
 
   openHowTo() {
