@@ -90,7 +90,7 @@ const ROLES = {
   tracker: {
     name:'추적자', faction:F.GOOSE, icon:'📡', tier:2, ability:'track', cd:40,
     desc:'플레이어 1명을 지목하면 15초간 그 사람의 방향이 화살표로 표시됩니다.',
-    tip:'"지금 빨강 전기실에 있어" 같은 확인 가능한 정보는 회의에서 가장 강력합니다.',
+    tip:'"지금 빨강 발전기실에 있어" 같은 확인 가능한 정보는 회의에서 가장 강력합니다.',
   },
   bodyguard: {
     name:'경호원', faction:F.GOOSE, icon:'🛡️', tier:2, ability:'guard', uses:1,
@@ -119,12 +119,12 @@ const ROLES = {
     name:'저격수', faction:F.DUCK, icon:'🎯', tier:2, canKill:true, canVent:true, fakeTasks:true,
     killRangeMul:3.2, cdMul:1.5,
     desc:'멀리서 살해할 수 있습니다. 대신 킬 쿨다운이 깁니다.',
-    tip:'복도 끝에서 저격하면 목격당할 확률이 크게 줄어듭니다.',
+    tip:'오솔길 끝에서 노리면 목격당할 확률이 크게 줄어듭니다.',
   },
   morphling: {
     name:'변신술사', faction:F.DUCK, icon:'🎭', tier:2, canKill:true, canVent:true, fakeTasks:true,
     ability:'morph', cd:25,
-    desc:'플레이어의 샘플을 채취해 15초간 그 사람의 모습으로 변신합니다.',
+    desc:'다른 양의 털을 얻어 15초간 그 사람의 모습으로 변신합니다.',
     tip:'변신한 채로 목격당하면 무고한 양이 처형됩니다.',
   },
   undertaker: {

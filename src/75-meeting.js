@@ -19,7 +19,7 @@ const Trail = {
 
   track(me, visibleOthers) {
     const room = roomNameAt(me.x, me.y);
-    if (room !== '복도' && room !== this.lastRoom) {
+    if (room !== '오솔길' && room !== this.lastRoom) {
       this.lastRoom = room;
       this.log.push({ t: this.sec(), room });
       if (this.log.length > 40) this.log.shift();
@@ -268,7 +268,7 @@ const Meeting = {
         });
       } else {
         ROOMS.forEach(r => el.appendChild(h('button', { onclick: () => this.fill('r', r.name) }, r.name)));
-        el.appendChild(h('button', { onclick: () => this.fill('r', '복도') }, '복도'));
+        el.appendChild(h('button', { onclick: () => this.fill('r', '오솔길') }, '오솔길'));
       }
       return;
     }

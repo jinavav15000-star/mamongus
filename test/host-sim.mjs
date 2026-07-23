@@ -103,7 +103,7 @@ section('맵 · 충돌 · 시야');
   // 벽 안으로 못 들어감
   const r = A.moveWithCollision(A.EMERGENCY_BTN.wx, A.EMERGENCY_BTN.wy, 0, -9999);
   ok('벽을 통과하지 못함', A.walkablePx(r.x, r.y));
-  // 모든 방이 카페테리아에서 도달 가능한지 (BFS)
+  // 모든 방이 헛간 앞마당에서 도달 가능한지 (BFS)
   const reach = (() => {
     const T = 32, seen = new Set(), q = [[Math.floor(A.EMERGENCY_BTN.wx/T), Math.floor(A.EMERGENCY_BTN.wy/T)]];
     while (q.length) {
@@ -118,7 +118,7 @@ section('맵 · 충돌 · 시야');
     const cx = Math.floor(rm.x + rm.w/2), cy = Math.floor(rm.y + rm.h/2);
     return !reach.has(cx + ',' + cy);
   }).map(rm => rm.name);
-  ok('모든 방이 카페테리아에서 도달 가능', unreachable.length === 0, unreachable);
+  ok('모든 방이 헛간 앞마당에서 도달 가능', unreachable.length === 0, unreachable);
   const unreachableTask = A.TASK_SPOTS.filter(t => !reach.has(Math.floor(t.wx/32) + ',' + Math.floor(t.wy/32))).map(t => t.id);
   ok('모든 임무 지점 도달 가능', unreachableTask.length === 0, unreachableTask);
 }
@@ -388,7 +388,7 @@ section('사보타주');
 
   G.sabCdEnd = 0;
   Host.onSabotage(d.id, 'reactor');
-  ok('리액터 제한시간 설정됨', G.sabotage?.endsAt > Date.now());
+  ok('물레방아 제한시간 설정됨', G.sabotage?.endsAt > Date.now());
   Host.onSabFix(g.id, { kind:'reactor', idx:0, val:1 });
   ok('한쪽만 잡으면 복구 안 됨', G.sabotage !== null);
   Host.onSabFix(byName('초록').id, { kind:'reactor', idx:1, val:1 });
@@ -606,7 +606,7 @@ section('시야 컬링 (치트 방지)');
   put(far, 300, 1600);
   ok('먼 사람은 스냅샷에서 제외', !Host.visibleTo(me).some(p => p.id === far.id));
 
-  // 벽 너머 → 안 보인다 (카페테리아 좌상단 ↔ 의무실 복도, 사이에 카페테리아 왼쪽 벽)
+  // 벽 너머 → 안 보인다 (헛간 앞마당 좌상단 ↔ 동물병원 복도, 사이에 헛간 앞마당 왼쪽 벽)
   put(me,  49 * 32 + 16,  6 * 32 + 16);
   put(far, 45 * 32 + 16, 12 * 32 + 16);
   const d = Math.hypot(me.x - far.x, me.y - far.y);
@@ -644,17 +644,17 @@ section('시야 컬링 (치트 방지)');
   put(duckViewer, me.x, me.y);
   ok('오리 시야가 거위보다 넓다', G.settings.visionDuck > G.settings.visionCrew);
 
-  // 관리실 정보는 서버가 계산해 준다
+  // 사무실 정보는 서버가 계산해 준다
   sent.length = 0;
   Host.onReqInfo(me.id, 'admin');
   const info = sent.find(s => s.t === 'info');
-  ok('관리실은 방별 인원수만 응답 (누구인지는 없음)',
+  ok('사무실은 방별 인원수만 응답 (누구인지는 없음)',
      !!info && info.d.kind === 'admin' && typeof info.d.counts === 'object'
      && JSON.stringify(info.d).indexOf('"id"') === -1, info?.d);
   // 통신 두절 중에는 차단
   G.sabotage = { kind:'comms', endsAt:0, data:{ dials:[0,0] } };
   sent.length = 0; Host.onReqInfo(me.id, 'admin');
-  ok('통신 두절 시 관리실 차단', sent.find(s => s.t === 'info')?.d.blocked === true);
+  ok('방송 두절 시 사무실 차단', sent.find(s => s.t === 'info')?.d.blocked === true);
   G.sabotage = null;
 }
 

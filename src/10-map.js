@@ -7,47 +7,51 @@ const TILE = 32;
 const GW = 102, GH = 60;                 // grid width / height (tiles)
 const WORLD_W = GW * TILE, WORLD_H = GH * TILE;
 
-/* ---- 방 정의 (타일 좌표) --------------------------------------------------*/
+/* ---- 방 정의 (타일 좌표) --------------------------------------------------
+ * floor: 바닥 재질 (렌더러가 방마다 다른 질감으로 그린다)
+ *   plank 나무판자 · straw 짚·흙마당 · stone 돌바닥 · tile 병원타일
+ *   soil 온실흙 · grass 잔디 · dirt 맨흙 · concrete 시멘트
+ * 구조(위치·크기)는 검증된 값이라 그대로 두고 이름·재질만 목장으로 바꿨다. */
 const ROOMS = [
-  { id:'upeng',  name:'상부엔진', x: 6, y: 6, w:16, h:12 },
-  { id:'react',  name:'리액터',   x: 4, y:24, w:14, h:14 },
-  { id:'loweng', name:'하부엔진', x: 6, y:44, w:16, h:12 },
-  { id:'secur',  name:'보안실',   x:26, y:27, w:11, h: 9 },
-  { id:'medbay', name:'의무실',   x:28, y: 8, w:14, h:11 },
-  { id:'cafe',   name:'카페테리아',x:48, y: 4, w:22, h:16 },
-  { id:'weapon', name:'무기고',   x:76, y: 4, w:16, h:11 },
-  { id:'oxygen', name:'산소실',   x:74, y:20, w:11, h: 9 },
-  { id:'navig',  name:'조종실',   x:88, y:26, w:11, h:10 },
-  { id:'shield', name:'실드실',   x:74, y:42, w:13, h:11 },
-  { id:'comms',  name:'통신실',   x:56, y:44, w:13, h:10 },
-  { id:'store',  name:'창고',     x:36, y:40, w:16, h:15 },
-  { id:'elect',  name:'전기실',   x:22, y:41, w:12, h:11 },
-  { id:'admin',  name:'관리실',   x:54, y:25, w:13, h:10 },
+  { id:'upeng',  name:'북쪽 차고',  floor:'dirt',     x: 6, y: 6, w:16, h:12 },
+  { id:'react',  name:'물레방아',   floor:'stone',    x: 4, y:24, w:14, h:14 },
+  { id:'loweng', name:'남쪽 차고',  floor:'dirt',     x: 6, y:44, w:16, h:12 },
+  { id:'secur',  name:'감시초소',   floor:'plank',    x:26, y:27, w:11, h: 9 },
+  { id:'medbay', name:'동물병원',   floor:'tile',     x:28, y: 8, w:14, h:11 },
+  { id:'cafe',   name:'헛간 앞마당', floor:'straw',   x:48, y: 4, w:22, h:16 },
+  { id:'weapon', name:'농기구창고', floor:'plank',    x:76, y: 4, w:16, h:11 },
+  { id:'oxygen', name:'온실',       floor:'soil',     x:74, y:20, w:11, h: 9 },
+  { id:'navig',  name:'망루',       floor:'plank',    x:88, y:26, w:11, h:10 },
+  { id:'shield', name:'전기울타리', floor:'grass',    x:74, y:42, w:13, h:11 },
+  { id:'comms',  name:'방송실',     floor:'plank',    x:56, y:44, w:13, h:10 },
+  { id:'store',  name:'곡물창고',   floor:'plank',    x:36, y:40, w:16, h:15 },
+  { id:'elect',  name:'발전기실',   floor:'concrete', x:22, y:41, w:12, h:11 },
+  { id:'admin',  name:'사무실',     floor:'plank',    x:54, y:25, w:13, h:10 },
 ];
 
 /* ---- 복도 (겹쳐서 방을 연결) ---------------------------------------------*/
 const HALLS = [
-  { x:21, y:10, w: 8, h: 4 },   // 상부엔진 ─ 의무실
-  { x:41, y:11, w: 8, h: 4 },   // 의무실 ─ 카페테리아
-  { x:69, y: 7, w: 8, h: 4 },   // 카페테리아 ─ 무기고
-  { x:78, y:14, w: 4, h: 7 },   // 무기고 ─ 산소실
-  { x:83, y:22, w: 6, h: 4 },   // 산소실 ─ 조종실
-  { x:90, y:35, w: 4, h:10 },   // 조종실 ─ (남쪽)
-  { x:85, y:44, w: 7, h: 4 },   // (남쪽) ─ 실드실
-  { x:68, y:46, w: 7, h: 4 },   // 실드실 ─ 통신실
-  { x:51, y:46, w: 6, h: 4 },   // 통신실 ─ 창고
-  { x:33, y:45, w: 4, h: 4 },   // 창고 ─ 전기실
-  { x:50, y:19, w: 4, h: 5 },   // 카페테리아 ↓
+  { x:21, y:10, w: 8, h: 4 },   // 북쪽 차고 ─ 동물병원
+  { x:41, y:11, w: 8, h: 4 },   // 동물병원 ─ 헛간 앞마당
+  { x:69, y: 7, w: 8, h: 4 },   // 헛간 앞마당 ─ 농기구창고
+  { x:78, y:14, w: 4, h: 7 },   // 농기구창고 ─ 온실
+  { x:83, y:22, w: 6, h: 4 },   // 온실 ─ 망루
+  { x:90, y:35, w: 4, h:10 },   // 망루 ─ (남쪽)
+  { x:85, y:44, w: 7, h: 4 },   // (남쪽) ─ 전기울타리
+  { x:68, y:46, w: 7, h: 4 },   // 전기울타리 ─ 방송실
+  { x:51, y:46, w: 6, h: 4 },   // 방송실 ─ 곡물창고
+  { x:33, y:45, w: 4, h: 4 },   // 곡물창고 ─ 발전기실
+  { x:50, y:19, w: 4, h: 5 },   // 헛간 앞마당 ↓
   { x:42, y:21, w:12, h: 4 },   // ↳ 서쪽 통로
-  { x:42, y:24, w: 4, h:17 },   // 긴 세로 복도 ─ 창고
-  { x:45, y:30, w:10, h: 4 },   // 세로복도 ─ 관리실
-  { x:58, y:34, w: 4, h:11 },   // 관리실 ─ 통신실
-  { x:17, y:30, w:10, h: 4 },   // 리액터 ─ 보안실
-  { x:30, y:18, w: 4, h:10 },   // 의무실 ─ 보안실
-  { x:10, y:17, w: 4, h: 8 },   // 상부엔진 ─ 리액터
-  { x:10, y:37, w: 4, h: 8 },   // 리액터 ─ 하부엔진
-  { x:21, y:46, w: 4, h: 4 },   // 하부엔진 ─ 전기실
-  { x:29, y:35, w: 4, h: 7 },   // 보안실 ─ 전기실
+  { x:42, y:24, w: 4, h:17 },   // 긴 세로 길 ─ 곡물창고
+  { x:45, y:30, w:10, h: 4 },   // 세로길 ─ 사무실
+  { x:58, y:34, w: 4, h:11 },   // 사무실 ─ 방송실
+  { x:17, y:30, w:10, h: 4 },   // 물레방아 ─ 감시초소
+  { x:30, y:18, w: 4, h:10 },   // 동물병원 ─ 감시초소
+  { x:10, y:17, w: 4, h: 8 },   // 북쪽 차고 ─ 물레방아
+  { x:10, y:37, w: 4, h: 8 },   // 물레방아 ─ 남쪽 차고
+  { x:21, y:46, w: 4, h: 4 },   // 남쪽 차고 ─ 발전기실
+  { x:29, y:35, w: 4, h: 7 },   // 감시초소 ─ 발전기실
 ];
 
 /* ---- 그리드 래스터화 ------------------------------------------------------*/
@@ -72,12 +76,12 @@ const walkableTile = (tx, ty) =>
 
 const walkablePx = (px, py) => walkableTile((px / TILE) | 0, (py / TILE) | 0);
 
-/** 월드 좌표 → 방 이름 (복도면 '복도') */
+/** 월드 좌표 → 방 이름 (복도면 '오솔길') */
 function roomNameAt(px, py) {
   const tx = (px / TILE) | 0, ty = (py / TILE) | 0;
-  if (tx < 0 || ty < 0 || tx >= GW || ty >= GH) return '복도';
+  if (tx < 0 || ty < 0 || tx >= GW || ty >= GH) return '오솔길';
   const r = roomOf[gi(tx, ty)];
-  return r < 0 ? '복도' : ROOMS[r].name;
+  return r < 0 ? '오솔길' : ROOMS[r].name;
 }
 function roomIdAt(px, py) {
   const tx = (px / TILE) | 0, ty = (py / TILE) | 0;
@@ -208,37 +212,37 @@ const ventNeighbors = (id) => {
 /* ---- 임무 지점 ------------------------------------------------------------*/
 /* kind: 미니게임 ID / long: 장기임무(여러 단계) / vis: 시각임무 */
 const TASK_SPOTS = [
-  { id:'t_wire_e',  room:'elect',  x:26, y:43, kind:'wiring',   name:'배선 연결',      part:true },
-  { id:'t_wire_c',  room:'cafe',   x:51, y: 6, kind:'wiring',   name:'배선 연결',      part:true },
-  { id:'t_wire_n',  room:'navig',  x:90, y:28, kind:'wiring',   name:'배선 연결',      part:true },
-  { id:'t_wire_s',  room:'secur',  x:28, y:29, kind:'wiring',   name:'배선 연결',      part:true },
-  { id:'t_wire_a',  room:'admin',  x:56, y:27, kind:'wiring',   name:'배선 연결',      part:true },
+  { id:'t_wire_e',  room:'elect',  x:26, y:43, kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_c',  room:'cafe',   x:51, y: 6, kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_n',  room:'navig',  x:90, y:28, kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_s',  room:'secur',  x:28, y:29, kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_a',  room:'admin',  x:56, y:27, kind:'wiring',   name:'전선 잇기',      part:true },
 
-  { id:'t_card',    room:'admin',  x:64, y:32, kind:'card',     name:'카드 인식' },
-  { id:'t_swipe2',  room:'cafe',   x:67, y: 6, kind:'keypad',   name:'매니폴드 해제' },
-  { id:'t_gar_c',   room:'cafe',   x:49, y:18, kind:'garbage',  name:'쓰레기 배출',    chainNext:'t_gar_s' },
-  { id:'t_gar_s',   room:'store',  x:50, y:53, kind:'garbage',  name:'쓰레기 배출',    chainHidden:true },
-  { id:'t_fuel1',   room:'store',  x:38, y:42, kind:'fuel',     name:'연료 충전',      chainNext:'t_fuel2' },
-  { id:'t_fuel2',   room:'upeng',  x: 8, y: 8, kind:'fuel',     name:'연료 충전',      chainHidden:true, chainNext:'t_fuel3' },
-  { id:'t_fuel3',   room:'loweng', x: 8, y:54, kind:'fuel',     name:'연료 충전',      chainHidden:true },
-  { id:'t_align1',  room:'upeng',  x:20, y:16, kind:'align',    name:'엔진 정렬' },
-  { id:'t_align2',  room:'loweng', x:20, y:46, kind:'align',    name:'엔진 정렬' },
-  { id:'t_ast',     room:'weapon', x:80, y: 6, kind:'asteroid', name:'소행성 격추',    vis:true },
-  { id:'t_shield',  room:'shield', x:78, y:44, kind:'shields',  name:'실드 정비',      vis:true },
-  { id:'t_scan',    room:'medbay', x:31, y:11, kind:'scan',     name:'신체 스캔',      vis:true },
-  { id:'t_sample',  room:'medbay', x:38, y:10, kind:'sample',   name:'샘플 분석' },
-  { id:'t_dl',      room:'comms',  x:58, y:46, kind:'download', name:'데이터 다운로드', chainNext:'t_up' },
-  { id:'t_up',      room:'admin',  x:60, y:33, kind:'download', name:'데이터 업로드',  chainHidden:true, up:true },
-  { id:'t_leaf',    room:'oxygen', x:76, y:22, kind:'leaves',   name:'O2 필터 청소' },
+  { id:'t_card',    room:'admin',  x:64, y:32, kind:'card',     name:'출근 카드 찍기' },
+  { id:'t_swipe2',  room:'cafe',   x:67, y: 6, kind:'keypad',   name:'사료통 잠금해제' },
+  { id:'t_gar_c',   room:'cafe',   x:49, y:18, kind:'garbage',  name:'거름 치우기',    chainNext:'t_gar_s' },
+  { id:'t_gar_s',   room:'store',  x:50, y:53, kind:'garbage',  name:'거름 치우기',    chainHidden:true },
+  { id:'t_fuel1',   room:'store',  x:38, y:42, kind:'fuel',     name:'경유 채우기',    chainNext:'t_fuel2' },
+  { id:'t_fuel2',   room:'upeng',  x: 8, y: 8, kind:'fuel',     name:'경유 채우기',    chainHidden:true, chainNext:'t_fuel3' },
+  { id:'t_fuel3',   room:'loweng', x: 8, y:54, kind:'fuel',     name:'경유 채우기',    chainHidden:true },
+  { id:'t_align1',  room:'upeng',  x:20, y:16, kind:'align',    name:'트랙터 정비' },
+  { id:'t_align2',  room:'loweng', x:20, y:46, kind:'align',    name:'트랙터 정비' },
+  { id:'t_ast',     room:'weapon', x:80, y: 6, kind:'asteroid', name:'까마귀 쫓기',    vis:true },
+  { id:'t_shield',  room:'shield', x:78, y:44, kind:'shields',  name:'울타리 점검',    vis:true },
+  { id:'t_scan',    room:'medbay', x:31, y:11, kind:'scan',     name:'건강 검진',      vis:true },
+  { id:'t_sample',  room:'medbay', x:38, y:10, kind:'sample',   name:'우유 검사' },
+  { id:'t_dl',      room:'comms',  x:58, y:46, kind:'download', name:'주문서 받기',    chainNext:'t_up' },
+  { id:'t_up',      room:'admin',  x:60, y:33, kind:'download', name:'주문서 보내기',  chainHidden:true, up:true },
+  { id:'t_leaf',    room:'oxygen', x:76, y:22, kind:'leaves',   name:'여물통 청소' },
   { id:'t_div1',    room:'elect',  x:32, y:50, kind:'divert',   name:'전력 분배' },
-  { id:'t_div2',    room:'react',  x: 6, y:35, kind:'divert',   name:'전력 분배' },
-  { id:'t_chart',   room:'navig',  x:96, y:28, kind:'chart',    name:'항로 설정' },
-  { id:'t_cal',     room:'react',  x:15, y:26, kind:'calib',    name:'분배기 보정' },
+  { id:'t_div2',    room:'react',  x: 6, y:35, kind:'divert',   name:'물길 돌리기' },
+  { id:'t_chart',   room:'navig',  x:96, y:28, kind:'chart',    name:'양떼 몰기' },
+  { id:'t_cal',     room:'react',  x:15, y:26, kind:'calib',    name:'물레방아 보정' },
   { id:'t_temp1',   room:'loweng', x:18, y:53, kind:'temp',     name:'온도 조정' },
   { id:'t_temp2',   room:'oxygen', x:83, y:27, kind:'temp',     name:'온도 조정' },
-  { id:'t_secur',   room:'secur',  x:35, y:34, kind:'records',  name:'보안 기록 정리' },
-  { id:'t_shoot',   room:'weapon', x:90, y:13, kind:'keypad',   name:'무기고 잠금해제' },
-  { id:'t_store',   room:'store',  x:44, y:53, kind:'sort',     name:'화물 분류' },
+  { id:'t_secur',   room:'secur',  x:35, y:34, kind:'records',  name:'출입 기록 정리' },
+  { id:'t_shoot',   room:'weapon', x:90, y:13, kind:'keypad',   name:'창고 잠금해제' },
+  { id:'t_store',   room:'store',  x:44, y:53, kind:'sort',     name:'곡물 분류' },
 ].map(t => ({ ...t, wx: t.x * TILE + TILE / 2, wy: t.y * TILE + TILE / 2 }));
 
 /* ---- 사보타주 지점 --------------------------------------------------------*/
@@ -251,12 +255,12 @@ const SAB_SPOTS = {
 for (const k in SAB_SPOTS) SAB_SPOTS[k].forEach(s => { s.wx = s.x * TILE + TILE / 2; s.wy = s.y * TILE + TILE / 2; s.key = k; });
 
 /* ---- 특수 지점 ------------------------------------------------------------*/
-const EMERGENCY_BTN = { wx: 59 * TILE, wy: 12 * TILE };
-const ADMIN_TABLE   = { wx: 60 * TILE, wy: 29 * TILE };
-const VITALS_PANEL  = { wx: 33 * TILE + 16, wy: 51 * TILE };   // 전기실
-const CAMERA_PANEL  = { wx: 30 * TILE, wy: 33 * TILE };        // 보안실
+const EMERGENCY_BTN = { wx: 59 * TILE, wy: 12 * TILE };        // 헛간 종
+const ADMIN_TABLE   = { wx: 60 * TILE, wy: 29 * TILE };        // 사무실 목장 지도
+const VITALS_PANEL  = { wx: 33 * TILE + 16, wy: 51 * TILE };   // 발전기실
+const CAMERA_PANEL  = { wx: 30 * TILE, wy: 33 * TILE };        // 감시초소
 
-/* ---- 스폰 위치 (카페테리아 원형) -----------------------------------------*/
+/* ---- 스폰 위치 (헛간 앞마당 원형) ----------------------------------------*/
 function spawnPoints(n) {
   const cx = 59 * TILE, cy = 12 * TILE, rad = 130;
   return Array.from({ length: n }, (_, i) => {

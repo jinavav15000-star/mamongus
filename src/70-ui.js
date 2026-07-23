@@ -31,8 +31,8 @@ const SETTING_DEFS = [
   { k:'ghostTasks',  label:'유령도 임무 수행', bool:true },
   { g:'사보타주' },
   { k:'sabotageCd',  label:'사보타주 쿨다운',  min:10, max:60, step:5, unit:'초' },
-  { k:'reactorSec',  label:'리액터 제한시간',  min:20, max:90, step:5, unit:'초' },
-  { k:'oxygenSec',   label:'산소 제한시간',    min:20, max:90, step:5, unit:'초' },
+  { k:'reactorSec',  label:'물레방아 제한시간',  min:20, max:90, step:5, unit:'초' },
+  { k:'oxygenSec',   label:'물탱크 제한시간',    min:20, max:90, step:5, unit:'초' },
 ];
 
 const UI = {
@@ -260,7 +260,7 @@ const UI = {
     const badges = [];
     if (G.shielded) badges.push('🛡️ 방패 보호 중');
     if (G.infected) badges.push('🕊️ 감염됨');
-    if (G.mySample) badges.push(`🎭 샘플: ${G.players[G.mySample]?.name || '?'}`);
+    if (G.mySample) badges.push(`🎭 털: ${G.players[G.mySample]?.name || '?'}`);
     if (r.uses) badges.push(`남은 사용 횟수 ${G.abilityUses}`);
     if (badges.length) root.appendChild(h('div', { cls:'tiny', style:{ marginTop:'12px', color:'var(--acc)' } }, badges.join('  ·  ')));
 
@@ -324,6 +324,8 @@ const UI = {
       Sfx.taskDone();
       Game.completeStep(task.tid);
       this.closeModal();
+      // 모달을 닫고 나면 월드가 다시 보이므로, 끝낸 자리에서 반짝이게 한다
+      if (G.me) Render.sparkleAt(G.me.x, G.me.y, fake ? '#ff8ea1' : '#ffd23d');
     });
   },
 
@@ -332,7 +334,7 @@ const UI = {
     const cv = h('canvas', { style:{ width:'100%', height:'320px', borderRadius:'14px', display:'block' } });
     const info = h('div', { cls:'tiny dim', style:{ marginTop:'9px', textAlign:'center' } });
     const root = h('div', {}, cv, info);
-    const titles = { map:'🗺️ 지도', admin:'📊 관리실 — 방별 인원', cams:'📹 감시 카메라' };
+    const titles = { map:'🗺️ 지도', admin:'📊 사무실 — 곳별 인원', cams:'📹 감시 카메라' };
     const m = this.modal({ title: titles[mode], body: root });
     const commsDown = G.sabotage?.kind === 'comms';
     if (commsDown && mode !== 'map') { info.innerHTML = '<span style="color:var(--bad)">📡 통신이 끊겨 사용할 수 없습니다.</span>'; return; }
@@ -340,7 +342,7 @@ const UI = {
     if (mode === 'cams') info.innerHTML = '카메라 설치 구역: <b>' + CAM_ROOMS.map(id => ROOMS.find(r => r.id === id).name).join(' · ') + '</b><br>해당 방에 있는 사람이 실시간으로 보입니다.';
     if (mode === 'map') info.textContent = G.ghost ? '유령은 모든 위치를 볼 수 있습니다.' : '노란 점 = 내 임무 위치';
 
-    // 관리실·감시카메라는 '시야 밖' 정보다. 클라이언트가 원본을 갖고 있으면
+    // 사무실·감시초소는 '시야 밖' 정보다. 클라이언트가 원본을 갖고 있으면
     // 콘솔로 전원 위치를 볼 수 있으므로, 서버가 계산한 결과만 받아 쓴다.
     let iv = null;
     const needsServer = (mode === 'admin' || mode === 'cams');
@@ -410,9 +412,9 @@ const UI = {
     const grid = h('div', { cls:'sabgrid' });
     const items = [
       ['lights',  '💡', '정전',      '양들의 시야를 크게 줄입니다'],
-      ['comms',   '📡', '통신 두절', '임무 목록·지도·관리실을 막습니다'],
-      ['reactor', '☢️', '리액터',    '제한시간 내 2명이 동시에 눌러야 함'],
-      ['oxygen',  '🫁', '산소 고갈', '제한시간 내 2곳에 코드 입력'],
+      ['comms',   '📡', '방송 두절', '임무 목록·지도·사무실을 막습니다'],
+      ['reactor', '🌀', '물레방아 폭주', '제한시간 내 2명이 동시에 붙잡아야 함'],
+      ['oxygen',  '💧', '물탱크 누수', '제한시간 내 2곳에 잠금 코드 입력'],
     ];
     items.forEach(([k, ic, nm, ds]) => {
       const b = h('button', { cls:'sabbtn', onclick: () => { Game.sabotage(k); UI.closeModal(); } },
@@ -438,7 +440,7 @@ const UI = {
   openRepair(kind) {
     const S = G.sabotage; if (!S || S.kind !== kind) return;
     const root = h('div', { cls:'mg' });
-    const titles = { lights:'💡 전력 복구', comms:'📡 통신 복구', reactor:'☢️ 리액터 안정화', oxygen:'🫁 산소 코드 입력' };
+    const titles = { lights:'💡 전력 복구', comms:'📡 방송 복구', reactor:'🌀 물레방아 멈추기', oxygen:'💧 수문 코드 입력' };
 
     if (kind === 'lights') {
       root.appendChild(h('div', { cls:'mg-msg' }, '모든 스위치를 위로 올리세요'));
@@ -473,7 +475,7 @@ const UI = {
     }
     else if (kind === 'reactor') {
       const near = SAB_SPOTS.reactor.map((s, i) => ({ s, i })).filter(({ s }) => Math.hypot(G.me.x - s.wx, G.me.y - s.wy) < 120);
-      if (!near.length) { root.appendChild(h('div', { cls:'mg-msg bad' }, '리액터 손잡이 가까이 가세요')); }
+      if (!near.length) { root.appendChild(h('div', { cls:'mg-msg bad' }, '물레방아 손잡이 가까이 가세요')); }
       else {
         const idx = near[0].i;
         root.appendChild(h('div', { cls:'mg-msg' }, `${idx === 0 ? '왼쪽' : '오른쪽'} 손잡이를 잡았습니다.<br>다른 사람이 반대쪽을 동시에 잡아야 합니다.`));
@@ -491,7 +493,7 @@ const UI = {
     }
     else if (kind === 'oxygen') {
       const near = SAB_SPOTS.oxygen.map((s, i) => ({ s, i })).filter(({ s }) => Math.hypot(G.me.x - s.wx, G.me.y - s.wy) < 120);
-      if (!near.length) root.appendChild(h('div', { cls:'mg-msg bad' }, '산소실 또는 관리실 단말기로 가세요'));
+      if (!near.length) root.appendChild(h('div', { cls:'mg-msg bad' }, '온실 또는 사무실 잠금장치로 가세요'));
       else {
         const idx = near[0].i;
         const code = G.sabotage.data.code;
@@ -641,7 +643,7 @@ const UI = {
 <b>살해 / 벤트 / 방해</b> — 늑대 전용<br><br>
 
 <b>▸ 회의</b><br>
-시체를 신고하거나 카페테리아의 빨간 버튼을 누르면 회의가 열립니다.
+시체를 신고하거나 헛간 앞마당의 종을 울리면 회의가 열립니다.
 <b>토론</b> 시간에 대화하고, <b>투표</b> 시간에 지목합니다. 최다 득표자가 추방됩니다.<br><br>
 
 <b style="color:var(--warn)">▸ 음성 없이 잘하는 법 (중요)</b><br>

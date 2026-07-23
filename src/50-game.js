@@ -67,7 +67,7 @@ function makeTaskList(S, commonChosen) {
 
   let shortNeed = S.taskShort;
   if (shortNeed > 0) {                       // 배선은 항상 1개 (3부위)
-    list.push({ ...mk(pickN(WIRE_SPOTS, 3)), name: '배선 연결' });
+    list.push({ ...mk(pickN(WIRE_SPOTS, 3)), name: '전선 잇기' });
     shortNeed--;
   }
   pickN(SHORT_POOL, Math.min(shortNeed, SHORT_POOL.length)).forEach(c => list.push(mk(c)));
@@ -253,7 +253,7 @@ const Host = {
     }
   },
 
-  /** 관리실·감시카메라는 시야 밖 정보라 서버가 계산해 준다 (클라에 원본을 주지 않기 위함) */
+  /** 사무실·감시초소는 시야 밖 정보라 서버가 계산해 준다 (클라에 원본을 주지 않기 위함) */
   onReqInfo(id, kind) {
     const p = this.P[id]; if (!p) return;
     if (G.sabotage?.kind === 'comms') { Net.toPeer(p.peerId, 'info', { kind, blocked: true }); return; }
@@ -749,7 +749,7 @@ const Host = {
         if (m.sample) {
           if (!target || Math.hypot(p.x - target.x, p.y - target.y) > 130) return;
           p.sample = target.id; this.sendPrivate(id);
-          Net.toPeer(p.peerId, 'toast', { text: `🎭 ${target.name} 님의 샘플을 채취했습니다.` });
+          Net.toPeer(p.peerId, 'toast', { text: `🎭 ${target.name} 님의 털을 조금 얻었습니다.` });
         } else {
           if (!p.sample || now() < p.abilityCdEnd) return;
           p.morphTo = p.sample; p.morphEnd = now() + 15000;
@@ -945,7 +945,7 @@ const Host = {
       if (ch) this.pushState();
       // 치명적 사보타주 타임아웃
       if (G.sabotage?.endsAt && now() >= G.sabotage.endsAt) {
-        this.finish('duck', G.sabotage.kind === 'reactor' ? '리액터가 폭발했습니다' : '산소가 고갈됐습니다');
+        this.finish('duck', G.sabotage.kind === 'reactor' ? '물레방아가 부서졌습니다' : '물이 모두 말랐습니다');
       }
     }
   },
