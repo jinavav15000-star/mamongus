@@ -182,11 +182,17 @@ duckamongus/
 │   ├─ shot-game.mjs      봇 4명 넣고 실제 게임 화면 캡처 (npm run serve 필요)
 │   ├─ shot-ui.mjs        홈·로비·게임·지도 화면 연속 캡처 (npm run serve 필요)
 │   ├─ shot-fx.mjs        연출(먼지·반짝임·충격파) 확인 + 파티클 개수 출력
+│   ├─ shot-char.mjs      양 6색 × 서있기/걷기/시체 (캐릭터 작업 시 필수)
+│   ├─ shot-mg.mjs        미니게임 18종
+│   ├─ playthrough.mjs    로비→게임→회의→투표→추방까지 한 판 캡처
 │   ├─ shot-og.mjs        make-og.html → docs/og.jpg 자동 생성
 │   └─ char-candidates.html  캐릭터 시안 비교 페이지
 ├─ vendor/
 │   ├─ peerjs.min.js      인라인됨
 │   └─ font/              폰트 원본 (gitignore. 없으면 재다운로드 필요)
+├─ .claude/skills/
+│   └─ mamong-art/SKILL.md  그림 작업 규칙 (외곽선·소품·색·화면크기·검증 순서)
+│                           "그림 고쳐줘" 류 요청에 자동으로 딸려 온다
 ├─ build.mjs              src/*.css + src/*.js + peerjs → docs/index.html
 ├─ template.html          HTML 뼈대 (/*__CSS__*/ /*__JS__*/ /*__PEERJS__*/ 치환)
 └─ README.md              게임 설명·배포 가이드
