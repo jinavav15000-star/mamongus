@@ -83,6 +83,11 @@ const Render = {
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
+  /** 건초 들썩임 — 누가 드나들 때 더미가 눌렸다 튀어오른다 (근처 전원에게 보임) */
+  hayBounce(x, y) {
+    this.addFx({ kind:'hay', x, y, life: 520 });
+  },
+
   /** 지푸라기 폭발 — 건초에 숨기·수색당해 튀어나올 때 */
   strawBurst(x, y, n = 10) {
     for (let i = 0; i < n; i++) {
@@ -125,6 +130,21 @@ const Render = {
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
         g.globalAlpha = 1;
+      } else if (f.kind === 'hay') {
+        // 눌림 → 반동: sin 곡선으로 세로 스케일이 출렁인다
+        const sq = 1 + Math.sin(p * 3.14159 * 2) * 0.16 * (1 - p);
+        g.save(); g.translate(f.x, f.y); g.scale(1 / Math.sqrt(sq), sq);
+        g.fillStyle = '#2b1a0a';
+        g.beginPath(); g.ellipse(0, 0, 34, 25, 0, 0, 6.283); g.fill();
+        g.fillStyle = '#d9b25f';
+        g.beginPath(); g.ellipse(0, 0, 31, 22, 0, 0, 6.283); g.fill();
+        g.fillStyle = '#e8c87a';
+        g.beginPath(); g.ellipse(-6, -6, 16, 10, -0.3, 0, 6.283); g.fill();
+        g.strokeStyle = 'rgba(140,100,40,.5)'; g.lineWidth = 1.5;
+        for (const [sx, sy, ex, ey] of [[-18,2,-8,-6],[2,-12,10,-3],[-4,8,8,12],[12,-8,20,0]]) {
+          g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+        }
+        g.restore();
       } else if (f.kind === 'emoji') {
         g.globalAlpha = a;
         g.font = `700 ${f.r * (1 + p * 0.6)}px system-ui`;
@@ -194,6 +214,7 @@ const Render = {
 
     this.drawFloors(g);
     this.drawProps(g);
+    this.drawTaskProps(g);
     this.drawWalls(g);
 
     // 방 이름 — 소품에 가리지 않도록 방 위쪽에 나무 간판으로 건다
@@ -382,6 +403,121 @@ const Render = {
 
   /* ---------------- 방 소품 ----------------
    * 좌표는 타일 단위. 헬퍼가 알아서 픽셀로 바꾼다. */
+  /* 임무 지점마다 실물 작업대를 그린다.
+   * 바닥의 노란 동그라미만으로는 "여기서 뭘 하는지"가 안 보인다는 피드백.
+   * 종류별로 알아볼 수 있는 소품 + 나무 받침. 정적 레이어라 비용 0. */
+  drawTaskProps(g) {
+    const P = TILE / 32;                      // 소품 크기 기준
+    for (const t of TASK_SPOTS) {
+      const x = t.wx, y = t.wy;
+      g.save(); g.translate(x, y);
+      // 나무 받침(공통) — 발밑에 깔린 작업 판자
+      g.fillStyle = 'rgba(60,40,20,.55)';
+      g.beginPath(); g.ellipse(0, 12, 22, 8, 0, 0, 6.283); g.fill();
+      const box = (w, h, c1, c2, yo = 0) => {
+        g.fillStyle = '#2b1a0a'; g.fillRect(-w/2 - 2, -h + 10 + yo - 2, w + 4, h + 4);
+        const gr = g.createLinearGradient(0, -h + yo, 0, 10 + yo);
+        gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+        g.fillStyle = gr; g.fillRect(-w/2, -h + 10 + yo, w, h);
+      };
+      switch (t.kind) {
+        case 'wiring':                                    // 전선함
+          box(24, 20, '#8a8578', '#5c584e');
+          g.fillStyle = '#e64b4b'; g.fillRect(-8, -4, 5, 3);
+          g.fillStyle = '#3a6fe0'; g.fillRect(-1, -4, 5, 3);
+          g.fillStyle = '#ffd23d'; g.fillRect(6, -4, 5, 3);
+          break;
+        case 'card': case 'records':                      // 단말기·서류함
+          box(20, 24, '#7d5730', '#4e3319');
+          g.fillStyle = '#1c2a1c'; g.fillRect(-6, -10, 12, 8);
+          g.fillStyle = '#8ef0b5'; g.fillRect(-4, -8, 8, 2);
+          break;
+        case 'fuel':                                      // 기름통
+          box(18, 22, '#c0392b', '#7a1e14');
+          g.fillStyle = '#f6ece0'; g.fillRect(-6, -8, 12, 5);
+          break;
+        case 'garbage': case 'leaves':                    // 거름·여물 통
+          box(26, 16, '#6d4e30', '#3e2d1e');
+          g.fillStyle = '#8a9a4a';
+          for (const [bx,by] of [[-7,-9],[0,-11],[7,-9]]) { g.beginPath(); g.arc(bx, by, 4.5, 0, 6.283); g.fill(); }
+          break;
+        case 'download':                                  // 주문서 책상
+          box(26, 14, '#9a6a3a', '#6a4522');
+          g.fillStyle = '#f4efe2'; g.fillRect(-8, -8, 16, 8);
+          g.fillStyle = '#8a6134'; g.fillRect(-6, -6, 12, 1.6); g.fillRect(-6, -3.4, 9, 1.6);
+          break;
+        case 'keypad':                                    // 자물쇠 상자
+          box(22, 18, '#7d5730', '#4e3319');
+          g.fillStyle = '#c9b26a'; g.beginPath(); g.arc(0, -4, 4.5, 0, 6.283); g.fill();
+          g.fillStyle = '#4a3610'; g.beginPath(); g.arc(0, -4, 1.8, 0, 6.283); g.fill();
+          break;
+        case 'align': case 'calib':                       // 정비대 (렌치)
+          box(24, 16, '#8a8578', '#55524a');
+          g.strokeStyle = '#d9d4c8'; g.lineWidth = 3; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(-6, -6); g.lineTo(5, 2); g.stroke();
+          g.beginPath(); g.arc(-7.5, -7.5, 3.5, 0.6, 4.2); g.stroke();
+          break;
+        case 'sample':                                    // 우유병
+          box(22, 12, '#7d5730', '#4e3319');
+          for (const bx of [-6, 0, 6]) {
+            g.fillStyle = '#f4efe6'; g.fillRect(bx - 2.5, -12, 5, 12);
+            g.fillStyle = '#c3b596'; g.fillRect(bx - 2.5, -12, 5, 3);
+          }
+          break;
+        case 'divert':                                    // 수문 스위치판
+          box(26, 18, '#5c452e', '#332412');
+          for (const bx of [-7, 0, 7]) {
+            g.fillStyle = '#241505'; g.fillRect(bx - 1.5, -10, 3, 10);
+            g.fillStyle = '#d6b26a'; g.fillRect(bx - 3, -11, 6, 4);
+          }
+          break;
+        case 'chart':                                     // 이젤 지도판
+          g.strokeStyle = '#4e3319'; g.lineWidth = 3;
+          g.beginPath(); g.moveTo(-9, 10); g.lineTo(0, -14); g.lineTo(9, 10); g.stroke();
+          box(24, 18, '#e8dcc0', '#c9b896', -6);
+          g.strokeStyle = '#7d9a4a'; g.lineWidth = 2;
+          g.beginPath(); g.moveTo(-8, -6); g.lineTo(-2, -12); g.lineTo(4, -8); g.lineTo(8, -13); g.stroke();
+          break;
+        case 'temp':                                      // 온도계 기둥
+          box(10, 22, '#7d5730', '#4e3319');
+          g.fillStyle = '#efeae0'; g.fillRect(-2.5, -10, 5, 14);
+          g.fillStyle = '#e0483f'; g.fillRect(-2.5, -2, 5, 6); g.beginPath(); g.arc(0, 5, 4, 0, 6.283); g.fill();
+          break;
+        case 'sort':                                      // 곡물 자루
+          for (const [bx, c] of [[-8, '#e64b4b'], [0, '#3a6fe0'], [8, '#2ea44f']]) {
+            g.fillStyle = '#2b1a0a'; g.beginPath(); g.ellipse(bx, 0, 6.5, 9, 0, 0, 6.283); g.fill();
+            g.fillStyle = c; g.beginPath(); g.ellipse(bx, 0, 5, 7.5, 0, 0, 6.283); g.fill();
+          }
+          break;
+        case 'shields':                                   // 울타리 패널
+          box(26, 16, '#8a8578', '#55524a');
+          for (let i = 0; i < 3; i++) { g.fillStyle = i === 1 ? '#c1475e' : '#4a5f45'; g.fillRect(-9 + i * 7, -8, 5, 5); }
+          break;
+        case 'asteroid':                                  // 까마귀 쫓기 종
+          g.strokeStyle = '#4e3319'; g.lineWidth = 3.5;
+          g.beginPath(); g.moveTo(0, 10); g.lineTo(0, -14); g.stroke();
+          g.fillStyle = '#c9b26a'; g.beginPath(); g.arc(0, -14, 6, 3.14, 0); g.fill();
+          break;
+        case 'scan':                                      // 검진대
+          box(28, 10, '#e8e2d4', '#bcb6a8');
+          g.fillStyle = '#4aa8c8'; g.fillRect(-14, -2, 28, 2.5);
+          break;
+        default:
+          box(20, 14, '#7d5730', '#4e3319');
+      }
+      g.restore();
+    }
+    // 숨는 건초더미는 소품이 이미 있으니 갈퀴만 살짝 꽂아 표시해 준다
+    if (typeof HIDE_SPOTS !== 'undefined') for (const hs of HIDE_SPOTS) {
+      g.save(); g.translate(hs.wx, hs.wy);
+      g.strokeStyle = '#6a4522'; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(20, -26); g.lineTo(30, 2); g.stroke();
+      g.strokeStyle = '#8a8578'; g.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(20 + i * 3.4, -26); g.lineTo(19 + i * 4.4, -34); g.stroke(); }
+      g.restore();
+    }
+  },
+
   drawProps(g) {
     const T = TILE;
     const rnd = this.seeded(777);
@@ -882,8 +1018,14 @@ const Render = {
       g.fillStyle = t.next ? '#ffd23d' : 'rgba(255,210,61,.35)';
       g.beginPath(); g.moveTo(0, 10); g.lineTo(-9, -6); g.lineTo(9, -6); g.closePath(); g.fill();
       g.restore();
-      g.strokeStyle = t.next ? 'rgba(255,210,61,.55)' : 'rgba(255,210,61,.2)'; g.lineWidth = 2;
-      g.beginPath(); g.arc(t.wx, t.wy, 26 + Math.sin(performance.now() / 400) * 3, 0, 6.283); g.stroke();
+      // 소품 자체가 빛나게 (바닥 동그라미보다 '저 물건을 만져라'가 분명하다)
+      const pulse = 0.5 + Math.sin(performance.now() / 400) * 0.3;
+      g.save();
+      g.shadowColor = `rgba(255,210,61,${t.next ? pulse : pulse * 0.4})`;
+      g.shadowBlur = 18;
+      g.strokeStyle = `rgba(255,210,61,${t.next ? 0.7 : 0.25})`; g.lineWidth = 2.5;
+      g.beginPath(); g.roundRect(t.wx - 20, t.wy - 26, 40, 44, 9); g.stroke();
+      g.restore();
     }
 
     // 사보타주 지점
@@ -948,15 +1090,22 @@ const Render = {
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
-    // 근접한 건초더미 힌트 — 숨을 수 있다는 걸 알려 준다 (내 화면에만)
+    // 근접한 건초더미 — 더미 자체가 살며시 빛나고 🌾 핀이 뜬다 (내 화면에만)
     if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
       for (const hs of HIDE_SPOTS) {
         const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
-        if (d > 110) continue;
-        g.strokeStyle = `rgba(226,195,122,${d < 80 ? .75 : .35})`;
-        g.lineWidth = 2.5; g.setLineDash([6, 6]);
-        g.lineDashOffset = -(performance.now() / 40) % 12;
-        g.beginPath(); g.arc(hs.wx, hs.wy, 40, 0, 6.283); g.stroke(); g.setLineDash([]);
+        if (d > 120) continue;
+        const near = d < 80;
+        g.save();
+        g.shadowColor = `rgba(226,195,122,${near ? .8 : .35})`; g.shadowBlur = 22;
+        g.strokeStyle = `rgba(226,195,122,${near ? .6 : .2})`; g.lineWidth = 2.5;
+        g.beginPath(); g.ellipse(hs.wx, hs.wy - 2, 42, 30, 0, 0, 6.283); g.stroke();
+        g.restore();
+        if (near) {
+          const bob = Math.sin(performance.now() / 300) * 4;
+          g.font = '700 17px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText('🌾', hs.wx, hs.wy - 52 + bob);
+        }
       }
     }
     // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
@@ -1300,18 +1449,32 @@ const Render = {
   /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
   drawInHay(g, me) {
     const t = performance.now();
+    const breathe = 1 + Math.sin(t / 700) * 0.02;
     const blink = (t % 3800) < 140 ? 0.15 : 1;
     g.save(); g.translate(me.x, me.y);
-    g.fillStyle = 'rgba(20,14,6,.55)';
-    g.beginPath(); g.ellipse(0, -2, 13, 8, 0, 0, 6.283); g.fill();
+    g.scale(1, breathe);                          // 숨쉬는 건초
+    // 내 몸을 덮은 건초 무더기
+    g.fillStyle = '#2b1a0a';
+    g.beginPath(); g.ellipse(0, -2, 33, 24, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#d9b25f';
+    g.beginPath(); g.ellipse(0, -2, 30, 21, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#e8c87a';
+    g.beginPath(); g.ellipse(-6, -8, 15, 9, -0.3, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(140,100,40,.5)'; g.lineWidth = 1.5;
+    for (const [sx, sy, ex, ey] of [[-16,0,-6,-8],[4,-14,12,-5],[-2,6,10,10]]) {
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+    }
+    // 벌어진 틈 + 눈
+    g.fillStyle = 'rgba(20,12,4,.85)';
+    g.beginPath(); g.ellipse(0, -4, 11, 6.5, 0, 0, 6.283); g.fill();
     g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
-    g.beginPath(); g.ellipse(-4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
-    g.beginPath(); g.ellipse(4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(-4.2, -4, 2.3, 2.3 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(4.2, -4, 2.3, 2.3 * blink, 0, 0, 6.283); g.fill();
+    g.restore();
     g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'bottom';
-    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-33, -38, 66, 16);
-    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', 0, -25);
-    g.restore();
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(me.x - 33, me.y - 44, 66, 16);
+    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', me.x, me.y - 31);
   },
 
   /** 쓰러진 양 — 옆으로 누워 다리가 뻗어 있다.

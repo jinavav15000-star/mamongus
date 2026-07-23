@@ -240,7 +240,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .rotate-hint{font-size:12.5px;color:var(--warn);line-height:1.6;max-width:340px}
 
 /* ---------- 모달 ---------- */
-.modal{position:fixed;inset:0;z-index:60;background:rgba(18,12,7,.88);display:flex;align-items:center;justify-content:center;
+.modal{position:fixed;inset:0;z-index:9500;   /* 회전 안내(9000)보다 위 — 아이폰 세로에서 ⛶ 안내가 가려졌었다 */background:rgba(18,12,7,.88);display:flex;align-items:center;justify-content:center;
   padding:calc(14px + var(--safe-t)) 14px calc(14px + var(--safe-b));backdrop-filter:blur(3px)}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;width:100%;max-width:520px;
   max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7)}
@@ -678,6 +678,12 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
+/* 마이크 — 조이스틱 위 왼쪽, 게임·대기실 공통 */
+#btn-mic{position:absolute;left:calc(160px + var(--safe-l));bottom:calc(26px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#5c584e,#33302a);border:2px solid #8a8578}
+#btn-mic.live{background:radial-gradient(circle at 40% 30%,#2ea44f,#14532d);border-color:#5fe08a}
+#btn-mic.talking{filter:brightness(1.6);transform:scale(1.06)}
+
 /* 대기실 장난 버튼 */
 #btn-wave{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(88px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#d9a95a,#7a5a22);border:2px solid #f0cc8a;font-size:22px}
@@ -858,6 +864,9 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
       <button class="abtn small emote" id="btn-wave" title="인사">👋</button>
       <button class="abtn small emote" id="btn-fart" title="방귀">💨</button>
     </div>
+
+    <!-- 마이크 — 항상 보인다. 처음 누르면 켤지 묻고, 그 뒤로는 누르는 동안 말하기 -->
+    <button class="abtn small" id="btn-mic"><span class="ic">🎙️</span><span>음성</span></button>
 
     <!-- 채팅 (대기실 + 게임 중) -->
     <button class="iconbtn hidden" id="btn-chat">💬</button>
@@ -1154,6 +1163,12 @@ const Viewport = {
     }
     document.body.classList.toggle('immersive', this.inFullscreen);
     this.syncButtons();
+    // 상시 재무장 — 이벤트를 놓쳐도 400ms 주기 sync 가 무장 상태를 복구한다.
+    // (설정 앱에 다녀오면 전체화면·가로고정이 풀리는데, 이벤트가 안 오는 기기가 있었다)
+    if (!this.inFullscreen && this.wantsImmersive && !this.userExited && !this.armed && this.fsSupported) {
+      this._failCount = 0;
+      this.arm();
+    }
   },
 
   init() {
@@ -2128,8 +2143,10 @@ const Voice = {
       audio.play().catch(() => {});
       const src = this.ctx.createMediaStreamSource(remote);
       const panner = this.ctx.createPanner();
-      panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse';
-      panner.refDistance = 90; panner.maxDistance = 700; panner.rolloffFactor = 1.6;
+      // linear 모델은 maxDistance 에서 정확히 0이 된다.
+      // (inverse 는 아무리 멀어도 0이 안 되어 맵 반대편 목소리가 새어 들렸다)
+      panner.panningModel = 'HRTF'; panner.distanceModel = 'linear';
+      panner.refDistance = 70; panner.maxDistance = 380; panner.rolloffFactor = 1;
       const gain = this.ctx.createGain();
       src.connect(panner); panner.connect(gain); gain.connect(this.ctx.destination);
       this.nodes.set(call.peer, { audio, panner, gain, src });
@@ -2154,17 +2171,26 @@ const Voice = {
 
     for (const [peerId, n] of this.nodes) {
       const p = positions[peerId];
-      // 유령의 목소리는 산 사람에게 들리지 않는다
       const speakerDead = deadSet.has(peerId);
-      const audible = iAmDead ? true : !speakerDead;
-      n.gain.gain.value = audible ? 1 : 0;
-      if (meeting || !p) {
+      // 유령의 목소리는 산 사람에게 들리지 않는다
+      let g = iAmDead ? 1 : (speakerDead ? 0 : 1);
+      if (meeting) {
+        // 회의: 거리 무시, 전원 같은 크기 (화자를 귀 옆에)
         if (n.panner.positionX) { n.panner.positionX.value = listener.x; n.panner.positionZ.value = listener.y; }
         else n.panner.setPosition(listener.x, 0, listener.y);
+      } else if (!p) {
+        // ⚠️ 위치를 모르는 화자(시야 밖·건초 속) = 무음.
+        // 예전엔 여기서 '내 위치'에 놓아 최대 음량으로 들렸다 —
+        // 맵 반대편 목소리가 다 들리던 버그의 원인.
+        g = 0;
       } else {
+        const d = Math.hypot(p.x - listener.x, p.y - listener.y);
+        // 이중 안전망: 패너와 별개로 게인에서도 거리 컷
+        g *= d <= 100 ? 1 : d >= 380 ? 0 : 1 - (d - 100) / 280;
         if (n.panner.positionX) { n.panner.positionX.value = p.x; n.panner.positionZ.value = p.y; }
         else n.panner.setPosition(p.x, 0, p.y);
       }
+      n.gain.gain.value = g;
     }
   },
 
@@ -4340,6 +4366,11 @@ const Render = {
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
+  /** 건초 들썩임 — 누가 드나들 때 더미가 눌렸다 튀어오른다 (근처 전원에게 보임) */
+  hayBounce(x, y) {
+    this.addFx({ kind:'hay', x, y, life: 520 });
+  },
+
   /** 지푸라기 폭발 — 건초에 숨기·수색당해 튀어나올 때 */
   strawBurst(x, y, n = 10) {
     for (let i = 0; i < n; i++) {
@@ -4382,6 +4413,21 @@ const Render = {
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
         g.globalAlpha = 1;
+      } else if (f.kind === 'hay') {
+        // 눌림 → 반동: sin 곡선으로 세로 스케일이 출렁인다
+        const sq = 1 + Math.sin(p * 3.14159 * 2) * 0.16 * (1 - p);
+        g.save(); g.translate(f.x, f.y); g.scale(1 / Math.sqrt(sq), sq);
+        g.fillStyle = '#2b1a0a';
+        g.beginPath(); g.ellipse(0, 0, 34, 25, 0, 0, 6.283); g.fill();
+        g.fillStyle = '#d9b25f';
+        g.beginPath(); g.ellipse(0, 0, 31, 22, 0, 0, 6.283); g.fill();
+        g.fillStyle = '#e8c87a';
+        g.beginPath(); g.ellipse(-6, -6, 16, 10, -0.3, 0, 6.283); g.fill();
+        g.strokeStyle = 'rgba(140,100,40,.5)'; g.lineWidth = 1.5;
+        for (const [sx, sy, ex, ey] of [[-18,2,-8,-6],[2,-12,10,-3],[-4,8,8,12],[12,-8,20,0]]) {
+          g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+        }
+        g.restore();
       } else if (f.kind === 'emoji') {
         g.globalAlpha = a;
         g.font = `700 ${f.r * (1 + p * 0.6)}px system-ui`;
@@ -4451,6 +4497,7 @@ const Render = {
 
     this.drawFloors(g);
     this.drawProps(g);
+    this.drawTaskProps(g);
     this.drawWalls(g);
 
     // 방 이름 — 소품에 가리지 않도록 방 위쪽에 나무 간판으로 건다
@@ -4639,6 +4686,121 @@ const Render = {
 
   /* ---------------- 방 소품 ----------------
    * 좌표는 타일 단위. 헬퍼가 알아서 픽셀로 바꾼다. */
+  /* 임무 지점마다 실물 작업대를 그린다.
+   * 바닥의 노란 동그라미만으로는 "여기서 뭘 하는지"가 안 보인다는 피드백.
+   * 종류별로 알아볼 수 있는 소품 + 나무 받침. 정적 레이어라 비용 0. */
+  drawTaskProps(g) {
+    const P = TILE / 32;                      // 소품 크기 기준
+    for (const t of TASK_SPOTS) {
+      const x = t.wx, y = t.wy;
+      g.save(); g.translate(x, y);
+      // 나무 받침(공통) — 발밑에 깔린 작업 판자
+      g.fillStyle = 'rgba(60,40,20,.55)';
+      g.beginPath(); g.ellipse(0, 12, 22, 8, 0, 0, 6.283); g.fill();
+      const box = (w, h, c1, c2, yo = 0) => {
+        g.fillStyle = '#2b1a0a'; g.fillRect(-w/2 - 2, -h + 10 + yo - 2, w + 4, h + 4);
+        const gr = g.createLinearGradient(0, -h + yo, 0, 10 + yo);
+        gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+        g.fillStyle = gr; g.fillRect(-w/2, -h + 10 + yo, w, h);
+      };
+      switch (t.kind) {
+        case 'wiring':                                    // 전선함
+          box(24, 20, '#8a8578', '#5c584e');
+          g.fillStyle = '#e64b4b'; g.fillRect(-8, -4, 5, 3);
+          g.fillStyle = '#3a6fe0'; g.fillRect(-1, -4, 5, 3);
+          g.fillStyle = '#ffd23d'; g.fillRect(6, -4, 5, 3);
+          break;
+        case 'card': case 'records':                      // 단말기·서류함
+          box(20, 24, '#7d5730', '#4e3319');
+          g.fillStyle = '#1c2a1c'; g.fillRect(-6, -10, 12, 8);
+          g.fillStyle = '#8ef0b5'; g.fillRect(-4, -8, 8, 2);
+          break;
+        case 'fuel':                                      // 기름통
+          box(18, 22, '#c0392b', '#7a1e14');
+          g.fillStyle = '#f6ece0'; g.fillRect(-6, -8, 12, 5);
+          break;
+        case 'garbage': case 'leaves':                    // 거름·여물 통
+          box(26, 16, '#6d4e30', '#3e2d1e');
+          g.fillStyle = '#8a9a4a';
+          for (const [bx,by] of [[-7,-9],[0,-11],[7,-9]]) { g.beginPath(); g.arc(bx, by, 4.5, 0, 6.283); g.fill(); }
+          break;
+        case 'download':                                  // 주문서 책상
+          box(26, 14, '#9a6a3a', '#6a4522');
+          g.fillStyle = '#f4efe2'; g.fillRect(-8, -8, 16, 8);
+          g.fillStyle = '#8a6134'; g.fillRect(-6, -6, 12, 1.6); g.fillRect(-6, -3.4, 9, 1.6);
+          break;
+        case 'keypad':                                    // 자물쇠 상자
+          box(22, 18, '#7d5730', '#4e3319');
+          g.fillStyle = '#c9b26a'; g.beginPath(); g.arc(0, -4, 4.5, 0, 6.283); g.fill();
+          g.fillStyle = '#4a3610'; g.beginPath(); g.arc(0, -4, 1.8, 0, 6.283); g.fill();
+          break;
+        case 'align': case 'calib':                       // 정비대 (렌치)
+          box(24, 16, '#8a8578', '#55524a');
+          g.strokeStyle = '#d9d4c8'; g.lineWidth = 3; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(-6, -6); g.lineTo(5, 2); g.stroke();
+          g.beginPath(); g.arc(-7.5, -7.5, 3.5, 0.6, 4.2); g.stroke();
+          break;
+        case 'sample':                                    // 우유병
+          box(22, 12, '#7d5730', '#4e3319');
+          for (const bx of [-6, 0, 6]) {
+            g.fillStyle = '#f4efe6'; g.fillRect(bx - 2.5, -12, 5, 12);
+            g.fillStyle = '#c3b596'; g.fillRect(bx - 2.5, -12, 5, 3);
+          }
+          break;
+        case 'divert':                                    // 수문 스위치판
+          box(26, 18, '#5c452e', '#332412');
+          for (const bx of [-7, 0, 7]) {
+            g.fillStyle = '#241505'; g.fillRect(bx - 1.5, -10, 3, 10);
+            g.fillStyle = '#d6b26a'; g.fillRect(bx - 3, -11, 6, 4);
+          }
+          break;
+        case 'chart':                                     // 이젤 지도판
+          g.strokeStyle = '#4e3319'; g.lineWidth = 3;
+          g.beginPath(); g.moveTo(-9, 10); g.lineTo(0, -14); g.lineTo(9, 10); g.stroke();
+          box(24, 18, '#e8dcc0', '#c9b896', -6);
+          g.strokeStyle = '#7d9a4a'; g.lineWidth = 2;
+          g.beginPath(); g.moveTo(-8, -6); g.lineTo(-2, -12); g.lineTo(4, -8); g.lineTo(8, -13); g.stroke();
+          break;
+        case 'temp':                                      // 온도계 기둥
+          box(10, 22, '#7d5730', '#4e3319');
+          g.fillStyle = '#efeae0'; g.fillRect(-2.5, -10, 5, 14);
+          g.fillStyle = '#e0483f'; g.fillRect(-2.5, -2, 5, 6); g.beginPath(); g.arc(0, 5, 4, 0, 6.283); g.fill();
+          break;
+        case 'sort':                                      // 곡물 자루
+          for (const [bx, c] of [[-8, '#e64b4b'], [0, '#3a6fe0'], [8, '#2ea44f']]) {
+            g.fillStyle = '#2b1a0a'; g.beginPath(); g.ellipse(bx, 0, 6.5, 9, 0, 0, 6.283); g.fill();
+            g.fillStyle = c; g.beginPath(); g.ellipse(bx, 0, 5, 7.5, 0, 0, 6.283); g.fill();
+          }
+          break;
+        case 'shields':                                   // 울타리 패널
+          box(26, 16, '#8a8578', '#55524a');
+          for (let i = 0; i < 3; i++) { g.fillStyle = i === 1 ? '#c1475e' : '#4a5f45'; g.fillRect(-9 + i * 7, -8, 5, 5); }
+          break;
+        case 'asteroid':                                  // 까마귀 쫓기 종
+          g.strokeStyle = '#4e3319'; g.lineWidth = 3.5;
+          g.beginPath(); g.moveTo(0, 10); g.lineTo(0, -14); g.stroke();
+          g.fillStyle = '#c9b26a'; g.beginPath(); g.arc(0, -14, 6, 3.14, 0); g.fill();
+          break;
+        case 'scan':                                      // 검진대
+          box(28, 10, '#e8e2d4', '#bcb6a8');
+          g.fillStyle = '#4aa8c8'; g.fillRect(-14, -2, 28, 2.5);
+          break;
+        default:
+          box(20, 14, '#7d5730', '#4e3319');
+      }
+      g.restore();
+    }
+    // 숨는 건초더미는 소품이 이미 있으니 갈퀴만 살짝 꽂아 표시해 준다
+    if (typeof HIDE_SPOTS !== 'undefined') for (const hs of HIDE_SPOTS) {
+      g.save(); g.translate(hs.wx, hs.wy);
+      g.strokeStyle = '#6a4522'; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(20, -26); g.lineTo(30, 2); g.stroke();
+      g.strokeStyle = '#8a8578'; g.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(20 + i * 3.4, -26); g.lineTo(19 + i * 4.4, -34); g.stroke(); }
+      g.restore();
+    }
+  },
+
   drawProps(g) {
     const T = TILE;
     const rnd = this.seeded(777);
@@ -5139,8 +5301,14 @@ const Render = {
       g.fillStyle = t.next ? '#ffd23d' : 'rgba(255,210,61,.35)';
       g.beginPath(); g.moveTo(0, 10); g.lineTo(-9, -6); g.lineTo(9, -6); g.closePath(); g.fill();
       g.restore();
-      g.strokeStyle = t.next ? 'rgba(255,210,61,.55)' : 'rgba(255,210,61,.2)'; g.lineWidth = 2;
-      g.beginPath(); g.arc(t.wx, t.wy, 26 + Math.sin(performance.now() / 400) * 3, 0, 6.283); g.stroke();
+      // 소품 자체가 빛나게 (바닥 동그라미보다 '저 물건을 만져라'가 분명하다)
+      const pulse = 0.5 + Math.sin(performance.now() / 400) * 0.3;
+      g.save();
+      g.shadowColor = `rgba(255,210,61,${t.next ? pulse : pulse * 0.4})`;
+      g.shadowBlur = 18;
+      g.strokeStyle = `rgba(255,210,61,${t.next ? 0.7 : 0.25})`; g.lineWidth = 2.5;
+      g.beginPath(); g.roundRect(t.wx - 20, t.wy - 26, 40, 44, 9); g.stroke();
+      g.restore();
     }
 
     // 사보타주 지점
@@ -5205,15 +5373,22 @@ const Render = {
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
-    // 근접한 건초더미 힌트 — 숨을 수 있다는 걸 알려 준다 (내 화면에만)
+    // 근접한 건초더미 — 더미 자체가 살며시 빛나고 🌾 핀이 뜬다 (내 화면에만)
     if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
       for (const hs of HIDE_SPOTS) {
         const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
-        if (d > 110) continue;
-        g.strokeStyle = `rgba(226,195,122,${d < 80 ? .75 : .35})`;
-        g.lineWidth = 2.5; g.setLineDash([6, 6]);
-        g.lineDashOffset = -(performance.now() / 40) % 12;
-        g.beginPath(); g.arc(hs.wx, hs.wy, 40, 0, 6.283); g.stroke(); g.setLineDash([]);
+        if (d > 120) continue;
+        const near = d < 80;
+        g.save();
+        g.shadowColor = `rgba(226,195,122,${near ? .8 : .35})`; g.shadowBlur = 22;
+        g.strokeStyle = `rgba(226,195,122,${near ? .6 : .2})`; g.lineWidth = 2.5;
+        g.beginPath(); g.ellipse(hs.wx, hs.wy - 2, 42, 30, 0, 0, 6.283); g.stroke();
+        g.restore();
+        if (near) {
+          const bob = Math.sin(performance.now() / 300) * 4;
+          g.font = '700 17px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText('🌾', hs.wx, hs.wy - 52 + bob);
+        }
       }
     }
     // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
@@ -5557,18 +5732,32 @@ const Render = {
   /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
   drawInHay(g, me) {
     const t = performance.now();
+    const breathe = 1 + Math.sin(t / 700) * 0.02;
     const blink = (t % 3800) < 140 ? 0.15 : 1;
     g.save(); g.translate(me.x, me.y);
-    g.fillStyle = 'rgba(20,14,6,.55)';
-    g.beginPath(); g.ellipse(0, -2, 13, 8, 0, 0, 6.283); g.fill();
+    g.scale(1, breathe);                          // 숨쉬는 건초
+    // 내 몸을 덮은 건초 무더기
+    g.fillStyle = '#2b1a0a';
+    g.beginPath(); g.ellipse(0, -2, 33, 24, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#d9b25f';
+    g.beginPath(); g.ellipse(0, -2, 30, 21, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#e8c87a';
+    g.beginPath(); g.ellipse(-6, -8, 15, 9, -0.3, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(140,100,40,.5)'; g.lineWidth = 1.5;
+    for (const [sx, sy, ex, ey] of [[-16,0,-6,-8],[4,-14,12,-5],[-2,6,10,10]]) {
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+    }
+    // 벌어진 틈 + 눈
+    g.fillStyle = 'rgba(20,12,4,.85)';
+    g.beginPath(); g.ellipse(0, -4, 11, 6.5, 0, 0, 6.283); g.fill();
     g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
-    g.beginPath(); g.ellipse(-4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
-    g.beginPath(); g.ellipse(4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(-4.2, -4, 2.3, 2.3 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(4.2, -4, 2.3, 2.3 * blink, 0, 0, 6.283); g.fill();
+    g.restore();
     g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'bottom';
-    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-33, -38, 66, 16);
-    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', 0, -25);
-    g.restore();
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(me.x - 33, me.y - 44, 66, 16);
+    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', me.x, me.y - 31);
   },
 
   /** 쓰러진 양 — 옆으로 누워 다리가 뻗어 있다.
@@ -6354,27 +6543,26 @@ const UI = {
   openIOSHint() {
     const root = h('div', {});
     root.innerHTML = `
-<div style="text-align:center;font-size:44px;line-height:1;margin-bottom:8px">📲</div>
-<div style="font-size:14px;line-height:1.7">
-아이폰 사파리는 <b>전체화면 기능 자체를 제공하지 않습니다</b>(애플 정책).<br>
-아래 3초짜리 과정을 <b>한 번만</b> 해두면, 다음부터는 아이콘을 누르는 것만으로
-<b style="color:var(--acc)">주소창 없는 가로 전체화면</b>으로 바로 실행됩니다.
+<div style="font-size:13.5px;line-height:1.55;text-align:center;margin-bottom:10px">
+아이폰 사파리는 <b>전체화면을 지원하지 않습니다</b> (애플 정책).<br>
+대신 <b style="color:var(--acc)">홈 화면에 추가</b>하면 주소창 없이 실행됩니다 — 딱 한 번이면 됩니다.
 </div>
-<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">1️⃣</div><div style="font-size:13.5px">화면 <b>맨 아래 가운데</b>의 <b>공유 버튼</b><br><span class="tiny dim">네모 위로 화살표가 솟은 모양 ⬆️</span></div></div>
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">2️⃣</div><div style="font-size:13.5px">목록을 내려서 <b>"홈 화면에 추가"</b> 탭</div></div>
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🐑 아이콘으로 실행</div></div>
-</div>
-<div class="tiny dim" style="margin-top:12px;line-height:1.6">
-지금 그냥 하셔도 됩니다. 폰을 <b>가로로 눕히면</b> 사파리 주소창이 대부분 사라져
-거의 전체화면으로 플레이할 수 있습니다.
+<div style="display:flex;flex-direction:column;gap:7px;max-width:340px;margin:0 auto">
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">1</b>
+    <span style="font-size:13px">사파리 <b>맨 아래 가운데</b>의 공유 버튼 <b>⬆️</b> 탭</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">2</b>
+    <span style="font-size:13px">목록에서 <b>"홈 화면에 추가"</b> 탭</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">3</b>
+    <span style="font-size:13px">홈 화면의 <b>🐑 아이콘</b>으로 실행 → 전체화면!</span>
+  </div>
 </div>`;
-    const skip = h('button', { cls:'btn ghost grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '괜찮아요, 그냥 할게요');
     const ok = h('button', { cls:'btn primary grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '알겠어요');
-    this.modal({ title:'📲 아이폰 전체화면', body: root, footer:[skip, ok], onClose: () => Viewport.dismissIOSHint() });
+    this.modal({ title:'📲 아이폰에서 전체화면 하는 법', body: root, footer:[ok], onClose: () => Viewport.dismissIOSHint() });
   },
 
   /** 카톡 등 인앱 브라우저 — 전체화면·방향고정이 모두 차단된다 */
@@ -7071,6 +7259,43 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
+    /* 마이크 — 상태 둘: [꺼짐 → 탭하면 켤지 확인] / [켜짐 → 누르는 동안 말하기] */
+    {
+      const mb = $('#btn-mic');
+      const setLive = () => {
+        mb.classList.add('live');
+        mb.querySelector('span:nth-child(2)').textContent = '말하기';
+      };
+      if (Voice.enabled) setLive();
+      mb.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (!Voice.enabled) return;                    // 꺼짐 상태는 click 에서 확인창
+        Voice.setTalking(true); mb.classList.add('talking');
+      });
+      const off = () => { if (Voice.enabled) { Voice.setTalking(false); mb.classList.remove('talking'); } };
+      mb.addEventListener('pointerup', off);
+      mb.addEventListener('pointerleave', off);
+      mb.addEventListener('pointercancel', off);
+      mb.addEventListener('click', async () => {
+        if (Voice.enabled) return;
+        UI.modal({ title:'🎙️ 음성채팅', body:`
+<div style="font-size:13.5px;line-height:1.7;text-align:center">
+마이크를 켤까요?<br>
+<span class="tiny dim">켜면 <b>가까이 있는 사람에게만</b> 들립니다.<br>
+버튼을 <b>누르는 동안만</b> 전송돼요 (무전기 방식).</span></div>`,
+          footer: [
+            h('button', { cls:'btn primary grow', onclick: async () => {
+              UI.closeModal();
+              try {
+                await Voice.enable(); Game.announceVoice(); setLive();
+                UI.toast('🎙️ 켜졌습니다 — 버튼을 누르는 동안 말이 전달됩니다.', 5000);
+              } catch (e) { UI.toast('마이크를 사용할 수 없습니다: ' + e.message, 5000); }
+            } }, '켜기'),
+            h('button', { cls:'btn ghost grow', onclick: () => UI.closeModal() }, '나중에'),
+          ] });
+      });
+    }
+
     // 이모트 — 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
     for (const [id, kind] of [['#btn-fart', 'fart'], ['#btn-wave', 'wave']]) {
       const eb = $(id);
@@ -7448,12 +7673,12 @@ const Game = {
       case 'shieldblock': Sfx.fixed(); break;
       case 'rustle':                            // 건초 부스럭 — 근처에만 들린다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6);
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y);
         }
         break;
       case 'flushed':                           // 수색당해 튀어나옴
         if (G.me && m.at) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.shake = 5;
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); Render.shake = 5;
         }
         break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다
@@ -7615,7 +7840,14 @@ const Game = {
       // 동선 기록
       Trail.track(me, this.visibleOthers(me));
       if (Voice.enabled) {
-        const pos = {}; for (const id in G.players) { const q = G.players[id]; if (this.voicePeers[id]) pos[this.voicePeers[id]] = { x:q.x, y:q.y }; }
+        // 보이는 사람만 위치를 넘긴다. 시야 밖·건초 속은 위치 미상 = 무음 처리된다.
+        const pos = {};
+        for (const id in G.players) {
+          const q = G.players[id];
+          if (!this.voicePeers[id]) continue;
+          if (id !== G.myId && (!q.seen || q.ventId || q.hideId)) continue;
+          pos[this.voicePeers[id]] = { x: q.x, y: q.y };
+        }
         const deadSet = new Set(Object.entries(this.voicePeers).filter(([pid]) => !G.players[pid]?.alive).map(([, peer]) => peer));
         Voice.update({ x: me.x, y: me.y }, pos, false, deadSet, !!G.ghost);
       }
@@ -7993,6 +8225,7 @@ const Game = {
     }
   },
   buildVoiceBtn() {
+    return;                                    // 상시 🎙️ 버튼(#btn-mic)으로 대체됨
     if ($('#btn-talk')) return;
     const b = h('button', { cls:'abtn small', id:'btn-talk',
       style:{ background:'radial-gradient(circle at 40% 30%,#2ea44f,#14532d)', borderColor:'#5fe08a' } },

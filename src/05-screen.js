@@ -208,6 +208,12 @@ const Viewport = {
     }
     document.body.classList.toggle('immersive', this.inFullscreen);
     this.syncButtons();
+    // 상시 재무장 — 이벤트를 놓쳐도 400ms 주기 sync 가 무장 상태를 복구한다.
+    // (설정 앱에 다녀오면 전체화면·가로고정이 풀리는데, 이벤트가 안 오는 기기가 있었다)
+    if (!this.inFullscreen && this.wantsImmersive && !this.userExited && !this.armed && this.fsSupported) {
+      this._failCount = 0;
+      this.arm();
+    }
   },
 
   init() {

@@ -57,6 +57,43 @@ const Game = {
     $('#btn-copy2').onclick = () => $('#btn-copy').click();
     $('#btn-lobby-start').onclick = () => Game.start();
     $('#btn-chat').onclick = () => UI.togglePlayChat();
+    /* 마이크 — 상태 둘: [꺼짐 → 탭하면 켤지 확인] / [켜짐 → 누르는 동안 말하기] */
+    {
+      const mb = $('#btn-mic');
+      const setLive = () => {
+        mb.classList.add('live');
+        mb.querySelector('span:nth-child(2)').textContent = '말하기';
+      };
+      if (Voice.enabled) setLive();
+      mb.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (!Voice.enabled) return;                    // 꺼짐 상태는 click 에서 확인창
+        Voice.setTalking(true); mb.classList.add('talking');
+      });
+      const off = () => { if (Voice.enabled) { Voice.setTalking(false); mb.classList.remove('talking'); } };
+      mb.addEventListener('pointerup', off);
+      mb.addEventListener('pointerleave', off);
+      mb.addEventListener('pointercancel', off);
+      mb.addEventListener('click', async () => {
+        if (Voice.enabled) return;
+        UI.modal({ title:'🎙️ 음성채팅', body:`
+<div style="font-size:13.5px;line-height:1.7;text-align:center">
+마이크를 켤까요?<br>
+<span class="tiny dim">켜면 <b>가까이 있는 사람에게만</b> 들립니다.<br>
+버튼을 <b>누르는 동안만</b> 전송돼요 (무전기 방식).</span></div>`,
+          footer: [
+            h('button', { cls:'btn primary grow', onclick: async () => {
+              UI.closeModal();
+              try {
+                await Voice.enable(); Game.announceVoice(); setLive();
+                UI.toast('🎙️ 켜졌습니다 — 버튼을 누르는 동안 말이 전달됩니다.', 5000);
+              } catch (e) { UI.toast('마이크를 사용할 수 없습니다: ' + e.message, 5000); }
+            } }, '켜기'),
+            h('button', { cls:'btn ghost grow', onclick: () => UI.closeModal() }, '나중에'),
+          ] });
+      });
+    }
+
     // 이모트 — 1.5초 쿨다운 (도배 방지, 호스트도 걸러준다)
     for (const [id, kind] of [['#btn-fart', 'fart'], ['#btn-wave', 'wave']]) {
       const eb = $(id);
@@ -434,12 +471,12 @@ const Game = {
       case 'shieldblock': Sfx.fixed(); break;
       case 'rustle':                            // 건초 부스럭 — 근처에만 들린다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6);
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y);
         }
         break;
       case 'flushed':                           // 수색당해 튀어나옴
         if (G.me && m.at) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.shake = 5;
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); Render.shake = 5;
         }
         break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다
@@ -601,7 +638,14 @@ const Game = {
       // 동선 기록
       Trail.track(me, this.visibleOthers(me));
       if (Voice.enabled) {
-        const pos = {}; for (const id in G.players) { const q = G.players[id]; if (this.voicePeers[id]) pos[this.voicePeers[id]] = { x:q.x, y:q.y }; }
+        // 보이는 사람만 위치를 넘긴다. 시야 밖·건초 속은 위치 미상 = 무음 처리된다.
+        const pos = {};
+        for (const id in G.players) {
+          const q = G.players[id];
+          if (!this.voicePeers[id]) continue;
+          if (id !== G.myId && (!q.seen || q.ventId || q.hideId)) continue;
+          pos[this.voicePeers[id]] = { x: q.x, y: q.y };
+        }
         const deadSet = new Set(Object.entries(this.voicePeers).filter(([pid]) => !G.players[pid]?.alive).map(([, peer]) => peer));
         Voice.update({ x: me.x, y: me.y }, pos, false, deadSet, !!G.ghost);
       }
@@ -979,6 +1023,7 @@ const Game = {
     }
   },
   buildVoiceBtn() {
+    return;                                    // 상시 🎙️ 버튼(#btn-mic)으로 대체됨
     if ($('#btn-talk')) return;
     const b = h('button', { cls:'abtn small', id:'btn-talk',
       style:{ background:'radial-gradient(circle at 40% 30%,#2ea44f,#14532d)', borderColor:'#5fe08a' } },

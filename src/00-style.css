@@ -216,7 +216,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .rotate-hint{font-size:12.5px;color:var(--warn);line-height:1.6;max-width:340px}
 
 /* ---------- 모달 ---------- */
-.modal{position:fixed;inset:0;z-index:60;background:rgba(18,12,7,.88);display:flex;align-items:center;justify-content:center;
+.modal{position:fixed;inset:0;z-index:9500;   /* 회전 안내(9000)보다 위 — 아이폰 세로에서 ⛶ 안내가 가려졌었다 */background:rgba(18,12,7,.88);display:flex;align-items:center;justify-content:center;
   padding:calc(14px + var(--safe-t)) 14px calc(14px + var(--safe-b));backdrop-filter:blur(3px)}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;width:100%;max-width:520px;
   max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7)}
@@ -654,6 +654,12 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
+/* 마이크 — 조이스틱 위 왼쪽, 게임·대기실 공통 */
+#btn-mic{position:absolute;left:calc(160px + var(--safe-l));bottom:calc(26px + var(--safe-b));
+  background:radial-gradient(circle at 40% 30%,#5c584e,#33302a);border:2px solid #8a8578}
+#btn-mic.live{background:radial-gradient(circle at 40% 30%,#2ea44f,#14532d);border-color:#5fe08a}
+#btn-mic.talking{filter:brightness(1.6);transform:scale(1.06)}
+
 /* 대기실 장난 버튼 */
 #btn-wave{position:absolute;right:calc(14px + var(--safe-r));bottom:calc(88px + var(--safe-b));
   background:radial-gradient(circle at 40% 30%,#d9a95a,#7a5a22);border:2px solid #f0cc8a;font-size:22px}

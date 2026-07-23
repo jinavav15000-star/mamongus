@@ -325,8 +325,10 @@ const Voice = {
       audio.play().catch(() => {});
       const src = this.ctx.createMediaStreamSource(remote);
       const panner = this.ctx.createPanner();
-      panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse';
-      panner.refDistance = 90; panner.maxDistance = 700; panner.rolloffFactor = 1.6;
+      // linear 모델은 maxDistance 에서 정확히 0이 된다.
+      // (inverse 는 아무리 멀어도 0이 안 되어 맵 반대편 목소리가 새어 들렸다)
+      panner.panningModel = 'HRTF'; panner.distanceModel = 'linear';
+      panner.refDistance = 70; panner.maxDistance = 380; panner.rolloffFactor = 1;
       const gain = this.ctx.createGain();
       src.connect(panner); panner.connect(gain); gain.connect(this.ctx.destination);
       this.nodes.set(call.peer, { audio, panner, gain, src });
@@ -351,17 +353,26 @@ const Voice = {
 
     for (const [peerId, n] of this.nodes) {
       const p = positions[peerId];
-      // 유령의 목소리는 산 사람에게 들리지 않는다
       const speakerDead = deadSet.has(peerId);
-      const audible = iAmDead ? true : !speakerDead;
-      n.gain.gain.value = audible ? 1 : 0;
-      if (meeting || !p) {
+      // 유령의 목소리는 산 사람에게 들리지 않는다
+      let g = iAmDead ? 1 : (speakerDead ? 0 : 1);
+      if (meeting) {
+        // 회의: 거리 무시, 전원 같은 크기 (화자를 귀 옆에)
         if (n.panner.positionX) { n.panner.positionX.value = listener.x; n.panner.positionZ.value = listener.y; }
         else n.panner.setPosition(listener.x, 0, listener.y);
+      } else if (!p) {
+        // ⚠️ 위치를 모르는 화자(시야 밖·건초 속) = 무음.
+        // 예전엔 여기서 '내 위치'에 놓아 최대 음량으로 들렸다 —
+        // 맵 반대편 목소리가 다 들리던 버그의 원인.
+        g = 0;
       } else {
+        const d = Math.hypot(p.x - listener.x, p.y - listener.y);
+        // 이중 안전망: 패너와 별개로 게인에서도 거리 컷
+        g *= d <= 100 ? 1 : d >= 380 ? 0 : 1 - (d - 100) / 280;
         if (n.panner.positionX) { n.panner.positionX.value = p.x; n.panner.positionZ.value = p.y; }
         else n.panner.setPosition(p.x, 0, p.y);
       }
+      n.gain.gain.value = g;
     }
   },
 

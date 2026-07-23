@@ -632,27 +632,26 @@ const UI = {
   openIOSHint() {
     const root = h('div', {});
     root.innerHTML = `
-<div style="text-align:center;font-size:44px;line-height:1;margin-bottom:8px">📲</div>
-<div style="font-size:14px;line-height:1.7">
-아이폰 사파리는 <b>전체화면 기능 자체를 제공하지 않습니다</b>(애플 정책).<br>
-아래 3초짜리 과정을 <b>한 번만</b> 해두면, 다음부터는 아이콘을 누르는 것만으로
-<b style="color:var(--acc)">주소창 없는 가로 전체화면</b>으로 바로 실행됩니다.
+<div style="font-size:13.5px;line-height:1.55;text-align:center;margin-bottom:10px">
+아이폰 사파리는 <b>전체화면을 지원하지 않습니다</b> (애플 정책).<br>
+대신 <b style="color:var(--acc)">홈 화면에 추가</b>하면 주소창 없이 실행됩니다 — 딱 한 번이면 됩니다.
 </div>
-<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">1️⃣</div><div style="font-size:13.5px">화면 <b>맨 아래 가운데</b>의 <b>공유 버튼</b><br><span class="tiny dim">네모 위로 화살표가 솟은 모양 ⬆️</span></div></div>
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">2️⃣</div><div style="font-size:13.5px">목록을 내려서 <b>"홈 화면에 추가"</b> 탭</div></div>
-  <div style="display:flex;gap:10px;align-items:center;background:#0e1728;border:1px solid #23334f;border-radius:12px;padding:10px 12px">
-    <div style="font-size:22px">3️⃣</div><div style="font-size:13.5px">오른쪽 위 <b>추가</b> → 홈 화면의 🐑 아이콘으로 실행</div></div>
-</div>
-<div class="tiny dim" style="margin-top:12px;line-height:1.6">
-지금 그냥 하셔도 됩니다. 폰을 <b>가로로 눕히면</b> 사파리 주소창이 대부분 사라져
-거의 전체화면으로 플레이할 수 있습니다.
+<div style="display:flex;flex-direction:column;gap:7px;max-width:340px;margin:0 auto">
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">1</b>
+    <span style="font-size:13px">사파리 <b>맨 아래 가운데</b>의 공유 버튼 <b>⬆️</b> 탭</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">2</b>
+    <span style="font-size:13px">목록에서 <b>"홈 화면에 추가"</b> 탭</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:9px 12px">
+    <b style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#241c00;text-align:center;line-height:22px;font-size:13px">3</b>
+    <span style="font-size:13px">홈 화면의 <b>🐑 아이콘</b>으로 실행 → 전체화면!</span>
+  </div>
 </div>`;
-    const skip = h('button', { cls:'btn ghost grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '괜찮아요, 그냥 할게요');
     const ok = h('button', { cls:'btn primary grow', onclick: () => { Viewport.dismissIOSHint(); UI.closeModal(); } }, '알겠어요');
-    this.modal({ title:'📲 아이폰 전체화면', body: root, footer:[skip, ok], onClose: () => Viewport.dismissIOSHint() });
+    this.modal({ title:'📲 아이폰에서 전체화면 하는 법', body: root, footer:[ok], onClose: () => Viewport.dismissIOSHint() });
   },
 
   /** 카톡 등 인앱 브라우저 — 전체화면·방향고정이 모두 차단된다 */
