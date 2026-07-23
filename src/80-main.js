@@ -10,7 +10,7 @@ const Game = {
   killTarget: null,
   voicePeers: {},
   wakeLock: null,
-  infoCache: {},        // 관리실·카메라 서버 응답 캐시
+  infoCache: {},        // 사무실·감시초소 서버 응답 캐시
 
   /* ═══════════ 부팅 ═══════════ */
   boot() {
@@ -235,7 +235,10 @@ const Game = {
       }
       case 'visualtask': {                      // 근처에 있던 사람에게만 도착
         const p = G.players[m.pid];
-        if (p) UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'소행성 격추', shields:'실드 정비', scan:'신체 스캔' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (양 확정)`, 5000);
+        if (p) {
+          UI.toast(`✨ ${p.name} 님이 <b>${{ asteroid:'까마귀 쫓기', shields:'울타리 점검', scan:'건강 검진' }[m.kind] || '시각 임무'}</b>를 수행했습니다 (양 확정)`, 5000);
+          if (p.x !== undefined) Render.sparkleAt(p.x, p.y, '#8ef0b5');
+        }
         break;
       }
     }
@@ -317,14 +320,16 @@ const Game = {
       case 'kill':
         // 당사자에게는 killcine 이 따로 간다. 여기서는 주변 사람의 '기척'만 처리.
         if (m.victim !== G.myId && G.me && !G.ghost && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
-          Sfx.kill(); Render.shake = 9;
+          Sfx.kill(); Render.shake = 9; Render.ringAt(m.at.x, m.at.y, '#ff4d5e', 110);
         }
         break;
       case 'shieldblock': Sfx.fixed(); break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다
-        if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 380) Sfx.vent();
+        if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 380) {
+          Sfx.vent(); Render.puffAt(m.at.x, m.at.y);
+        }
         break;
-      case 'meeting': Sfx.bodyFound(); break;
+      case 'meeting': Sfx.bodyFound(); Render.shake = 12; break;   // 종이 울리면 화면이 덜컹
       case 'votestart': Sfx.alarm(); Meeting.render({ meeting: G.meeting }); break;
       case 'voted': Sfx.vote(); break;
       case 'ejectresult': UI.playEject(m); break;
@@ -334,13 +339,17 @@ const Game = {
         break;
       case 'sabotage': {
         Sfx.sabotage(); Render.shake = 8;
-        const nm = { lights:'💡 정전', comms:'📡 통신 두절', reactor:'☢️ 리액터 붕괴', oxygen:'🫁 산소 고갈' }[m.kind];
+        for (const sp of (SAB_SPOTS[m.kind] || [])) Render.ringAt(sp.wx, sp.wy, '#ff4d5e', 120);
+        const nm = { lights:'💡 정전', comms:'📡 방송 두절', reactor:'🌀 물레방아 폭주', oxygen:'💧 물탱크 누수' }[m.kind];
         UI.toast(`<b style="color:var(--bad)">${nm}</b> 사보타주 발생!`, 4500);
         this.updateAlert();
         break;
       }
       case 'sabfixed': Sfx.fixed(); UI.toast('✅ 사보타주가 복구되었습니다.', 2600); this.updateAlert(); UI.closeAllModals(); break;
-      case 'doors': Sfx.alarm(); if (roomIdAt(G.me?.x, G.me?.y) === m.room) UI.toast('🚪 문이 잠겼습니다!', 2600); break;
+      case 'doors':
+        Sfx.alarm();
+        if (roomIdAt(G.me?.x, G.me?.y) === m.room) { UI.toast('🚪 문이 잠겼습니다!', 2600); Render.shake = 7; }
+        break;
       case 'tolobby': UI.closeAllModals(); UI.show('lobby'); Meeting.clearChat(); G.myRole = null; break;
       case 'over': UI.showResult(m.result); break;
     }
@@ -349,8 +358,8 @@ const Game = {
   updateAlert() {
     if (!G.sabotage) { UI.setAlert(null); return; }
     const S = G.sabotage;
-    const nm = { lights:'💡 정전 — 전기실에서 복구', comms:'📡 통신 두절 — 통신실에서 복구',
-                 reactor:'☢️ 리액터 붕괴 — 2명이 동시에!', oxygen:'🫁 산소 고갈 — 2곳에 코드 입력' }[S.kind];
+    const nm = { lights:'💡 정전 — 발전기실에서 복구', comms:'📡 방송 두절 — 방송실에서 복구',
+                 reactor:'🌀 물레방아 폭주 — 2명이 동시에!', oxygen:'💧 물탱크 누수 — 2곳에 코드 입력' }[S.kind];
     if (S.endsAt) {
       const left = Math.max(0, Math.ceil((S.endsAt - now()) / 1000));
       UI.setAlert(`${nm} · <span style="font-variant-numeric:tabular-nums">${left}s</span>`);
@@ -618,7 +627,7 @@ const Game = {
       case 'remotefix':   return { ok: useOk && !!G.sabotage && G.sabotage.kind !== 'doors', label:`수리${G.abilityUses ? '' : '✕'}` };
       case 'shoot':       return { ok: cdOk && useOk && !!this.nearestPlayer(me, 150), label:'사격' };
       case 'shield':      return { ok: useOk && !!this.nearestPlayer(me, 130), label:'방패' };
-      case 'morph':       return { ok: !!this.nearestPlayer(me, 130) || (G.mySample && cdOk), label: G.mySample ? '변신' : '샘플' };
+      case 'morph':       return { ok: !!this.nearestPlayer(me, 130) || (G.mySample && cdOk), label: G.mySample ? '변신' : '털 채취' };
       case 'drag':        return { ok: !!G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 100) || !!G.dragging, label: G.dragging ? '놓기' : '끌기' };
       case 'eat':         return { ok: !!G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 100), label:`먹기 ${G.eaten}/3` };
       case 'infect':      return { ok: cdOk && !!this.nearestPlayer(me, 120), label:'감염' };
@@ -658,7 +667,7 @@ const Game = {
     if (me.alive && Math.hypot(me.x - EMERGENCY_BTN.wx, me.y - EMERGENCY_BTN.wy) < 100)
       return { kind:'emergency', icon:'🔔', label:'긴급회의' };
     // 4) 패널
-    if (Math.hypot(me.x - ADMIN_TABLE.wx, me.y - ADMIN_TABLE.wy) < 100) return { kind:'admin', icon:'📊', label:'관리실' };
+    if (Math.hypot(me.x - ADMIN_TABLE.wx, me.y - ADMIN_TABLE.wy) < 100) return { kind:'admin', icon:'📊', label:'사무실' };
     if (Math.hypot(me.x - VITALS_PANEL.wx, me.y - VITALS_PANEL.wy) < 100) return { kind:'vitals', icon:'💓', label:'생체신호' };
     if (Math.hypot(me.x - CAMERA_PANEL.wx, me.y - CAMERA_PANEL.wy) < 100) return { kind:'cams', icon:'📹', label:'감시' };
     return null;
@@ -676,7 +685,7 @@ const Game = {
     else if (t.kind === 'emergency') {
       if (G.emergencyLeft <= 0) return UI.toast('긴급 회의를 모두 사용했습니다.');
       if (G.sabotage?.endsAt) return UI.toast('치명적 사보타주 중에는 회의를 열 수 없습니다.');
-      UI.modal({ title:'🔔 긴급 회의', body:`<div style="text-align:center;padding:10px">모두를 카페테리아로 소집합니다.<br><span class="dim tiny">남은 횟수 ${G.emergencyLeft}회</span></div>`,
+      UI.modal({ title:'🔔 긴급 회의', body:`<div style="text-align:center;padding:10px">모두를 헛간 앞마당으로 소집합니다.<br><span class="dim tiny">남은 횟수 ${G.emergencyLeft}회</span></div>`,
         footer:[ h('button', { cls:'btn ghost grow', onclick: () => UI.closeModal() }, '취소'),
                  h('button', { cls:'btn danger grow', onclick: () => { Net.toHost('emergency', {}); UI.closeModal(); } }, '소집하기') ] });
     }

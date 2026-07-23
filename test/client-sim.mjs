@@ -40,6 +40,7 @@ function ctx2d() {
     save: noop, restore: noop, translate: noop, scale: noop, rotate: noop, setTransform: noop,
     beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop, arc: noop, ellipse: noop,
     rect: noop, fill: noop, stroke: noop, clip: noop, fillRect: noop, strokeRect: noop,
+    quadraticCurveTo: noop, bezierCurveTo: noop, arcTo: noop, roundRect: noop,
     clearRect: noop, fillText: noop, strokeText: noop, drawImage: noop, setLineDash: noop,
     measureText: () => ({ width: 10 }),
     createRadialGradient: () => ({ addColorStop: noop }),
@@ -148,20 +149,20 @@ section('동선 자동 기록 (음성 없이 알리바이)');
   setup();
   Trail.reset();
   const me = G.me;
-  // 카페테리아 → 관리실 → 창고 순서로 이동한 것처럼
+  // 헛간 앞마당 → 사무실 → 창고 순서로 이동한 것처럼
   const spots = [
-    { name:'카페테리아', x: A.EMERGENCY_BTN.wx, y: A.EMERGENCY_BTN.wy },
-    { name:'관리실',     x: A.ADMIN_TABLE.wx,   y: A.ADMIN_TABLE.wy },
-    { name:'전기실',     x: A.VITALS_PANEL.wx,  y: A.VITALS_PANEL.wy },
+    { name:'헛간 앞마당', x: A.EMERGENCY_BTN.wx, y: A.EMERGENCY_BTN.wy },
+    { name:'사무실',     x: A.ADMIN_TABLE.wx,   y: A.ADMIN_TABLE.wy },
+    { name:'발전기실',     x: A.VITALS_PANEL.wx,  y: A.VITALS_PANEL.wy },
   ];
   for (const s of spots) { me.x = s.x; me.y = s.y; Trail.track(me, []); }
   ok('방을 옮길 때마다 기록됨', Trail.log.length === 3, Trail.log);
-  ok('기록된 방 이름이 정확', Trail.log.map(e => e.room).join(',') === '카페테리아,관리실,전기실', Trail.log.map(e => e.room));
+  ok('기록된 방 이름이 정확', Trail.log.map(e => e.room).join(',') === '헛간 앞마당,사무실,발전기실', Trail.log.map(e => e.room));
   // 같은 방에 머무르면 중복 기록 안 함
   Trail.track(me, []); Trail.track(me, []);
   ok('같은 방 재기록 안 함', Trail.log.length === 3);
   const txt = Trail.myPath();
-  ok('동선 문자열 생성', txt.includes('카페테리아') && txt.includes('전기실') && txt.startsWith('📍'), txt);
+  ok('동선 문자열 생성', txt.includes('헛간 앞마당') && txt.includes('발전기실') && txt.startsWith('📍'), txt);
   ok('시각 형식 mm:ss', /\d\d:\d\d/.test(txt), txt);
 
   // 목격 기록
@@ -170,8 +171,8 @@ section('동선 자동 기록 (음성 없이 알리바이)');
   G.players.p2.x = A.ADMIN_TABLE.wx + 20; G.players.p2.y = A.ADMIN_TABLE.wy;
   Trail.track(me, [G.players.p2]);
   ok('목격한 사람이 기록됨', !!Trail.seen.p2);
-  ok('목격 장소가 정확', Trail.seen.p2.room === '관리실', Trail.seen.p2);
-  ok('목격 문자열 생성', Trail.seenText('p2').includes('관리실'), Trail.seenText('p2'));
+  ok('목격 장소가 정확', Trail.seen.p2.room === '사무실', Trail.seen.p2);
+  ok('목격 문자열 생성', Trail.seenText('p2').includes('사무실'), Trail.seenText('p2'));
   ok('못 본 사람은 "못 봄"', Trail.seenText('p3').includes('못 봄'), Trail.seenText('p3'));
   // 40개 초과 시 오래된 것 버림
   Trail.reset();
@@ -206,9 +207,9 @@ section('퀵챗 (타이핑 없이 문장 완성)');
   sent.length = 0;
   Meeting.fill('p', '파랑');
   ok('첫 칸 채운 뒤엔 아직 전송 안 함', sent.length === 0 && Meeting.pending !== null);
-  Meeting.fill('r', '전기실');
+  Meeting.fill('r', '발전기실');
   ok('두 칸 다 채우면 전송됨', sent.length === 1, sent);
-  ok('완성된 문장이 정확', sent[0]?.d.text === '파랑 전기실에서 봤어', sent[0]?.d.text);
+  ok('완성된 문장이 정확', sent[0]?.d.text === '파랑 발전기실에서 봤어', sent[0]?.d.text);
   ok('전송 후 pending 해제', Meeting.pending === null);
 
   // 플레이스홀더 없는 문장은 즉시 전송
@@ -267,7 +268,7 @@ section('상호작용 대상 판정');
 
   // 패널
   P.me.x = A.ADMIN_TABLE.wx; P.me.y = A.ADMIN_TABLE.wy;
-  ok('관리실 테이블 → 관리실', Game.findUseTarget(P.me)?.kind === 'admin');
+  ok('사무실 테이블 → 사무실', Game.findUseTarget(P.me)?.kind === 'admin');
   P.me.x = A.VITALS_PANEL.wx; P.me.y = A.VITALS_PANEL.wy;
   ok('생체신호 패널 인식', Game.findUseTarget(P.me)?.kind === 'vitals');
   P.me.x = A.CAMERA_PANEL.wx; P.me.y = A.CAMERA_PANEL.wy;
@@ -318,7 +319,7 @@ section('능력 버튼 활성 조건');
   ok('의사 — 횟수 소진 시 비활성', Game.abilityState(P.me, A.roleInfo('doctor')).ok === false);
 
   G.myRole = 'morphling'; G.abilityCdEnd = 0; G.mySample = null;
-  ok('변신술사 — 샘플 없으면 "샘플"', Game.abilityState(P.me, A.roleInfo('morphling')).label === '샘플');
+  ok('변신술사 — 샘플 없으면 "털 채취"', Game.abilityState(P.me, A.roleInfo('morphling')).label === '털 채취');
   G.mySample = 'p2';
   ok('변신술사 — 샘플 있으면 "변신"', Game.abilityState(P.me, A.roleInfo('morphling')).label === '변신');
 
@@ -394,7 +395,7 @@ section('화면 전환 · 회의 UI 코드 경로');
     t:'state', phase:'meeting', round:1, order:G.order, settings:G.settings, hostId:'me',
     taskBar:{done:0,total:10}, bodies:[], sabotage:null, doors:{}, result:null, sabCdEnd:0,
     players: Object.values(G.players).map(p => ({ id:p.id, name:p.name, color:p.color, alive:true, connected:true, x:p.x, y:p.y, dir:1, ventId:null })),
-    meeting: { caller:'me', body:{ pid:'p2', room:'전기실', color:'blue' }, phase:'discuss',
+    meeting: { caller:'me', body:{ pid:'p2', room:'발전기실', color:'blue' }, phase:'discuss',
                endsAt: Date.now() + 60000, votes:{}, tally:null, reported:[] },
   };
   err = null;
@@ -458,7 +459,7 @@ section('사보타주 알림 · 이벤트 처리');
     ['doors',    { type:'doors', room:'cafe' }],
     ['kill',     { type:'kill', victim:'p2', at:{x:100,y:100} }],
     ['kill(나)', { type:'kill', victim:'me',  at:{x:100,y:100} }],
-    ['vent',     { type:'vent', in:true, room:'전기실', at:{x:100,y:100} }],
+    ['vent',     { type:'vent', in:true, room:'발전기실', at:{x:100,y:100} }],
     ['meeting',  { type:'meeting', caller:'me', body:null }],
     ['votestart',{ type:'votestart' }],
     ['shieldblock', { type:'shieldblock', at:{x:1,y:1} }],
@@ -471,7 +472,7 @@ section('사보타주 알림 · 이벤트 처리');
   }
   // 개인 메시지
   for (const [name, msg] of [
-    ['ventalert',  { t:'ventalert', room:'창고' }],
+    ['ventalert',  { t:'ventalert', room:'곡물창고' }],
     ['visualtask', { t:'visualtask', pid:'p2', kind:'asteroid' }],
     ['toast',      { t:'toast', text:'테스트' }],
     ['privlog',    { t:'privlog', text:'🔎 결과' }],
@@ -505,7 +506,7 @@ section('렌더러 실행');
 
   err = null;
   try {
-    G.bodies = [{ id:'b', pid:'p2', color:'blue', x:P.me.x + 20, y:P.me.y, room:'카페테리아', t:Date.now() }];
+    G.bodies = [{ id:'b', pid:'p2', color:'blue', x:P.me.x + 20, y:P.me.y, room:'헛간 앞마당', t:Date.now() }];
     G.doors = { cafe: Date.now() + 5000 };
     G.sabotage = { kind:'reactor', endsAt: Date.now() + 10000, data:{ hold:{} } };
     Game.render(P.me);
@@ -520,7 +521,41 @@ section('렌더러 실행');
       camRooms: ['upeng'], showAll: Object.values(G.players),
     });
   } catch (e) { err = String(e); }
-  ok('미니맵 렌더 가능 (관리실·카메라 모드)', err === null, err);
+  ok('미니맵 렌더 가능 (사무실·카메라 모드)', err === null, err);
+}
+
+/* ---- 연출(파티클) ---------------------------------------------------------*/
+section('연출');
+{
+  const R = A.Render;
+  R.fx = [];
+  R.dustAt(100, 100, 1);
+  ok('걸음 먼지가 생긴다', R.fx.length === 3 && R.fx.every(f => f.kind === 'dust'), R.fx.length);
+
+  R.fx = [];
+  R.sparkleAt(200, 200);
+  ok('임무 반짝임 = 링 1 + 별 10', R.fx.filter(f => f.kind === 'ring').length === 1
+                               && R.fx.filter(f => f.kind === 'star').length === 10, R.fx.length);
+
+  // 16명이 동시에 뛰어도 파티클이 폭증하면 안 된다 (저사양 폰 프레임 방어)
+  R.fx = [];
+  for (let i = 0; i < 400; i++) R.dustAt(0, 0);
+  ok('파티클 개수 상한이 지켜진다', R.fx.length <= R.FX_MAX, R.fx.length);
+
+  R.fx = [];
+  R.addFx({ kind:'dust', x:0, y:0, vx:1, vy:1, r:3, life:100 });
+  R.updateFx(60); R.updateFx(60);
+  ok('수명이 끝난 파티클은 사라진다', R.fx.length === 0, R.fx.length);
+
+  R.fx = [];
+  R.addFx({ kind:'dust', x:0, y:0, vx:2, vy:0, r:3, life:1000 });
+  R.updateFx(16.67);
+  ok('파티클이 속도만큼 움직인다', R.fx[0].x > 0, R.fx[0]?.x);
+
+  let fxErr = null;
+  try { R.fx = []; R.dustAt(0,0); R.sparkleAt(0,0); R.puffAt(0,0); R.ringAt(0,0); R.drawFx(ctx2d()); }
+  catch (e) { fxErr = String(e); }
+  ok('모든 파티클 종류가 그려진다', fxErr === null, fxErr);
 }
 
 /* ---- 출력 -----------------------------------------------------------------*/
