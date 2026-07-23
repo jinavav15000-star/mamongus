@@ -173,6 +173,23 @@ const isNeut   = id => roleInfo(id).faction === F.NEUT;
 const isSheriffTarget = id => isDuck(id) || (isNeut(id) && isKiller(id));
 
 const GOOSE_ROLES = Object.keys(ROLES).filter(k => ROLES[k].faction === F.GOOSE && k !== 'goose');
+/* 인원이 적으면 성립하지 않는 직업들.
+ * 독수리: 시체 3구를 먹어야 승리 — 6인 이하에선 수학적으로 거의 불가능.
+ * 암살자: 회의 즉사 한 방 — 소인원에선 한 명 실수로 판이 끝난다.
+ * 숫양: 자폭 맞교환 — 소인원에선 스노볼이 너무 크다. */
+const ROLE_MIN_P = { vulture: 7, assassin: 7, canadian: 6, pelican: 7 };
+
+/* 인원수 → 권장·상한 구성.
+ * 늑대 상한 floor((n-1)/3): 4~6명 1, 7~9명 2, 10~12명 3, 13명+ 4.
+ * (이전의 floor((n-1)/2) 는 5명에 늑대 2를 허용 — 한 명만 죽어도 2:2 즉시 패배였다) */
+function recommendComp(n) {
+  const duck = n <= 6 ? 1 : n <= 9 ? 2 : n <= 12 ? 3 : 4;
+  const neut = n <= 5 ? 0 : n <= 8 ? 1 : n <= 11 ? 2 : 3;
+  return { duck, neut };
+}
+function maxDuck(n) { return Math.max(1, Math.floor((n - 1) / 3)); }
+function maxNeut(n, duck) { return Math.max(0, Math.min(3, n - duck * 2 - 1)); }
+
 const DUCK_ROLES  = Object.keys(ROLES).filter(k => ROLES[k].faction === F.DUCK  && k !== 'duck');
 const NEUT_ROLES  = Object.keys(ROLES).filter(k => ROLES[k].faction === F.NEUT);
 
@@ -188,13 +205,16 @@ function assignRoles(playerIds, S) {
   const ids = shuffle([...playerIds]);
   const out = {};
 
-  const nDuck = Math.max(1, Math.min(S.duckCount, Math.floor((n - 1) / 2)));
-  const nNeut = Math.max(0, Math.min(S.neutralCount, n - nDuck - 2));
+  const nDuck = Math.max(1, Math.min(S.duckCount, maxDuck(n)));
+  const nNeut = Math.max(0, Math.min(S.neutralCount, maxNeut(n, nDuck)));
 
   const pick = (pool, count) => {
-    // 가중치 기반 추첨 (중복 없음)
+    // 가중치 기반 추첨 (중복 없음) · 인원 미달 직업은 제외
     const bag = [];
-    for (const r of pool) { const w = S.roleWeights[r] || 0; for (let i = 0; i < w; i++) bag.push(r); }
+    for (const r of pool) {
+      if (ROLE_MIN_P[r] && n < ROLE_MIN_P[r]) continue;
+      const w = S.roleWeights[r] || 0; for (let i = 0; i < w; i++) bag.push(r);
+    }
     const chosen = [];
     while (chosen.length < count && bag.length) {
       const i = (Math.random() * bag.length) | 0;

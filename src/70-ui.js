@@ -171,16 +171,20 @@ const UI = {
       foot.appendChild(botRow);
       if (nBots > 0) foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'5px' } },
         '봇은 돌아다니고 임무를 하고 투표도 합니다. 혼자서 게임을 익혀보세요.'));
-      foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
-        '늑대 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 양'));
+      { const nn = st.players.filter(p => p.connected).length;
+        const eff = Math.max(1, Math.min(st.settings.duckCount, maxDuck(Math.max(4, nn))));
+        const effN = Math.max(0, Math.min(st.settings.neutralCount, maxNeut(Math.max(4, nn), eff)));
+        foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
+          `현재 ${nn}명 기준 — 늑대 ${eff}마리 · 중립 ${effN}명 · 나머지 양`)); }
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
         '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
       foot.appendChild(h('div', { cls:'card', style:{ textAlign:'center' } },
         h('div', { cls:'dim' }, '방장이 시작하기를 기다리는 중…')));
     }
-    if (this.settingsDirty !== JSON.stringify(st.settings) || !$('#settings-body').children.length) {
-      this.settingsDirty = JSON.stringify(st.settings);
+    const settingsKey = JSON.stringify(st.settings) + '|' + st.players.filter(p => p.connected).length;
+    if (this.settingsDirty !== settingsKey || !$('#settings-body').children.length) {
+      this.settingsDirty = settingsKey;
       this.renderSettings(st, isHost);
       this.renderRoleWeights(st, isHost);
     }
@@ -200,9 +204,16 @@ const UI = {
           onclick: () => isHost && Game.setSetting(d.k, !st.settings[d.k]) }, st.settings[d.k] ? '켬' : '끔');
         b.disabled = !isHost; grid.appendChild(b);
       } else {
-        const v = h('div', { cls:'v' }, (d.fmt ? d.fmt(st.settings[d.k]) : st.settings[d.k]) + (d.unit || ''));
-        const dec = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.max(d.min, +(st.settings[d.k] - d.step).toFixed(2))) }, '−');
-        const inc = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.min(d.max, +(st.settings[d.k] + d.step).toFixed(2))) }, '+');
+        // 늑대·중립은 현재 인원 기준으로 상한을 잡고 권장값을 보여준다
+        const n = st.players.filter(p => p.connected).length;
+        const rec = recommendComp(Math.max(4, n));
+        let dmax = d.max, hint = '';
+        if (d.k === 'duckCount')    { dmax = Math.min(d.max, maxDuck(Math.max(4, n))); hint = ` (권장 ${rec.duck})`; }
+        if (d.k === 'neutralCount') { dmax = Math.min(d.max, maxNeut(Math.max(4, n), st.settings.duckCount)); hint = ` (권장 ${rec.neut})`; }
+        const shown = Math.min(st.settings[d.k], dmax);
+        const v = h('div', { cls:'v' }, (d.fmt ? d.fmt(shown) : shown) + (d.unit || '') + hint);
+        const dec = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.max(d.min, +(shown - d.step).toFixed(2))) }, '−');
+        const inc = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.min(dmax, +(shown + d.step).toFixed(2))) }, '+');
         dec.disabled = !isHost; inc.disabled = !isHost;
         grid.appendChild(h('div', { cls:'stepper' }, dec, v, inc));
       }

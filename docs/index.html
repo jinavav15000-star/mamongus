@@ -1710,6 +1710,23 @@ const isNeut   = id => roleInfo(id).faction === F.NEUT;
 const isSheriffTarget = id => isDuck(id) || (isNeut(id) && isKiller(id));
 
 const GOOSE_ROLES = Object.keys(ROLES).filter(k => ROLES[k].faction === F.GOOSE && k !== 'goose');
+/* 인원이 적으면 성립하지 않는 직업들.
+ * 독수리: 시체 3구를 먹어야 승리 — 6인 이하에선 수학적으로 거의 불가능.
+ * 암살자: 회의 즉사 한 방 — 소인원에선 한 명 실수로 판이 끝난다.
+ * 숫양: 자폭 맞교환 — 소인원에선 스노볼이 너무 크다. */
+const ROLE_MIN_P = { vulture: 7, assassin: 7, canadian: 6, pelican: 7 };
+
+/* 인원수 → 권장·상한 구성.
+ * 늑대 상한 floor((n-1)/3): 4~6명 1, 7~9명 2, 10~12명 3, 13명+ 4.
+ * (이전의 floor((n-1)/2) 는 5명에 늑대 2를 허용 — 한 명만 죽어도 2:2 즉시 패배였다) */
+function recommendComp(n) {
+  const duck = n <= 6 ? 1 : n <= 9 ? 2 : n <= 12 ? 3 : 4;
+  const neut = n <= 5 ? 0 : n <= 8 ? 1 : n <= 11 ? 2 : 3;
+  return { duck, neut };
+}
+function maxDuck(n) { return Math.max(1, Math.floor((n - 1) / 3)); }
+function maxNeut(n, duck) { return Math.max(0, Math.min(3, n - duck * 2 - 1)); }
+
 const DUCK_ROLES  = Object.keys(ROLES).filter(k => ROLES[k].faction === F.DUCK  && k !== 'duck');
 const NEUT_ROLES  = Object.keys(ROLES).filter(k => ROLES[k].faction === F.NEUT);
 
@@ -1725,13 +1742,16 @@ function assignRoles(playerIds, S) {
   const ids = shuffle([...playerIds]);
   const out = {};
 
-  const nDuck = Math.max(1, Math.min(S.duckCount, Math.floor((n - 1) / 2)));
-  const nNeut = Math.max(0, Math.min(S.neutralCount, n - nDuck - 2));
+  const nDuck = Math.max(1, Math.min(S.duckCount, maxDuck(n)));
+  const nNeut = Math.max(0, Math.min(S.neutralCount, maxNeut(n, nDuck)));
 
   const pick = (pool, count) => {
-    // 가중치 기반 추첨 (중복 없음)
+    // 가중치 기반 추첨 (중복 없음) · 인원 미달 직업은 제외
     const bag = [];
-    for (const r of pool) { const w = S.roleWeights[r] || 0; for (let i = 0; i < w; i++) bag.push(r); }
+    for (const r of pool) {
+      if (ROLE_MIN_P[r] && n < ROLE_MIN_P[r]) continue;
+      const w = S.roleWeights[r] || 0; for (let i = 0; i < w; i++) bag.push(r);
+    }
     const chosen = [];
     while (chosen.length < count && bag.length) {
       const i = (Math.random() * bag.length) | 0;
@@ -3273,7 +3293,10 @@ const Host = {
         if (Object.values(this.P).some(q => q.id !== id && q.color === m.color)) break;
         p.color = m.color; this.pushState(); break;
       }
-      case 'settings': if (id === G.hostId) { Object.assign(G.settings, m.s); this.pushState(); } break;
+      case 'settings': if (id === G.hostId) {
+        if ('duckCount' in m.s || 'neutralCount' in m.s) this._manualComp = true;   // 방장이 직접 만졌다
+        Object.assign(G.settings, m.s); this.pushState();
+      } break;
       case 'start':    if (id === G.hostId) this.startGame(); break;
       case 'addbot':   if (id === G.hostId) this.addBot(); break;
       case 'rmbots':   if (id === G.hostId) this.removeBots(); break;
@@ -3321,6 +3344,16 @@ const Host = {
     return m;
   },
   pushState() {
+    // 로비에서 인원이 바뀌면(입장·퇴장·봇) 구성을 권장값으로 따라가게 한다.
+    // 방장이 직접 만졌으면(_manualComp) 존중하되 상한만 지킨다.
+    if (G.phase === 'lobby') {
+      const n = Math.max(4, G.order.filter(i => this.P[i]?.connected).length);
+      const rec = recommendComp(n);
+      const wantD = this._manualComp ? G.settings.duckCount : rec.duck;
+      const wantN = this._manualComp ? G.settings.neutralCount : rec.neut;
+      G.settings.duckCount = Math.max(1, Math.min(wantD, maxDuck(n)));
+      G.settings.neutralCount = Math.max(0, Math.min(wantN, maxNeut(n, G.settings.duckCount)));
+    }
     Net.broadcast('state', {
       phase: G.phase, round: G.round,
       players: G.order.map(i => this.P[i]).filter(Boolean).map(p => this.pubPlayer(p)),
@@ -3492,6 +3525,21 @@ const Host = {
     const alive = G.order.filter(i => this.P[i]?.connected);
     if (alive.length < 4) { Net.toPeer(this.P[G.hostId].peerId, 'toast', { text: '최소 4명이 필요합니다.' }); return; }
     G.order = alive;
+    // 인원수에 맞는 자동 구성.
+    // 방장이 직접 만진 적 없으면 권장값을 쓰고, 만졌어도 상한을 넘으면 깎는다.
+    // (5명 방에 늑대 2로 시작하면 한 명만 죽어도 게임이 끝난다)
+    {
+      const n = alive.length;
+      const rec = recommendComp(n);
+      const wantD = this._manualComp ? G.settings.duckCount : rec.duck;
+      const wantN = this._manualComp ? G.settings.neutralCount : rec.neut;
+      const d = Math.max(1, Math.min(wantD, maxDuck(n)));
+      const ne = Math.max(0, Math.min(wantN, maxNeut(n, d)));
+      if (d !== G.settings.duckCount || ne !== G.settings.neutralCount) {
+        G.settings.duckCount = d; G.settings.neutralCount = ne;
+        this.sys(`⚖️ ${n}명에 맞춰 구성을 조정했습니다 — 늑대 ${d}마리 · 중립 ${ne}명`);
+      }
+    }
     const roles = assignRoles(alive, G.settings);
     this.commonTasks = pickN(COMMON_POOL, Math.min(G.settings.taskCommon, COMMON_POOL.length));
 
@@ -5753,16 +5801,20 @@ const UI = {
       foot.appendChild(botRow);
       if (nBots > 0) foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'5px' } },
         '봇은 돌아다니고 임무를 하고 투표도 합니다. 혼자서 게임을 익혀보세요.'));
-      foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
-        '늑대 ' + st.settings.duckCount + '마리 · 중립 ' + st.settings.neutralCount + '명 · 나머지 양'));
+      { const nn = st.players.filter(p => p.connected).length;
+        const eff = Math.max(1, Math.min(st.settings.duckCount, maxDuck(Math.max(4, nn))));
+        const effN = Math.max(0, Math.min(st.settings.neutralCount, maxNeut(Math.max(4, nn), eff)));
+        foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
+          `현재 ${nn}명 기준 — 늑대 ${eff}마리 · 중립 ${effN}명 · 나머지 양`)); }
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
         '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
       foot.appendChild(h('div', { cls:'card', style:{ textAlign:'center' } },
         h('div', { cls:'dim' }, '방장이 시작하기를 기다리는 중…')));
     }
-    if (this.settingsDirty !== JSON.stringify(st.settings) || !$('#settings-body').children.length) {
-      this.settingsDirty = JSON.stringify(st.settings);
+    const settingsKey = JSON.stringify(st.settings) + '|' + st.players.filter(p => p.connected).length;
+    if (this.settingsDirty !== settingsKey || !$('#settings-body').children.length) {
+      this.settingsDirty = settingsKey;
       this.renderSettings(st, isHost);
       this.renderRoleWeights(st, isHost);
     }
@@ -5782,9 +5834,16 @@ const UI = {
           onclick: () => isHost && Game.setSetting(d.k, !st.settings[d.k]) }, st.settings[d.k] ? '켬' : '끔');
         b.disabled = !isHost; grid.appendChild(b);
       } else {
-        const v = h('div', { cls:'v' }, (d.fmt ? d.fmt(st.settings[d.k]) : st.settings[d.k]) + (d.unit || ''));
-        const dec = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.max(d.min, +(st.settings[d.k] - d.step).toFixed(2))) }, '−');
-        const inc = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.min(d.max, +(st.settings[d.k] + d.step).toFixed(2))) }, '+');
+        // 늑대·중립은 현재 인원 기준으로 상한을 잡고 권장값을 보여준다
+        const n = st.players.filter(p => p.connected).length;
+        const rec = recommendComp(Math.max(4, n));
+        let dmax = d.max, hint = '';
+        if (d.k === 'duckCount')    { dmax = Math.min(d.max, maxDuck(Math.max(4, n))); hint = ` (권장 ${rec.duck})`; }
+        if (d.k === 'neutralCount') { dmax = Math.min(d.max, maxNeut(Math.max(4, n), st.settings.duckCount)); hint = ` (권장 ${rec.neut})`; }
+        const shown = Math.min(st.settings[d.k], dmax);
+        const v = h('div', { cls:'v' }, (d.fmt ? d.fmt(shown) : shown) + (d.unit || '') + hint);
+        const dec = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.max(d.min, +(shown - d.step).toFixed(2))) }, '−');
+        const inc = h('button', { onclick: () => isHost && Game.setSetting(d.k, Math.min(dmax, +(shown + d.step).toFixed(2))) }, '+');
         dec.disabled = !isHost; inc.disabled = !isHost;
         grid.appendChild(h('div', { cls:'stepper' }, dec, v, inc));
       }

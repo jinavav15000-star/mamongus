@@ -161,7 +161,10 @@ const Host = {
         if (Object.values(this.P).some(q => q.id !== id && q.color === m.color)) break;
         p.color = m.color; this.pushState(); break;
       }
-      case 'settings': if (id === G.hostId) { Object.assign(G.settings, m.s); this.pushState(); } break;
+      case 'settings': if (id === G.hostId) {
+        if ('duckCount' in m.s || 'neutralCount' in m.s) this._manualComp = true;   // 방장이 직접 만졌다
+        Object.assign(G.settings, m.s); this.pushState();
+      } break;
       case 'start':    if (id === G.hostId) this.startGame(); break;
       case 'addbot':   if (id === G.hostId) this.addBot(); break;
       case 'rmbots':   if (id === G.hostId) this.removeBots(); break;
@@ -209,6 +212,16 @@ const Host = {
     return m;
   },
   pushState() {
+    // 로비에서 인원이 바뀌면(입장·퇴장·봇) 구성을 권장값으로 따라가게 한다.
+    // 방장이 직접 만졌으면(_manualComp) 존중하되 상한만 지킨다.
+    if (G.phase === 'lobby') {
+      const n = Math.max(4, G.order.filter(i => this.P[i]?.connected).length);
+      const rec = recommendComp(n);
+      const wantD = this._manualComp ? G.settings.duckCount : rec.duck;
+      const wantN = this._manualComp ? G.settings.neutralCount : rec.neut;
+      G.settings.duckCount = Math.max(1, Math.min(wantD, maxDuck(n)));
+      G.settings.neutralCount = Math.max(0, Math.min(wantN, maxNeut(n, G.settings.duckCount)));
+    }
     Net.broadcast('state', {
       phase: G.phase, round: G.round,
       players: G.order.map(i => this.P[i]).filter(Boolean).map(p => this.pubPlayer(p)),
@@ -380,6 +393,21 @@ const Host = {
     const alive = G.order.filter(i => this.P[i]?.connected);
     if (alive.length < 4) { Net.toPeer(this.P[G.hostId].peerId, 'toast', { text: '최소 4명이 필요합니다.' }); return; }
     G.order = alive;
+    // 인원수에 맞는 자동 구성.
+    // 방장이 직접 만진 적 없으면 권장값을 쓰고, 만졌어도 상한을 넘으면 깎는다.
+    // (5명 방에 늑대 2로 시작하면 한 명만 죽어도 게임이 끝난다)
+    {
+      const n = alive.length;
+      const rec = recommendComp(n);
+      const wantD = this._manualComp ? G.settings.duckCount : rec.duck;
+      const wantN = this._manualComp ? G.settings.neutralCount : rec.neut;
+      const d = Math.max(1, Math.min(wantD, maxDuck(n)));
+      const ne = Math.max(0, Math.min(wantN, maxNeut(n, d)));
+      if (d !== G.settings.duckCount || ne !== G.settings.neutralCount) {
+        G.settings.duckCount = d; G.settings.neutralCount = ne;
+        this.sys(`⚖️ ${n}명에 맞춰 구성을 조정했습니다 — 늑대 ${d}마리 · 중립 ${ne}명`);
+      }
+    }
     const roles = assignRoles(alive, G.settings);
     this.commonTasks = pickN(COMMON_POOL, Math.min(G.settings.taskCommon, COMMON_POOL.length));
 

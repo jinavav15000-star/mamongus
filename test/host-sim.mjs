@@ -37,7 +37,8 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, ROLES, roleInfo, isDuck, isGoose, isNeut, COLORS,
   DEFAULT_SETTINGS, TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, SAB_SPOTS, spotById,
-  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, lineBlocked, WALLS, spawnPoints, assignRoles };
+  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, lineBlocked, WALLS, spawnPoints, assignRoles,
+  recommendComp, maxDuck, maxNeut, isNeut: isNeut };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -158,6 +159,35 @@ section('게임 시작 · 임무');
   ok('가짜 임무 역할은 진행바에서 제외', G.taskBar.total === realTotal, { total: G.taskBar.total, realTotal, fakers: fakers.length });
   ok('공통 임무는 전원 동일',
      new Set(G.order.map(id => Host.P[id].tasks[0].spots.join(','))).size === 1);
+}
+
+section('인원수 자동 균형');
+{
+  // 5명에 늑대 2로 설정해도 1마리로 깎여야 한다 (2면 한 명만 죽어도 2:2 즉시 패배)
+  reset(5);
+  G.settings.duckCount = 2; G.settings.neutralCount = 3;
+  Host._manualComp = true;                    // 방장이 억지로 올린 상황
+  Host.startGame();
+  const ducks = G.order.filter(i => A.isDuck(Host.P[i].role)).length;
+  const neuts = G.order.filter(i => A.isNeut(Host.P[i].role)).length;
+  ok('5명: 늑대는 1마리로 강제', ducks === 1, ducks);
+  ok('5명: 중립 상한 적용', neuts <= 2, neuts);
+  ok('조정 안내가 전체에 공지됨', sent.some(x => x.t === 'msg' && /조정/.test(x.d.text || '')));
+
+  // 자동 모드(설정 안 만짐): 권장 구성
+  ok('권장: 4명=늑1중0 · 8명=늑2중1 · 13명=늑4중3',
+     JSON.stringify([A.recommendComp(4), A.recommendComp(8), A.recommendComp(13)]) ===
+     JSON.stringify([{duck:1,neut:0},{duck:2,neut:1},{duck:4,neut:3}]));
+
+  // 소인원 금지 직업 — 5명 판에서 독수리·암살자가 절대 안 나온다
+  let sawBanned = false;
+  for (let t = 0; t < 30; t++) {
+    const S = { ...G.settings, duckCount: 1, neutralCount: 2,
+      roleWeights: { ...G.settings.roleWeights, vulture: 3, assassin: 3, canadian: 3 } };
+    const r = A.assignRoles(['a','b','c','d','e'], S);
+    if (Object.values(r).some(x => ['vulture','assassin','canadian'].includes(x))) sawBanned = true;
+  }
+  ok('5명 판에 인원 미달 직업(독수리·암살자·숫양) 금지', !sawBanned);
 }
 
 section('시야 광선 정밀도 (빛샘 버그)');
