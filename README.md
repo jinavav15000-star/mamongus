@@ -22,18 +22,26 @@ docs/og.jpg          ← 카카오톡 링크 미리보기 이미지
 
 ## 🚀 카카오톡에 공유할 주소 만들기
 
-### 방법 1 · GitHub Pages — 무료·영구 (권장)
+### 이미 열려 있는 주소
 
-이 저장소는 이미 **`/docs` 폴더 배포**에 맞춰져 있습니다.
+## 👉 <https://jinavav15000-star.github.io/mamongus/>
 
-저장소 → **Settings → Pages → Source: `Deploy from a branch` → `main` / `/docs`** 로 설정.
-1~2분 뒤 아래 주소에서 열립니다.
+이 주소를 카카오톡에 그대로 붙여넣으면 됩니다. 설치도 회원가입도 필요 없습니다.
 
+소스를 고친 뒤에는 이렇게 반영합니다.
+
+```bash
+npm run build          # src/ → docs/index.html 다시 만들기 (빼먹으면 반영 안 됨)
+git add -A && git commit -m "무엇을 고쳤는지" && git push
 ```
-https://<깃허브아이디>.github.io/<저장소이름>/
-```
 
-소스를 고친 뒤에는 `npm run build` 로 `docs/index.html` 을 다시 만들고 커밋·푸시하면 즉시 반영됩니다.
+1~2분 뒤 위 주소에 자동으로 적용됩니다.
+
+<details><summary>다른 저장소에 직접 배포하려면</summary>
+
+저장소 → **Settings → Pages → Source: `Deploy from a branch` → `main` / `/docs`** 로 설정하면
+`https://<깃허브아이디>.github.io/<저장소이름>/` 에서 열립니다.
+</details>
 
 ### 방법 2 · Netlify Drop — 가장 빠름 (회원가입 없이 1분)
 

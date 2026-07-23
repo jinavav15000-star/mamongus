@@ -20,7 +20,14 @@
 | 배포 | GitHub Pages, `main` 브랜치 `/docs` 폴더 |
 | 사용자 GitHub | `jinavav15000-star` (gh CLI 인증됨) |
 
-**⚠️ 아직 GitHub에 푸시된 적 없습니다.** 사용자가 수동으로 `docs/` 파일만 업로드해 왔습니다.
+**🔗 배포됨: https://jinavav15000-star.github.io/mamongus/**
+저장소 `jinavav15000-star/mamongus` (public). 이제 **수동 업로드 필요 없다.**
+
+```bash
+node build.mjs && git add -A && git commit -m "..." && git push
+```
+푸시하면 1~2분 뒤 자동 반영된다. **`node build.mjs` 를 빼먹으면 `src/` 만 올라가고
+실제 게임(`docs/index.html`)은 그대로**라는 점만 주의.
 
 ---
 
@@ -147,7 +154,7 @@ O2 필터→**여물통 청소**, 데이터 전송→**주문서 주고받기**,
 
 ```
 duckamongus/
-├─ docs/                  ← ★ 배포물. 이것만 GitHub에 올리면 됨
+├─ docs/                  ← ★ 배포물. GitHub Pages 가 이 폴더를 그대로 서비스한다
 │   ├─ index.html         (480KB, 게임 전부)
 │   └─ og.jpg             (58KB, 카톡 미리보기)
 ├─ src/                   ← 소스. 빌드하면 docs/index.html 로 인라인됨
