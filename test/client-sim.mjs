@@ -524,6 +524,53 @@ section('렌더러 실행');
   ok('미니맵 렌더 가능 (사무실·카메라 모드)', err === null, err);
 }
 
+/* ---- 버튼 반응성 · 벤트 은신 ----------------------------------------------*/
+section('조작 디테일');
+{
+  const P = setup();
+  G.myRole = 'duck'; G.killCdEnd = 0; G.me.ventId = null;
+  P.p2.x = P.me.x + 40; P.p2.y = P.me.y;          // 사거리 안
+
+  sent.length = 0;
+  Game.doKill();
+  const kinds = sent.map(s => s.t);
+  ok('살해 직전에 최신 위치를 먼저 보낸다', kinds[0] === 'pos' && kinds[1] === 'kill', kinds);
+  const posMsg = sent[0]?.d;
+  ok('보낸 위치가 지금 내 위치와 같다',
+     posMsg && Math.abs(posMsg.x - G.me.x) <= 1 && Math.abs(posMsg.y - G.me.y) <= 1, posMsg);
+
+  // 버튼을 그릴 때 잡아둔 대상이 낡아도, 누른 순간 다시 고른다
+  sent.length = 0;
+  Game.killTarget = null;
+  Game.doKill();
+  ok('캐시된 대상이 없어도 누른 순간 다시 찾는다',
+     sent.some(s => s.t === 'kill' && s.d.target === 'p2'), sent);
+
+  // 벤트 안에서는 살해할 수 없다
+  sent.length = 0;
+  G.me.ventId = 'v1';
+  Game.doKill();
+  ok('벤트 안에서는 살해 불가', !sent.some(s => s.t === 'kill'), sent);
+
+  // 벤트 안에 있는 나는 몸이 그려지면 안 된다
+  let drewDuck = false, drewVent = false;
+  const R = A.Render;
+  const realDuck = R.drawDuck, realVent = R.drawInVent;
+  R.drawDuck = function (g, p, st, isMe) { if (isMe) drewDuck = true; };
+  R.drawInVent = function () { drewVent = true; };
+  R.cv = sandbox.document.createElement('canvas'); R.g = ctx2d();
+  R.W = 800; R.H = 600; R.scale = 1; R.mapCv = { width:100, height:100 };
+  G.myTasks = []; G.bodies = []; G.doors = {}; G.sabotage = null;
+  Game.render(G.me);
+  ok('벤트 안이면 내 몸이 그려지지 않는다', !drewDuck && drewVent, { drewDuck, drewVent });
+
+  drewDuck = false; drewVent = false;
+  G.me.ventId = null;
+  Game.render(G.me);
+  ok('벤트 밖이면 평소대로 그려진다', drewDuck && !drewVent, { drewDuck, drewVent });
+  R.drawDuck = realDuck; R.drawInVent = realVent;
+}
+
 /* ---- 연출(파티클) ---------------------------------------------------------*/
 section('연출');
 {

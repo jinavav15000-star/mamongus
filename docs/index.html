@@ -2062,6 +2062,26 @@ function onDrag(el, { start, move, end }) {
     el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   });
 }
+/** 즉시 반응하는 버튼 누름.
+ *  click 은 손가락이 몇 픽셀만 밀려도 취소되고, 터치 후 판정까지 시간도 걸린다.
+ *  게임 중 급하게 누르는 버튼(살해·벤트·사용)은 눌린 그 순간 실행되어야 한다.
+ *  뒤따라오는 click 은 무시해 두 번 실행되지 않게 한다. */
+function onPress(el, fn) {
+  if (!el) return;
+  let guard = 0;
+  el.addEventListener('pointerdown', e => {
+    if (el.disabled || e.button > 0) return;
+    e.preventDefault();
+    guard = Date.now();
+    fn(e);
+  });
+  el.addEventListener('click', e => {
+    if (Date.now() - guard < 700) { e.preventDefault(); return; }   // pointerdown 이 이미 처리함
+    if (el.disabled) return;
+    fn(e);                                                          // 포인터 이벤트가 없는 환경 대비
+  });
+}
+
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pickN = (arr, n) => { const c = [...arr]; const o = []; while (o.length < n && c.length) o.push(...c.splice((Math.random() * c.length) | 0, 1)); return o; };
@@ -3134,7 +3154,13 @@ const Host = {
     if (!r.canKill) return;
     if (now() < k.killCdEnd) return;
     const range = G.settings.killRange * (r.killRangeMul || 1);
-    if (Math.hypot(k.x - v.x, k.y - v.y) > range * 1.25) return;
+    // 1.4 배 여유 — 양쪽 위치가 모두 네트워크 지연만큼 낡아 있기 때문이다.
+    // (이 여유가 없으면 둘 다 움직이는 상황에서 정당한 살해가 자주 거부된다)
+    if (Math.hypot(k.x - v.x, k.y - v.y) > range * 1.4) {
+      // 조용히 무시하면 "버튼이 씹혔다"로 보인다. 왜 안 됐는지 본인에게만 알려 준다.
+      Net.toPeer(k.peerId, 'toast', { text: '너무 멉니다. 더 가까이 붙어서 다시 시도하세요.' });
+      return;
+    }
 
     // 경호원 — 방패보다 먼저 판정. 경호원이 대신 쓰러지고 대상은 산다.
     const bg = G.order.map(i => this.P[i]).find(q => q && q.alive && q.role === 'bodyguard' && q.guarding === v.id);
@@ -3196,12 +3222,14 @@ const Host = {
 
   /* ---------------- 신고 / 긴급회의 ---------------- */
   onReport(id, bodyId) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 신고 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     const b = G.bodies.find(x => x.id === bodyId); if (!b) return;
     if (Math.hypot(p.x - b.x, p.y - b.y) > 110) return;
     this.startMeeting(p.id, b);
   },
   onEmergency(id) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 소집 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (p.emergencyLeft <= 0) return;
     if (Math.hypot(p.x - EMERGENCY_BTN.wx, p.y - EMERGENCY_BTN.wy) > 110) return;
@@ -3379,6 +3407,7 @@ const Host = {
 
   /* ---------------- 임무 ---------------- */
   onTaskStep(id, tid) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 임무 불가
     const p = this.P[id]; if (!p) return;
     if (!p.alive && !G.settings.ghostTasks) return;
     const t = p.tasks.find(x => x.tid === tid); if (!t || t.step >= t.spots.length) return;
@@ -3414,6 +3443,7 @@ const Host = {
 
   /* ---------------- 특수 능력 ---------------- */
   onAbility(id, m) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 능력 사용 불가
     const p = this.P[id]; if (!p || G.phase === 'lobby') return;
     const r = roleInfo(p.role);
     const target = m.target ? this.P[m.target] : null;
@@ -4598,8 +4628,10 @@ const Render = {
       return this.inView(p.x, p.y, me, R, poly);
     });
     for (const p of drawList) this.drawDuck(g, p, state, false);
-    // 나 자신
-    this.drawDuck(g, state.me, state, true);
+    // 나 자신 — 벤트 안에 있으면 몸이 보이면 안 된다.
+    // (남들은 ventId 로 걸러지는데 나만 무조건 그려져서, 숨었는데도 밖에 서 있는 것처럼 보였다)
+    if (me.ventId) this.drawInVent(g, me);
+    else this.drawDuck(g, state.me, state, true);
 
     /* 연출 */
     {
@@ -4828,6 +4860,29 @@ const Render = {
       g.fillStyle = dead ? '#9aa4b8' : '#fff';
       g.fillText(shownName, 0, -33);
     }
+    g.restore();
+  },
+
+  /** 벤트 안에 있는 나 — 몸은 감추고, 어느 벤트에 들어 있는지만 알려 준다.
+   *  아무것도 안 그리면 화면에 내가 사라져 방향 감각을 잃는다. */
+  drawInVent(g, me) {
+    const t = performance.now();
+    g.save(); g.translate(me.x, me.y);
+    // 살짝 열린 뚜껑 틈
+    g.fillStyle = '#120c06';
+    g.beginPath(); g.ellipse(0, 0, 20, 13, 0, 0, 6.283); g.fill();
+    // 어둠 속에서 반짝이는 눈 두 개
+    const blink = (t % 3400) < 140 ? 0.15 : 1;
+    g.fillStyle = `rgba(255,225,140,${0.9 * blink})`;
+    g.beginPath(); g.ellipse(-5, -1, 2.6, 2.6 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(5, -1, 2.6, 2.6 * blink, 0, 0, 6.283); g.fill();
+    // 여기 있다는 표시 (숨 쉬듯)
+    g.strokeStyle = `rgba(255,210,61,${0.35 + Math.sin(t / 340) * 0.2})`; g.lineWidth = 2.5;
+    g.beginPath(); g.ellipse(0, 0, 24 + Math.sin(t / 340) * 2.5, 16 + Math.sin(t / 340) * 1.7, 0, 0, 6.283); g.stroke();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-30, -40, 60, 16);
+    g.fillStyle = '#ffd23d'; g.fillText('숨는 중', 0, -27);
     g.restore();
   },
 
@@ -5161,12 +5216,15 @@ const UI = {
     if (r.faction === F.DUCK) this.btn.sab = mk('btn-sab', 'sab', '💥', '방해');
     if (r.ability) this.btn.abil = mk('btn-abil', 'abil', r.icon, ABILITY_LABEL[r.ability] || '능력');
 
-    this.btn.report.onclick = () => Game.doReport();
-    if (this.btn.kill) this.btn.kill.onclick = () => Game.doKill();
-    if (this.btn.vent) this.btn.vent.onclick = () => Game.doVent();
-    if (this.btn.sab) this.btn.sab.onclick = () => UI.openSabotage();
-    if (this.btn.abil) this.btn.abil.onclick = () => Game.doAbility();
-    $('#btn-use').onclick = () => Game.doUse();
+    // ⚠️ click 이 아니라 pointerdown 으로 받는다.
+    //   click 은 touchstart→touchend 사이에 손가락이 조금만 밀려도 취소된다.
+    //   급하게 누르는 살해·벤트 버튼에서 "눌렀는데 씹혔다"의 큰 원인이었다.
+    onPress(this.btn.report, () => Game.doReport());
+    if (this.btn.kill) onPress(this.btn.kill, () => Game.doKill());
+    if (this.btn.vent) onPress(this.btn.vent, () => Game.doVent());
+    if (this.btn.sab) onPress(this.btn.sab, () => UI.openSabotage());
+    if (this.btn.abil) onPress(this.btn.abil, () => Game.doAbility());
+    onPress($('#btn-use'), () => Game.doUse());
 
     // 킬 버튼은 크게
     if (this.btn.kill) { this.btn.kill.classList.remove('small'); }
@@ -6715,7 +6773,7 @@ const Game = {
     /* 신고 */
     if (B.report) {
       const body = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
-      B.report.disabled = !body || !me.alive;
+      B.report.disabled = !body || !me.alive || !!me.ventId;
     }
     /* 살해 */
     if (B.kill) {
@@ -6744,7 +6802,7 @@ const Game = {
   },
 
   abilityState(me, r) {
-    if (!me.alive) return { ok:false, label: ABILITY_LABEL[r.ability] };
+    if (!me.alive || me.ventId) return { ok:false, label: ABILITY_LABEL[r.ability] };
     const cdOk = now() >= G.abilityCdEnd;
     const useOk = !r.uses || G.abilityUses > 0;
     switch (r.ability) {
@@ -6776,6 +6834,8 @@ const Game = {
   },
 
   findUseTarget(me) {
+    // 벤트 안에서는 아무것도 만질 수 없다 (숨어 있는데 임무가 되면 앞뒤가 안 맞는다)
+    if (me.ventId) return null;
     // 1) 사보타주 수리
     if (G.sabotage && G.sabotage.kind !== 'doors') {
       for (const s of (SAB_SPOTS[G.sabotage.kind] || []))
@@ -6818,7 +6878,7 @@ const Game = {
   },
 
   doReport() {
-    const me = G.me; if (!me?.alive) return;
+    const me = G.me; if (!me?.alive || me.ventId) return;
     const b = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
     if (!b) return;
     Sfx.bodyFound();
@@ -6826,8 +6886,21 @@ const Game = {
   },
 
   doKill() {
-    if (!this.killTarget || now() < G.killCdEnd) return;
-    Net.toHost('kill', { target: this.killTarget.id });
+    const me = G.me;
+    if (!me?.alive || me.ventId || now() < G.killCdEnd) return;
+    // 버튼을 그릴 때 잡아둔 대상은 최대 한 프레임 낡았다. 누른 순간 다시 고른다.
+    const r = roleInfo(G.myRole);
+    const tgt = this.nearestPlayer(me, G.settings.killRange * (r.killRangeMul || 1)) || this.killTarget;
+    if (!tgt) return;
+    // 내 위치를 66ms 마다 보내므로 방장이 아는 내 위치는 최대 66ms + 왕복지연만큼 낡아 있다.
+    // 속도 3.35px/프레임이면 그 사이 40px 넘게 어긋나 사거리 밖으로 판정되어 "한 번에 안 먹는다".
+    // → 살해 직전에 현재 위치를 먼저 보낸다. 같은 채널이라 순서가 보장된다.
+    Net.toHost('pos', { x: Math.round(me.x), y: Math.round(me.y), d: me.dir, mv: me.moving });
+    this.lastPosSent = now();
+    Net.toHost('kill', { target: tgt.id });
+    // 판정은 방장이 하므로 결과가 오기까지 왕복지연만큼 빈다.
+    // 그 사이 아무 반응이 없으면 "안 눌렸다"고 느껴 또 누르게 된다 → 눌린 즉시 손끝에 알려 준다.
+    try { navigator.vibrate?.(35); } catch {}
   },
 
   doVent() {
@@ -6850,7 +6923,7 @@ const Game = {
   },
 
   doAbility() {
-    const me = G.me, r = roleInfo(G.myRole); if (!me || !r.ability) return;
+    const me = G.me, r = roleInfo(G.myRole); if (!me || !r.ability || me.ventId) return;
     switch (r.ability) {
       case 'investigate': case 'shoot': case 'shield': case 'infect': case 'track': case 'guard': {
         const range = r.ability === 'shoot' ? 150 : r.ability === 'infect' ? 120

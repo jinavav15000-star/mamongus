@@ -160,6 +160,31 @@ section('게임 시작 · 임무');
      new Set(G.order.map(id => Host.P[id].tasks[0].spots.join(','))).size === 1);
 }
 
+section('벤트 안 행동 차단');
+{
+  reset(5);
+  Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const d = byName('호스트'), g1 = byName('파랑');
+  // 숨어 있는 동안에는 아무것도 할 수 없어야 한다. 클라만 막으면 콘솔로 우회된다.
+  d.ventId = 'v1';
+  const before = JSON.stringify(d.tasks);
+  Host.onTaskStep(d.id, d.tasks[0]?.tid);
+  ok('벤트 안 임무 수행 차단', JSON.stringify(d.tasks) === before);
+
+  put(g1, d.x, d.y);
+  G.bodies = [{ id:'bx', pid:g1.id, x:d.x, y:d.y, room:'헛간 앞마당', t:Date.now() }];
+  Host.onReport(d.id, 'bx');
+  ok('벤트 안 신고 차단', G.phase === 'play');
+
+  const em = G.emergencyLeft;
+  Host.onEmergency(d.id);
+  ok('벤트 안 긴급소집 차단', G.phase === 'play' && G.emergencyLeft === em);
+
+  G.bodies = [];
+  d.ventId = null;
+}
+
 section('살해 판정');
 {
   reset(5);
@@ -184,6 +209,28 @@ section('살해 판정');
   const v2 = byName('초록'); put(v2, 1888, 450);
   Host.onKill(k.id, v2.id);
   ok('쿨다운 중에는 살해 불가', v2.alive === true);
+
+  /* 네트워크 지연 여유 —
+   * 양쪽 위치가 모두 최대 66ms + 왕복지연만큼 낡아 있다. 여유가 너무 빡빡하면
+   * 정당한 살해가 조용히 거부되어 "버튼이 씹힌다"로 보인다. */
+  const range = G.settings.killRange;              // 92
+  k.killCdEnd = 0;
+  const v3 = byName('분홍');
+  put(k, 1888, 400); put(v3, 1888, 400 + Math.round(range * 1.3));   // 1.25배 밖 · 1.4배 안
+  Host.onKill(k.id, v3.id);
+  ok('지연 여유(1.4배) 안이면 살해 성공', v3.alive === false, Math.round(range * 1.3));
+
+  // 진짜 먼 거리는 여전히 거부하되, 조용히 씹지 않고 이유를 알려 준다
+  reset(5); Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const k2 = byName('호스트'), far = byName('파랑');
+  k2.killCdEnd = 0;
+  put(k2, 1888, 400); put(far, 1888, 400 + range * 3);
+  sent.length = 0;
+  Host.onKill(k2.id, far.id);
+  ok('멀면 여전히 살해 불가', far.alive === true);
+  const why = sent.find(s => s.t === 'toast' && /멉니다/.test(s.d.text || ''));
+  ok('거부 이유를 범인에게만 알려 준다', !!why && why.to === k2.peerId, why);
 }
 
 section('의사 방패');

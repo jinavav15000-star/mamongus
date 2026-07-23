@@ -593,7 +593,7 @@ const Game = {
     /* 신고 */
     if (B.report) {
       const body = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
-      B.report.disabled = !body || !me.alive;
+      B.report.disabled = !body || !me.alive || !!me.ventId;
     }
     /* 살해 */
     if (B.kill) {
@@ -622,7 +622,7 @@ const Game = {
   },
 
   abilityState(me, r) {
-    if (!me.alive) return { ok:false, label: ABILITY_LABEL[r.ability] };
+    if (!me.alive || me.ventId) return { ok:false, label: ABILITY_LABEL[r.ability] };
     const cdOk = now() >= G.abilityCdEnd;
     const useOk = !r.uses || G.abilityUses > 0;
     switch (r.ability) {
@@ -654,6 +654,8 @@ const Game = {
   },
 
   findUseTarget(me) {
+    // 벤트 안에서는 아무것도 만질 수 없다 (숨어 있는데 임무가 되면 앞뒤가 안 맞는다)
+    if (me.ventId) return null;
     // 1) 사보타주 수리
     if (G.sabotage && G.sabotage.kind !== 'doors') {
       for (const s of (SAB_SPOTS[G.sabotage.kind] || []))
@@ -696,7 +698,7 @@ const Game = {
   },
 
   doReport() {
-    const me = G.me; if (!me?.alive) return;
+    const me = G.me; if (!me?.alive || me.ventId) return;
     const b = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
     if (!b) return;
     Sfx.bodyFound();
@@ -704,8 +706,21 @@ const Game = {
   },
 
   doKill() {
-    if (!this.killTarget || now() < G.killCdEnd) return;
-    Net.toHost('kill', { target: this.killTarget.id });
+    const me = G.me;
+    if (!me?.alive || me.ventId || now() < G.killCdEnd) return;
+    // 버튼을 그릴 때 잡아둔 대상은 최대 한 프레임 낡았다. 누른 순간 다시 고른다.
+    const r = roleInfo(G.myRole);
+    const tgt = this.nearestPlayer(me, G.settings.killRange * (r.killRangeMul || 1)) || this.killTarget;
+    if (!tgt) return;
+    // 내 위치를 66ms 마다 보내므로 방장이 아는 내 위치는 최대 66ms + 왕복지연만큼 낡아 있다.
+    // 속도 3.35px/프레임이면 그 사이 40px 넘게 어긋나 사거리 밖으로 판정되어 "한 번에 안 먹는다".
+    // → 살해 직전에 현재 위치를 먼저 보낸다. 같은 채널이라 순서가 보장된다.
+    Net.toHost('pos', { x: Math.round(me.x), y: Math.round(me.y), d: me.dir, mv: me.moving });
+    this.lastPosSent = now();
+    Net.toHost('kill', { target: tgt.id });
+    // 판정은 방장이 하므로 결과가 오기까지 왕복지연만큼 빈다.
+    // 그 사이 아무 반응이 없으면 "안 눌렸다"고 느껴 또 누르게 된다 → 눌린 즉시 손끝에 알려 준다.
+    try { navigator.vibrate?.(35); } catch {}
   },
 
   doVent() {
@@ -728,7 +743,7 @@ const Game = {
   },
 
   doAbility() {
-    const me = G.me, r = roleInfo(G.myRole); if (!me || !r.ability) return;
+    const me = G.me, r = roleInfo(G.myRole); if (!me || !r.ability || me.ventId) return;
     switch (r.ability) {
       case 'investigate': case 'shoot': case 'shield': case 'infect': case 'track': case 'guard': {
         const range = r.ability === 'shoot' ? 150 : r.ability === 'infect' ? 120

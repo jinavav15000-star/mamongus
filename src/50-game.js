@@ -419,7 +419,13 @@ const Host = {
     if (!r.canKill) return;
     if (now() < k.killCdEnd) return;
     const range = G.settings.killRange * (r.killRangeMul || 1);
-    if (Math.hypot(k.x - v.x, k.y - v.y) > range * 1.25) return;
+    // 1.4 배 여유 — 양쪽 위치가 모두 네트워크 지연만큼 낡아 있기 때문이다.
+    // (이 여유가 없으면 둘 다 움직이는 상황에서 정당한 살해가 자주 거부된다)
+    if (Math.hypot(k.x - v.x, k.y - v.y) > range * 1.4) {
+      // 조용히 무시하면 "버튼이 씹혔다"로 보인다. 왜 안 됐는지 본인에게만 알려 준다.
+      Net.toPeer(k.peerId, 'toast', { text: '너무 멉니다. 더 가까이 붙어서 다시 시도하세요.' });
+      return;
+    }
 
     // 경호원 — 방패보다 먼저 판정. 경호원이 대신 쓰러지고 대상은 산다.
     const bg = G.order.map(i => this.P[i]).find(q => q && q.alive && q.role === 'bodyguard' && q.guarding === v.id);
@@ -481,12 +487,14 @@ const Host = {
 
   /* ---------------- 신고 / 긴급회의 ---------------- */
   onReport(id, bodyId) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 신고 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     const b = G.bodies.find(x => x.id === bodyId); if (!b) return;
     if (Math.hypot(p.x - b.x, p.y - b.y) > 110) return;
     this.startMeeting(p.id, b);
   },
   onEmergency(id) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 소집 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (p.emergencyLeft <= 0) return;
     if (Math.hypot(p.x - EMERGENCY_BTN.wx, p.y - EMERGENCY_BTN.wy) > 110) return;
@@ -664,6 +672,7 @@ const Host = {
 
   /* ---------------- 임무 ---------------- */
   onTaskStep(id, tid) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 임무 불가
     const p = this.P[id]; if (!p) return;
     if (!p.alive && !G.settings.ghostTasks) return;
     const t = p.tasks.find(x => x.tid === tid); if (!t || t.step >= t.spots.length) return;
@@ -699,6 +708,7 @@ const Host = {
 
   /* ---------------- 특수 능력 ---------------- */
   onAbility(id, m) {
+    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 능력 사용 불가
     const p = this.P[id]; if (!p || G.phase === 'lobby') return;
     const r = roleInfo(p.role);
     const target = m.target ? this.P[m.target] : null;

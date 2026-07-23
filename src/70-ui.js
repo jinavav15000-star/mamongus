@@ -216,12 +216,15 @@ const UI = {
     if (r.faction === F.DUCK) this.btn.sab = mk('btn-sab', 'sab', '💥', '방해');
     if (r.ability) this.btn.abil = mk('btn-abil', 'abil', r.icon, ABILITY_LABEL[r.ability] || '능력');
 
-    this.btn.report.onclick = () => Game.doReport();
-    if (this.btn.kill) this.btn.kill.onclick = () => Game.doKill();
-    if (this.btn.vent) this.btn.vent.onclick = () => Game.doVent();
-    if (this.btn.sab) this.btn.sab.onclick = () => UI.openSabotage();
-    if (this.btn.abil) this.btn.abil.onclick = () => Game.doAbility();
-    $('#btn-use').onclick = () => Game.doUse();
+    // ⚠️ click 이 아니라 pointerdown 으로 받는다.
+    //   click 은 touchstart→touchend 사이에 손가락이 조금만 밀려도 취소된다.
+    //   급하게 누르는 살해·벤트 버튼에서 "눌렀는데 씹혔다"의 큰 원인이었다.
+    onPress(this.btn.report, () => Game.doReport());
+    if (this.btn.kill) onPress(this.btn.kill, () => Game.doKill());
+    if (this.btn.vent) onPress(this.btn.vent, () => Game.doVent());
+    if (this.btn.sab) onPress(this.btn.sab, () => UI.openSabotage());
+    if (this.btn.abil) onPress(this.btn.abil, () => Game.doAbility());
+    onPress($('#btn-use'), () => Game.doUse());
 
     // 킬 버튼은 크게
     if (this.btn.kill) { this.btn.kill.classList.remove('small'); }

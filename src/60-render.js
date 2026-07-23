@@ -887,8 +887,10 @@ const Render = {
       return this.inView(p.x, p.y, me, R, poly);
     });
     for (const p of drawList) this.drawDuck(g, p, state, false);
-    // 나 자신
-    this.drawDuck(g, state.me, state, true);
+    // 나 자신 — 벤트 안에 있으면 몸이 보이면 안 된다.
+    // (남들은 ventId 로 걸러지는데 나만 무조건 그려져서, 숨었는데도 밖에 서 있는 것처럼 보였다)
+    if (me.ventId) this.drawInVent(g, me);
+    else this.drawDuck(g, state.me, state, true);
 
     /* 연출 */
     {
@@ -1117,6 +1119,29 @@ const Render = {
       g.fillStyle = dead ? '#9aa4b8' : '#fff';
       g.fillText(shownName, 0, -33);
     }
+    g.restore();
+  },
+
+  /** 벤트 안에 있는 나 — 몸은 감추고, 어느 벤트에 들어 있는지만 알려 준다.
+   *  아무것도 안 그리면 화면에 내가 사라져 방향 감각을 잃는다. */
+  drawInVent(g, me) {
+    const t = performance.now();
+    g.save(); g.translate(me.x, me.y);
+    // 살짝 열린 뚜껑 틈
+    g.fillStyle = '#120c06';
+    g.beginPath(); g.ellipse(0, 0, 20, 13, 0, 0, 6.283); g.fill();
+    // 어둠 속에서 반짝이는 눈 두 개
+    const blink = (t % 3400) < 140 ? 0.15 : 1;
+    g.fillStyle = `rgba(255,225,140,${0.9 * blink})`;
+    g.beginPath(); g.ellipse(-5, -1, 2.6, 2.6 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(5, -1, 2.6, 2.6 * blink, 0, 0, 6.283); g.fill();
+    // 여기 있다는 표시 (숨 쉬듯)
+    g.strokeStyle = `rgba(255,210,61,${0.35 + Math.sin(t / 340) * 0.2})`; g.lineWidth = 2.5;
+    g.beginPath(); g.ellipse(0, 0, 24 + Math.sin(t / 340) * 2.5, 16 + Math.sin(t / 340) * 1.7, 0, 0, 6.283); g.stroke();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-30, -40, 60, 16);
+    g.fillStyle = '#ffd23d'; g.fillText('숨는 중', 0, -27);
     g.restore();
   },
 

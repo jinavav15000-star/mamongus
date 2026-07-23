@@ -30,6 +30,26 @@ function onDrag(el, { start, move, end }) {
     el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   });
 }
+/** 즉시 반응하는 버튼 누름.
+ *  click 은 손가락이 몇 픽셀만 밀려도 취소되고, 터치 후 판정까지 시간도 걸린다.
+ *  게임 중 급하게 누르는 버튼(살해·벤트·사용)은 눌린 그 순간 실행되어야 한다.
+ *  뒤따라오는 click 은 무시해 두 번 실행되지 않게 한다. */
+function onPress(el, fn) {
+  if (!el) return;
+  let guard = 0;
+  el.addEventListener('pointerdown', e => {
+    if (el.disabled || e.button > 0) return;
+    e.preventDefault();
+    guard = Date.now();
+    fn(e);
+  });
+  el.addEventListener('click', e => {
+    if (Date.now() - guard < 700) { e.preventDefault(); return; }   // pointerdown 이 이미 처리함
+    if (el.disabled) return;
+    fn(e);                                                          // 포인터 이벤트가 없는 환경 대비
+  });
+}
+
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pickN = (arr, n) => { const c = [...arr]; const o = []; while (o.length < n && c.length) o.push(...c.splice((Math.random() * c.length) | 0, 1)); return o; };
