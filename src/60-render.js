@@ -1211,13 +1211,21 @@ const Render = {
     }
     g.restore();
 
-    // 방 이름
+    // 방 이름 — 지도가 작아지면 글자가 서로 겹쳐 읽을 수 없게 된다.
+    // 방 폭 안에 들어갈 때까지 줄이고, 그래도 안 되면 생략한다.
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = `700 ${Math.max(8, 11 * (r.width / 380))}px "MamongDisplay", "Pretendard", system-ui`;
+    const base = Math.max(8, 11 * (r.width / 380));
     for (const rm of ROOMS) {
+      const boxW = rm.w * TILE * s - 6;
+      let fs = base;
+      for (; fs >= 6.5; fs -= 0.5) {
+        g.font = `700 ${fs}px "MamongDisplay", "Pretendard", system-ui`;
+        if (g.measureText(rm.name).width <= boxW) break;
+      }
+      if (fs < 6.5) continue;                       // 이 크기에선 도저히 안 들어간다
       const lx = ox + (rm.x + rm.w / 2) * TILE * s, ly = oy + (rm.y + rm.h / 2) * TILE * s;
-      g.fillStyle = 'rgba(24,14,6,.7)'; g.fillText(rm.name, lx, ly + 1);
-      g.fillStyle = 'rgba(255,240,214,.9)'; g.fillText(rm.name, lx, ly);
+      g.fillStyle = 'rgba(24,14,6,.75)'; g.fillText(rm.name, lx, ly + 1);
+      g.fillStyle = 'rgba(255,240,214,.92)'; g.fillText(rm.name, lx, ly);
     }
 
     // 임무 마커

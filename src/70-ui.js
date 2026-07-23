@@ -308,9 +308,14 @@ const UI = {
     if (!btn) return;
     const cd = btn.querySelector('.cd');
     const left = Math.ceil((endsAt - now()) / 1000);
-    if (left > 0) { cd.classList.remove('hidden'); cd.textContent = left; }
-    else if (uses != null && uses <= 0) { cd.classList.remove('hidden'); cd.textContent = '0'; }
-    else cd.classList.add('hidden');
+    let on = true;
+    if (left > 0) { cd.textContent = left; }
+    else if (uses != null && uses <= 0) { cd.textContent = '0'; }
+    else on = false;
+    cd.classList.toggle('hidden', !on);
+    // 숫자가 아이콘·글자 위에 겹쳐 '8'과 '살해'가 뒤엉켜 읽히지 않았다.
+    // 쿨다운 중에는 숫자만 보이게 한다.
+    btn.classList.toggle('cooling', on);
   },
 
   /* ---------------- 미니게임 ---------------- */
@@ -334,7 +339,8 @@ const UI = {
 
   /* ---------------- 지도 / 관리실 / 생체신호 ---------------- */
   openMap(mode = 'map') {
-    const cv = h('canvas', { style:{ width:'100%', height:'320px', borderRadius:'14px', display:'block' } });
+    // 가로 폰(높이 360px)에서 320px 고정이면 모달이 화면을 넘어 지도 아래쪽이 잘렸다
+    const cv = h('canvas', { style:{ width:'100%', height:'min(320px, 52vh)', borderRadius:'14px', display:'block' } });
     const info = h('div', { cls:'tiny dim', style:{ marginTop:'9px', textAlign:'center' } });
     const root = h('div', {}, cv, info);
     const titles = { map:'🗺️ 지도', admin:'📊 사무실 — 곳별 인원', cams:'📹 감시 카메라' };
@@ -782,14 +788,17 @@ const UI = {
     this.closeAllModals();
     this.show('eject');
     const space = $('#eject-space'); space.innerHTML = '';
-    for (let i = 0; i < 60; i++) space.appendChild(h('div', { cls:'eject-star', style:{
-      left: rnd(0, 100) + '%', top: rnd(0, 100) + '%', width: rnd(1, 3) + 'px', height: rnd(1, 3) + 'px' } }));
+    // 별밭이 아니라 반딧불 — 위쪽에만 띄운다 (아래는 풀밭)
+    for (let i = 0; i < 34; i++) space.appendChild(h('div', { cls:'eject-star', style:{
+      left: rnd(0, 100) + '%', top: rnd(4, 62) + '%',
+      width: rnd(2, 4) + 'px', height: rnd(2, 4) + 'px',
+      animationDelay: rnd(0, 3.2).toFixed(2) + 's' } }));
     const duckEl = $('#eject-duck');
     if (d.ejectId) {
       const p = G.players[d.ejectId];
       duckEl.style.display = '';
       duckEl.innerHTML = `<span style="filter:drop-shadow(0 0 14px ${colorOf(p?.color).hex})">🐑</span>`;
-      let txt = `${p?.name || '???'} 님이 우주로 추방되었습니다`;
+      let txt = `${p?.name || '???'} 님이 목장에서 쫓겨났습니다`;
       let sub = '';
       if (d.confirm) {
         const r = roleInfo(d.role);
@@ -801,7 +810,7 @@ const UI = {
       Sfx.eject();
     } else {
       duckEl.style.display = 'none';
-      $('#eject-text').textContent = '아무도 추방되지 않았습니다';
+      $('#eject-text').textContent = '아무도 쫓겨나지 않았습니다';
       $('#eject-sub').textContent = d.tally?.skip > 0 ? '스킵이 가장 많았습니다' : '표가 갈렸습니다';
     }
   },

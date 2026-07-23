@@ -256,7 +256,7 @@ const Viewport = {
     const g = c.getContext('2d');
     g.fillStyle = '#1c140d'; g.fillRect(0, 0, size, size);
     const grad = g.createRadialGradient(size * .5, size * .38, size * .05, size * .5, size * .5, size * .62);
-    grad.addColorStop(0, '#1b2c4e'); grad.addColorStop(1, '#070c18');
+    grad.addColorStop(0, '#4e3319'); grad.addColorStop(1, '#150f0a');
     g.fillStyle = grad; g.fillRect(0, 0, size, size);
     g.font = `${Math.round(size * 0.58)}px "Apple Color Emoji","Noto Color Emoji",sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle';

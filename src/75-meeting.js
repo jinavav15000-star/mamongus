@@ -225,7 +225,7 @@ const Meeting = {
   /** 게임 진행 중 유령/영매용 채팅 창 */
   openGhostChat() {
     $('#btn-ghostchat').style.borderColor = '';
-    const box = h('div', { cls:'chat scroll', id:'ghost-chat', style:{ height:'42vh', background:'#0a1020', borderRadius:'12px' } });
+    const box = h('div', { cls:'chat scroll', id:'ghost-chat', style:{ height:'42vh', background:'#1c140d', borderRadius:'12px' } });
     this.chatMsgs.forEach(m => box.appendChild(this._el(m)));
     const inp = h('input', { placeholder:'유령끼리 대화…', maxlength:'160' });
     const send = () => { const v = inp.value.trim(); if (v) { Net.toHost('chat', { text: v }); inp.value = ''; } };

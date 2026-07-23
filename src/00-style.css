@@ -170,8 +170,11 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .abtn.abil{background:radial-gradient(circle at 40% 30%,#8a4fd6,#3f2070);border-color:#c49bff}
 .abtn.small{width:60px;height:60px;font-size:10.5px}.abtn.small .ic{font-size:20px}
 .abtn:disabled{filter:grayscale(.75) brightness(.5)}
-.abtn .cd{position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;
-  font-size:21px;font-weight:900;font-variant-numeric:tabular-nums}
+.abtn .cd{position:absolute;inset:0;background:rgba(0,0,0,.72);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;font-weight:900;font-variant-numeric:tabular-nums;color:#fff}
+/* 쿨다운 중에는 숫자만 — 아이콘·라벨이 숫자와 겹쳐 둘 다 안 읽혔다 */
+.abtn.cooling .ic,.abtn.cooling span:not(.ic):not(.cd){opacity:0}
 
 /* 토스트 / 개인로그 */
 .toasts{position:absolute;bottom:calc(170px + var(--safe-b));left:50%;transform:translateX(-50%);
@@ -451,11 +454,32 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .killcine-sub{font-size:13px;color:var(--dim);animation:kcPop .4s .75s both}
 
 /* ---------- 추방 연출 ---------- */
-#screen-eject{background:#0c0906;z-index:70;align-items:center;justify-content:center;text-align:center}
+/* 추방 — 우주로 날아가던 연출을 밤 목장 밖으로 쫓겨나는 장면으로 바꿨다 */
+#screen-eject{z-index:70;align-items:center;justify-content:center;text-align:center;
+  background:linear-gradient(180deg,#141c2a 0%,#241a10 62%,#1b2412 100%);
+  /* 아래 풀밭 높이만큼 비워, 글자가 울타리에 걸리지 않게 한다 */
+  padding-bottom:24%}
 .eject-space{position:absolute;inset:0;overflow:hidden}
-.eject-star{position:absolute;background:#fff;border-radius:50%;opacity:.7}
-.eject-duck{font-size:62px;position:relative;animation:fly 4.6s linear forwards}
-@keyframes fly{0%{transform:translateX(-46vw) rotate(0)}100%{transform:translateX(46vw) rotate(720deg)}}
+/* 아래쪽 밤 풀밭 + 울타리 */
+.eject-space::before{content:'';position:absolute;left:0;right:0;bottom:0;height:22%;
+  background:linear-gradient(180deg,#2f4022,#1b2412)}
+.eject-space::after{content:'';position:absolute;left:0;right:0;bottom:21%;height:3px;
+  background:rgba(140,95,48,.8);
+  box-shadow:0 13px 0 -1px rgba(140,95,48,.55)}
+/* 별 → 반딧불 */
+.eject-star{position:absolute;background:#ffe08a;border-radius:50%;opacity:.75;
+  box-shadow:0 0 7px 1px rgba(255,214,110,.7);animation:fly-fire 3.2s ease-in-out infinite}
+@keyframes fly-fire{0%,100%{opacity:.2;transform:translateY(0)}50%{opacity:.9;transform:translateY(-9px)}}
+/* 쫓겨나는 양 — 터덜터덜 걸어 멀어진다 */
+.eject-duck{font-size:62px;position:relative;animation:walkoff 4.6s ease-in forwards;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
+@keyframes walkoff{
+  0%   {transform:translateX(-26vw) scale(1)      rotate(-3deg);opacity:1}
+  25%  {transform:translateX(-12vw) scale(.94)    rotate(3deg) }
+  50%  {transform:translateX(2vw)   scale(.82)    rotate(-3deg)}
+  75%  {transform:translateX(16vw)  scale(.66)    rotate(3deg) ;opacity:.85}
+  100% {transform:translateX(34vw)  scale(.42)    rotate(0)    ;opacity:0}
+}
 .eject-text{font-size:20px;font-weight:900;margin-top:22px;position:relative;padding:0 20px}
 .eject-sub{color:var(--dim);margin-top:8px;font-size:14px;position:relative}
 
@@ -545,7 +569,10 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .chatinput input{padding:8px 11px}
   .chatinput button{padding:0 13px}
 
-  /* --- 홈 / 로비 --- */
+  /* --- 홈 / 로비 ---
+     가로 360px 높이에서 로비는 985px 짜리였다. 방장이 985px 중 791px 지점에 있는
+     '게임 시작' 버튼을 찾지 못해 게임을 시작할 수 없었다.
+     → 두 칸으로 나눠 한 화면에 담고, 시작 버튼은 아래에 고정한다. */
   #screen-home,#screen-lobby{padding-top:calc(8px + var(--safe-t));padding-bottom:calc(8px + var(--safe-b))}
   .duck-hero{font-size:38px}
   .logo{margin:6px 0 12px}
@@ -553,6 +580,28 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .logo .sub{font-size:12px}
   .card{padding:12px}
   .swatch{border-radius:9px}
+
+  #screen-lobby{align-items:stretch}
+  #screen-lobby .wrap{
+    max-width:none;margin:0;
+    display:grid;
+    grid-template-columns:minmax(215px,285px) 1fr;
+    grid-template-rows:auto auto 1fr;
+    grid-template-areas:'bar bar' 'me main' 'foot main';
+    column-gap:12px;
+    min-height:0;
+  }
+  #screen-lobby .lobbybar{grid-area:bar;margin-bottom:8px}
+  #screen-lobby .lobby-me{grid-area:me;margin-bottom:8px}
+  /* 시작 버튼을 왼쪽 아래에 둔다. 오른쪽 목록이 길어져도 밀려나지 않는다. */
+  #screen-lobby #lobby-foot{grid-area:foot;align-self:start}
+  #screen-lobby #lobby-foot .btn.primary{padding:12px!important;font-size:15px!important}
+  /* 목록·설정·직업·채팅은 오른쪽 칸 안에서만 스크롤 */
+  #screen-lobby .lobby-main{grid-area:main;min-width:0;min-height:0;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  #screen-lobby .tabs{margin-bottom:8px;position:sticky;top:0;z-index:2}
+  #screen-lobby .lobby-main .card{margin-bottom:8px}
+  #screen-lobby #lobby-chat{height:90px!important}
 
   /* --- 결과 --- */
   .result-hd{padding:12px 16px 8px}
