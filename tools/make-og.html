@@ -55,35 +55,62 @@ function duck(g, hex, dark, o = {}) {
 const c = document.getElementById('c'), g = c.getContext('2d');
 const W = 1200, H = 630;
 
-// 배경
-const bg = g.createLinearGradient(0, 0, W, H);
-bg.addColorStop(0, '#0a1428'); bg.addColorStop(.55, '#070d1c'); bg.addColorStop(1, '#12091f');
+// 배경 — 해질녘 목장
+const bg = g.createLinearGradient(0, 0, 0, H);
+bg.addColorStop(0, '#2b2013'); bg.addColorStop(.52, '#3d2c19'); bg.addColorStop(1, '#241a0f');
 g.fillStyle = bg; g.fillRect(0, 0, W, H);
-// 별
-for (let i = 0; i < 260; i++) {
-  const x = (i * 977) % W, y = (i * 613) % H, r = ((i * 31) % 10) / 10 * 1.9 + .3;
-  g.fillStyle = `rgba(255,255,255,${.12 + ((i * 17) % 60) / 160})`;
-  g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill();
+// 아래쪽 목초지
+const grass = g.createLinearGradient(0, H * .62, 0, H);
+grass.addColorStop(0, '#3f5a30'); grass.addColorStop(1, '#2c4022');
+g.fillStyle = grass;
+g.beginPath();
+g.moveTo(0, H * .76);
+g.bezierCurveTo(W * .3, H * .70, W * .7, H * .80, W, H * .72);
+g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+// 잔디 포기
+g.lineCap = 'round';
+for (let i = 0; i < 340; i++) {
+  const x = (i * 137) % W, y = H * .76 + ((i * 211) % (H * .24));
+  if (y < H * .74) continue;
+  g.strokeStyle = i % 3 ? 'rgba(126,168,88,.34)' : 'rgba(40,60,32,.4)';
+  g.lineWidth = 2.2;
+  g.beginPath(); g.moveTo(x, y + 5); g.quadraticCurveTo(x + 2, y + 1, x + 5, y - 3); g.stroke();
 }
-// 좌측 상단 광원
-const glow = g.createRadialGradient(210, 150, 20, 210, 150, 460);
-glow.addColorStop(0, 'rgba(95,208,255,.18)'); glow.addColorStop(1, 'rgba(95,208,255,0)');
+// 나무 울타리
+g.strokeStyle = 'rgba(122,80,40,.65)'; g.lineWidth = 9;
+g.beginPath(); g.moveTo(W * .60, H * .755); g.bezierCurveTo(W * .72, H * .735, W * .86, H * .775, W, H * .745); g.stroke();
+for (let x = W * .62; x < W; x += 118) {
+  const t = x / W;
+  const y = H * .755 + Math.sin(t * 6) * 10;
+  g.strokeStyle = 'rgba(122,80,40,.8)'; g.lineWidth = 11;
+  g.beginPath(); g.moveTo(x, y - 26); g.lineTo(x, y + 34); g.stroke();
+}
+// 좌측 상단 저녁 햇살
+const glow = g.createRadialGradient(210, 130, 20, 210, 130, 500);
+glow.addColorStop(0, 'rgba(255,196,106,.22)'); glow.addColorStop(1, 'rgba(255,196,106,0)');
 g.fillStyle = glow; g.fillRect(0, 0, W, H);
+// 흩날리는 지푸라기
+for (let i = 0; i < 34; i++) {
+  const x = (i * 977) % W, y = (i * 613) % (H * .70), a = ((i * 53) % 30) / 10;
+  g.strokeStyle = `rgba(226,190,120,${.07 + ((i * 17) % 30) / 300})`;
+  g.lineWidth = 2.2;
+  g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11); g.stroke();
+}
 
 // 타이틀
 g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 g.font = '900 116px "Pretendard","Apple SD Gothic Neo",system-ui,sans-serif';
 const tg = g.createLinearGradient(78, 180, 78, 300);
-tg.addColorStop(0, '#ffffff'); tg.addColorStop(1, '#7fc4ff');
+tg.addColorStop(0, '#fff6e2'); tg.addColorStop(1, '#ffbe57');
 g.fillStyle = tg;
 g.fillText('마몽어스', 78, 268);
 
 g.font = '700 33px "Pretendard","Apple SD Gothic Neo",system-ui,sans-serif';
-g.fillStyle = '#9fb6d8';
+g.fillStyle = '#e8d4b0';
 g.fillText('링크 하나로 하는 양들의 마피아', 82, 322);
 
 g.font = '600 25px "Pretendard","Apple SD Gothic Neo",system-ui,sans-serif';
-g.fillStyle = '#6d84a8';
+g.fillStyle = '#b79a74';
 g.fillText('설치 없이 브라우저에서 바로 · 최대 16명', 82, 364);
 
 // 배지
@@ -92,10 +119,10 @@ let bx = 80;
 g.font = '700 22px "Pretendard",system-ui,sans-serif';
 badges.forEach(t => {
   const w = g.measureText(t).width + 34;
-  g.fillStyle = 'rgba(60,95,150,.30)';
+  g.fillStyle = 'rgba(90,60,28,.55)';
   g.beginPath(); g.roundRect(bx, 410, w, 46, 23); g.fill();
-  g.strokeStyle = 'rgba(120,180,255,.42)'; g.lineWidth = 1.6; g.stroke();
-  g.fillStyle = '#cfe2ff';
+  g.strokeStyle = 'rgba(226,180,110,.5)'; g.lineWidth = 1.6; g.stroke();
+  g.fillStyle = '#ffe9c4';
   g.fillText(t, bx + 17, 440);
   bx += w + 13;
 });
@@ -119,9 +146,9 @@ cast.forEach(d => {
 });
 
 // 하단 바
-g.fillStyle = 'rgba(0,0,0,.30)'; g.fillRect(0, H - 62, W, 62);
+g.fillStyle = 'rgba(26,16,8,.55)'; g.fillRect(0, H - 62, W, 62);
 g.font = '700 24px "Pretendard",system-ui,sans-serif';
-g.fillStyle = '#8fa2c4';
+g.fillStyle = '#e0c9a4';
 g.fillText('🐑  양인가, 늑대인가 — 카카오톡에 링크만 붙여넣으세요', 80, H - 24);
 
 window.__png = c.toDataURL('image/png');

@@ -188,7 +188,7 @@ const Viewport = {
         name: '마몽어스', short_name: '마몽어스',
         description: '링크 하나로 하는 양들의 마피아',
         display: 'fullscreen', orientation: 'landscape',
-        background_color: '#050810', theme_color: '#050810',
+        background_color: '#150f0a', theme_color: '#150f0a',
         start_url: location.pathname + location.search,
         scope: location.pathname,
         icons: [
@@ -212,7 +212,7 @@ const Viewport = {
     const c = document.createElement('canvas');
     c.width = c.height = size;
     const g = c.getContext('2d');
-    g.fillStyle = '#0b1224'; g.fillRect(0, 0, size, size);
+    g.fillStyle = '#1c140d'; g.fillRect(0, 0, size, size);
     const grad = g.createRadialGradient(size * .5, size * .38, size * .05, size * .5, size * .5, size * .62);
     grad.addColorStop(0, '#1b2c4e'); grad.addColorStop(1, '#070c18');
     g.fillStyle = grad; g.fillRect(0, 0, size, size);
