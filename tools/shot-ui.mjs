@@ -1,0 +1,26 @@
+/* 홈·로비·게임·회의 화면을 순서대로 캡처한다.  npm run serve 후  node tools/shot-ui.mjs */
+import { chromium } from 'playwright';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport:{width:900,height:560} });
+p.on('pageerror', e => console.log('PAGEERROR:', e.message));
+await p.goto('http://localhost:8899/index.html?v=' + Date.now());
+await p.waitForTimeout(2200);
+await p.screenshot({ path: 'test-shots/ui-home.png' });
+await p.evaluate(() => Game.createRoom());
+await p.waitForTimeout(4000);
+await p.evaluate(() => { for (let i=0;i<4;i++) Game.addBot?.() ?? Host.addBot?.(); });
+await p.waitForTimeout(900);
+await p.screenshot({ path: 'test-shots/ui-lobby.png' });
+await p.evaluate(() => Game.start?.());
+await p.waitForTimeout(2200);
+await p.evaluate(() => document.querySelectorAll('button').forEach(b => b.textContent.includes('시작하기') && b.click()));
+await p.waitForTimeout(2200);
+await p.screenshot({ path: 'test-shots/ui-game.png' });
+await p.evaluate(() => UI.openMap('map'));
+await p.waitForTimeout(700);
+await p.screenshot({ path: 'test-shots/ui-map.png' });
+await p.evaluate(() => UI.closeModal());
+await p.evaluate(() => Host.onEmergency(Net.uid));
+await p.waitForTimeout(1500);
+await p.screenshot({ path: 'test-shots/ui-meeting.png' });
+await b.close();
