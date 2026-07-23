@@ -89,7 +89,14 @@ const Net = {
       let done = false;
       const p = new Peer(id, { config: ICE, debug: 0 });
       const to = setTimeout(() => { if (!done) { done = true; try { p.destroy(); } catch {} resolve(false); } }, 12000);
-      p.on('open', () => { if (done) return; done = true; clearTimeout(to); this.peer = p; resolve(true); });
+      p.on('open', () => {
+        if (done) return; done = true; clearTimeout(to); this.peer = p;
+        // 방장이 카톡 등으로 백그라운드에 가면 시그널링 소켓이 끊기고,
+        // 그대로 두면 방 ID 등록이 풀려 초대 링크가 "그런 방이 없습니다"가 된다.
+        // 기존 플레이어와의 연결은 유지되므로 소켓만 다시 잡으면 된다.
+        p.on('disconnected', () => { try { if (!p.destroyed) p.reconnect(); } catch {} });
+        resolve(true);
+      });
       p.on('error', err => {
         if (done) return;
         if (err.type === 'unavailable-id') { done = true; clearTimeout(to); try { p.destroy(); } catch {} resolve(false); }

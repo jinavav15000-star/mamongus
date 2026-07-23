@@ -27,7 +27,7 @@ const Game = {
     $('#btn-howto').onclick = () => UI.openHowTo();
     $('#btn-roles-info').onclick = () => UI.openRolesInfo();
     $('#btn-copy').onclick = () => this.copyLink();
-    $('#btn-leave').onclick = () => { if (confirm('방에서 나가시겠습니까?')) location.reload(); };
+    $('#btn-leave').onclick = () => { if (confirm('방에서 나가시겠습니까?')) { history.replaceState(null, '', location.pathname); location.reload(); } };
     $('#in-name2').addEventListener('change', e => {
       const n = e.target.value.trim().slice(0, 10) || '양';
       localStorage.setItem('duckus_name', n); Net.toHost('setName', { name: n });
@@ -70,12 +70,14 @@ const Game = {
     Viewport.init();
     this.setupImmersive();
 
-    // URL 해시로 자동 참가
+    // 초대 링크 → 바로 자동 참가.
+    // 전에는 홈에서 '참가'를 누르게 했는데, 화면에서 제일 큰 버튼이 '방 만들기'라
+    // 초대받은 사람이 그걸 눌러 자기 혼자 있는 새 방을 만드는 사고가 실제로 났다.
     const m = location.hash.match(/#room=([A-Z2-9]{4})/i);
     if (m) {
-      $('#in-code').value = m[1].toUpperCase();
-      if (!savedName) $('#in-name').focus();
-      UI.toast(`방 <b>${m[1].toUpperCase()}</b> 초대를 받았습니다. 닉네임을 입력하고 <b>참가</b>를 누르세요.`, 8000);
+      const code = m[1].toUpperCase();
+      $('#in-code').value = code;
+      this.autoJoin(code);
     }
     ['click','touchstart','keydown'].forEach(ev =>
       window.addEventListener(ev, () => { Sfx.resume(); }, { once: true }));
@@ -108,6 +110,8 @@ const Game = {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') { this._hiddenAt = Date.now(); return; }
       this.keepAwake();
+      // 백그라운드에서 시그널링이 끊겼으면 즉시 복구 — 초대 링크가 계속 살아 있어야 한다
+      try { if (Net.peer && !Net.peer.destroyed && Net.peer.disconnected) Net.peer.reconnect(); } catch {}
       // 방장이 오래 자리를 비우면 모두의 화면이 끊긴다 → 돌아왔을 때 알려준다
       const away = Date.now() - (this._hiddenAt || 0);
       if (Net.isHost && G.phase !== 'lobby' && away > 8000)
@@ -138,6 +142,37 @@ const Game = {
       this.keepAwake();
       UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
+  },
+
+  /** 초대 링크로 들어온 자동 참가. 실패하면 잠시 뒤 재시도 —
+   *  방장이 링크를 보내느라 카톡에 가 있으면 방이 몇 초간 안 잡힐 수 있다. */
+  async autoJoin(code, attempt = 1) {
+    const MAX = 3;
+    UI.loading(true, attempt === 1 ? `방 ${code} 에 들어가는 중…` : `방장을 찾는 중… (${attempt}/${MAX})`);
+    const name = ($('#in-name').value.trim() || localStorage.getItem('duckus_name') || '양').slice(0, 10);
+    try {
+      await Net.joinRoom(code);
+      Net.toHost('hello', { uid: Net.uid, name, color: null });
+      history.replaceState(null, '', '#room=' + code);
+      $('#in-name2').value = name;
+      this.keepAwake();
+      setTimeout(() => UI.loading(false), 600);
+    } catch (e) {
+      if (attempt < MAX) return this.autoJoin(code, attempt + 1);
+      UI.loading(false);
+      this.err('');
+      // 마지막에도 실패 — 재시도 버튼을 크게, '방 만들기'로 오인하지 않게 안내
+      UI.modal({ title:'😢 방을 찾지 못했습니다', body:`
+<div style="font-size:14px;line-height:1.75">
+방 <b style="color:var(--warn)">${code}</b> 의 방장이 지금 자리를 비운 것 같습니다.<br>
+방장이 <b>게임 화면을 켜 둔 상태</b>여야 들어갈 수 있습니다.<br><br>
+<span class="tiny dim">※ <b>방 만들기</b>를 누르면 친구와 다른 방이 생깁니다.
+초대받았다면 아래 다시 시도를 눌러 주세요.</span></div>`,
+        footer: [
+          h('button', { cls:'btn primary grow', onclick: () => { UI.closeModal(); this.autoJoin(code); } }, '🔄 다시 시도'),
+          h('button', { cls:'btn ghost grow', onclick: () => UI.closeModal() }, '닫기'),
+        ] });
+    }
   },
 
   async joinRoom(code) {
