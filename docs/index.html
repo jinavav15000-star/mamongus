@@ -4809,10 +4809,10 @@ const Render = {
     /* 양털 실루엣 — 타원 + 혹들의 합집합.
      * grow 만큼 부풀린 같은 모양을 어두운 색으로 먼저 깔면 이음매 없는 외곽선이 된다.
      * (혹마다 stroke 하면 안쪽에 선이 남는다) */
-    const BUMPS = [[-11.5,-7.5,5.6],[-2.5,-11,6.2],[6,-8,5.4],[-13.5,5.5,5.2],[8,7.5,5],[-4.5,12.5,5.4],[-14,-1,4.8]];
+    const BUMPS = [[-11.5,-8,5.6],[-2.5,-11.5,6.2],[6,-8.5,5.4],[-13,4,5.2],[8.5,5.5,5],[-4,10,5.2],[-14.5,-2,4.8]];
     const fleecePath = (grow) => {
       g.beginPath();
-      g.ellipse(-1.5, 2, 13.2 + grow, 11.4 + grow, 0, 0, 6.283);
+      g.ellipse(-1.5, 0.5, 13.4 + grow, 11 + grow, 0, 0, 6.283);
       for (const [bx, by, br] of BUMPS) { g.moveTo(bx + br + grow, by); g.arc(bx, by, br + grow, 0, 6.283); }
     };
     const headPath = (grow) => {
@@ -4820,21 +4820,21 @@ const Render = {
       g.ellipse(9.2, -9.5, 8.0 + grow, 9.1 + grow, 0.18, 0, 6.283);
     };
 
-    /* ── 다리 ── 걸을 때 앞뒤로 크게 교차. 굽까지 그려야 '걷는다'가 읽힌다 */
+    /* ── 다리 ──
+     * 길고 가늘면 거미처럼 보인다. 구스구스덕처럼 짧고 뭉툭한 발만 살짝 내민다.
+     * 걷는 느낌은 다리 폭이 아니라 몸통 흔들림(drawDuck 의 bob)이 만든다. */
     if (!dead) {
-      const sw = moving ? Math.sin(t / 105) * 7 : 0;
-      const leg = (x, off, dark) => {
-        g.strokeStyle = OUT; g.lineWidth = 7.6; g.lineCap = 'round';
-        g.beginPath(); g.moveTo(x, 8); g.lineTo(x + off, 24); g.stroke();
-        g.strokeStyle = dark ? '#2b2634' : LEG; g.lineWidth = 4.6;
-        g.beginPath(); g.moveTo(x, 8); g.lineTo(x + off, 24); g.stroke();
+      const sw = moving ? Math.sin(t / 105) * 2.6 : 0;
+      const foot = (x, off, dark) => {
         g.fillStyle = OUT;
-        g.beginPath(); g.ellipse(x + off, 24.8, 3.5, 2.7, 0, 0, 6.283); g.fill();
-        g.fillStyle = HOOF;
-        g.beginPath(); g.ellipse(x + off, 24.6, 2.6, 1.9, 0, 0, 6.283); g.fill();
+        g.beginPath(); g.roundRect(x - 4.6 + off, 8, 9.2, 14.4, 4.6); g.fill();
+        g.fillStyle = dark ? '#2b2634' : LEG;
+        g.beginPath(); g.roundRect(x - 3.4 + off, 8.6, 6.8, 13.2, 3.4); g.fill();
+        g.fillStyle = HOOF;                                   // 굽 — 발끝만 어둡게
+        g.beginPath(); g.roundRect(x - 3.4 + off, 17.4, 6.8, 4.4, 2.2); g.fill();
       };
-      leg(-9, -sw, true); leg(4, sw, true);          // 뒤쪽 다리 (어둡게 = 깊이)
-      leg(-6, sw, false); leg(7, -sw, false);        // 앞쪽 다리
+      foot(-3.6, -sw * .7, true);                              // 뒤쪽 발 (살짝 가려져 깊이)
+      foot(-5.4, sw, false); foot(6.4, -sw, false);            // 앞쪽 두 발
     }
 
     /* ── 꼬리 ── */
@@ -4938,7 +4938,7 @@ const Render = {
 
     // 그림자
     g.fillStyle = 'rgba(0,0,0,.42)';
-    g.beginPath(); g.ellipse(0, 25, 17, 5.5, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(0, 22.5, 16, 5, 0, 0, 6.283); g.fill();
 
     if (dead) g.translate(0, -6 + Math.sin(t / 700) * 3);
     g.translate(0, -bob);
@@ -5012,16 +5012,18 @@ const Render = {
 
     g.rotate(-0.42);
 
-    // 뻣뻣하게 뻗은 다리 (굽까지)
-    const leg = (x1, y1, x2, y2) => {
-      g.strokeStyle = OUT; g.lineWidth = 6.6; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      g.strokeStyle = LEG; g.lineWidth = 3.8;
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      g.fillStyle = OUT; g.beginPath(); g.ellipse(x2, y2, 3.1, 2.4, 0, 0, 6.283); g.fill();
-      g.fillStyle = '#241f2b'; g.beginPath(); g.ellipse(x2, y2, 2.2, 1.6, 0, 0, 6.283); g.fill();
+    // 위로 뻗은 짧고 뭉툭한 발 (살아있을 때와 같은 모양이어야 한 세트로 보인다)
+    const foot = (x, y, ang) => {
+      g.save(); g.translate(x, y); g.rotate(ang);
+      g.fillStyle = OUT;
+      g.beginPath(); g.roundRect(-4.4, -12.4, 8.8, 13.6, 4.4); g.fill();
+      g.fillStyle = LEG;
+      g.beginPath(); g.roundRect(-3.3, -11.6, 6.6, 12.4, 3.3); g.fill();
+      g.fillStyle = '#241f2b';
+      g.beginPath(); g.roundRect(-3.3, -11.6, 6.6, 4.2, 2.1); g.fill();
+      g.restore();
     };
-    leg(1, -5, 7, -17); leg(8, -3, 16, -12);
+    foot(1, -6, 0.2); foot(10, -4, 0.46);
 
     // 양털 (누운 모양) — 살아있을 때와 같은 합집합 + 외곽선 방식
     const BUMPS = [[-10,-6,5],[0,-8.5,5.4],[9,-5,4.8],[12,4,4.4],[-12,5,4.6],[2,7,4.6]];
@@ -5041,16 +5043,21 @@ const Render = {
     g.restore();
 
     // 얼굴 (축 늘어짐) — 살아있을 때처럼 밝은 테로 몸에서 떼어 놓는다
-    const head = (grow) => { g.beginPath(); g.ellipse(-16, -1, 7.2 + grow, 7.8 + grow, -0.25, 0, 6.283); };
+    const head = (grow) => { g.beginPath(); g.ellipse(-16.5, -1, 8.4 + grow, 7.2 + grow, -0.22, 0, 6.283); };
     g.fillStyle = OUT; head(2.4); g.fill();
-    g.fillStyle = 'rgba(255,238,208,.45)'; head(1.2); g.fill();
+    g.fillStyle = 'rgba(255,238,208,.3)'; head(1.1); g.fill();
     g.fillStyle = FACE; head(0); g.fill();
     // 처진 귀
     g.fillStyle = OUT; g.beginPath(); g.ellipse(-9.5, 4.5, 3.6, 5.6, 0.7, 0, 6.283); g.fill();
     g.fillStyle = FACE_D; g.beginPath(); g.ellipse(-9.5, 4.4, 2.4, 4.2, 0.7, 0, 6.283); g.fill();
+    // 주둥이 + 코
+    g.fillStyle = '#5d5566';
+    g.beginPath(); g.ellipse(-22.5, 1.5, 3.4, 2.6, -0.2, 0, 6.283); g.fill();
+    g.fillStyle = FACE_D;
+    g.beginPath(); g.ellipse(-23.6, 1.4, 1.8, 1.3, -0.2, 0, 6.283); g.fill();
     // X 눈
     g.strokeStyle = '#efe8f2'; g.lineWidth = 2; g.lineCap = 'round';
-    g.beginPath(); g.moveTo(-19, -5); g.lineTo(-14, 0); g.moveTo(-14, -5); g.lineTo(-19, 0); g.stroke();
+    g.beginPath(); g.moveTo(-18.5, -5.5); g.lineTo(-13.8, -0.8); g.moveTo(-13.8, -5.5); g.lineTo(-18.5, -0.8); g.stroke();
     g.restore();
   },
 
