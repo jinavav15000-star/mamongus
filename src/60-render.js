@@ -788,7 +788,7 @@ const Render = {
 
     // 시야 계산
     const R = state.visionR;
-    const ghostView = state.ghost || state.spectate;
+    const ghostView = state.ghost || state.spectate || state.lobby;
     let poly = null;
     if (!ghostView) {
       if (Math.hypot(me.x - this.visCache.x, me.y - this.visCache.y) > 5 || this.visCache.r !== R || !this.visCache.poly) {
@@ -1010,124 +1010,111 @@ const Render = {
    *  머리가 +x 쪽에 있어 앞으로 내밀어져 진행 방향을 알려준다. */
   charShape(g, col, o = {}) {
     const { dead = false, moving = false, t = 0 } = o;
-    const OUT = '#241a12';                 // 모든 색에 같은 외곽선 — 따뜻한 바닥 위에서 실루엣이 살아난다
+    const OUT = '#241a12';                 // 모든 색 공통 외곽선
     const FACE = '#4a4351', FACE_D = '#2b2634', FACE_L = '#5d5566';
     const LEG = '#3b3542', HOOF = '#241f2b';
 
-    /* 양털 실루엣 — 타원 + 혹들의 합집합.
-     * grow 만큼 부풀린 같은 모양을 어두운 색으로 먼저 깔면 이음매 없는 외곽선이 된다.
-     * (혹마다 stroke 하면 안쪽에 선이 남는다) */
-    const BUMPS = [[-11.5,-8,5.6],[-2.5,-11.5,6.2],[6,-8.5,5.4],[-13,4,5.2],[8.5,5.5,5],[-4,10,5.2],[-14.5,-2,4.8]];
-    const fleecePath = (grow) => {
-      g.beginPath();
-      g.ellipse(-1.5, 0.5, 13.4 + grow, 11 + grow, 0, 0, 6.283);
-      for (const [bx, by, br] of BUMPS) { g.moveTo(bx + br + grow, by); g.arc(bx, by, br + grow, 0, 6.283); }
-    };
-    const headPath = (grow) => {
-      g.beginPath();
-      g.ellipse(10, -10, 9.8 + grow, 10.8 + grow, 0.16, 0, 6.283);
-    };
+    /* 구스구스덕처럼 세로로 서서 정면을 본다.
+     * 진행 방향은 호출부의 좌우 반전 + 눈동자 쏠림으로 표현한다. */
 
-    /* ── 다리 ──
-     * 길고 가늘면 거미처럼 보인다. 구스구스덕처럼 짧고 뭉툭한 발만 살짝 내민다.
-     * 걷는 느낌은 다리 폭이 아니라 몸통 흔들림(drawDuck 의 bob)이 만든다. */
+    /* ── 발 두 개 (짧고 뭉툭) ── */
     if (!dead) {
-      const sw = moving ? Math.sin(t / 105) * 2.6 : 0;
-      const foot = (x, off, dark) => {
+      const sw = moving ? Math.sin(t / 105) * 2.4 : 0;
+      const foot = (x, off) => {
         g.fillStyle = OUT;
-        g.beginPath(); g.roundRect(x - 4.6 + off, 8, 9.2, 14.4, 4.6); g.fill();
-        g.fillStyle = dark ? '#2b2634' : LEG;
-        g.beginPath(); g.roundRect(x - 3.4 + off, 8.6, 6.8, 13.2, 3.4); g.fill();
-        g.fillStyle = HOOF;                                   // 굽 — 발끝만 어둡게
-        g.beginPath(); g.roundRect(x - 3.4 + off, 17.4, 6.8, 4.4, 2.2); g.fill();
+        g.beginPath(); g.roundRect(x - 4.4 + off, 10, 8.8, 12.4, 4.4); g.fill();
+        g.fillStyle = LEG;
+        g.beginPath(); g.roundRect(x - 3.2 + off, 10.6, 6.4, 11.2, 3.2); g.fill();
+        g.fillStyle = HOOF;
+        g.beginPath(); g.roundRect(x - 3.2 + off, 17.6, 6.4, 4.2, 2.1); g.fill();
       };
-      foot(-3.6, -sw * .7, true);                              // 뒤쪽 발 (살짝 가려져 깊이)
-      foot(-5.4, sw, false); foot(6.4, -sw, false);            // 앞쪽 두 발
+      foot(-6, sw); foot(6, -sw);
     }
 
-    /* ── 꼬리 ── */
-    g.fillStyle = OUT; g.beginPath(); g.arc(-19.5, -3.5, 6.2, 0, 6.283); g.fill();
-    g.fillStyle = col.hex; g.beginPath(); g.arc(-19.5, -3.5, 4.4, 0, 6.283); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.2)'; g.beginPath(); g.arc(-20.4, -4.6, 2, 0, 6.283); g.fill();
-
-    /* ── 몸통 양털 ── */
-    g.fillStyle = OUT; fleecePath(2.4); g.fill();     // 외곽선
-    g.fillStyle = col.hex; fleecePath(0); g.fill();   // 본체
-
-    // 음영 — 위는 밝고 아래는 어둡게. 납작해 보이던 원인이 단일 하이라이트였다.
-    g.save();
-    fleecePath(0); g.clip();
-    const sh = g.createLinearGradient(0, -14, 0, 16);
-    sh.addColorStop(0, 'rgba(255,255,255,.22)');
-    sh.addColorStop(0.45, 'rgba(255,255,255,0)');
+    /* ── 몸통 양털 — 세로 서양배 실루엣 ──
+     * 부풀린 같은 실루엣을 어둡게 먼저 깔아 이음매 없는 외곽선을 만든다. */
+    const BUMPS = [[-9,-15,5.4],[0,-18,6],[9,-15,5.4],[-12,-6,5.2],[12,-6,5.2],
+                   [-11,4,5.6],[11,4,5.6],[-6,10,5.6],[6,10,5.6],[0,11,5.8]];
+    const fleece = (grow) => {
+      g.beginPath();
+      g.ellipse(0, -2, 12.6 + grow, 14.6 + grow, 0, 0, 6.283);
+      for (const [bx, by, br] of BUMPS) { g.moveTo(bx + br + grow, by); g.arc(bx, by, br + grow, 0, 6.283); }
+    };
+    g.fillStyle = OUT; fleece(2.4); g.fill();
+    g.fillStyle = col.hex; fleece(0); g.fill();
+    // 음영 — 위 밝고 아래 어둡게
+    g.save(); fleece(0); g.clip();
+    const sh = g.createLinearGradient(0, -19, 0, 17);
+    sh.addColorStop(0, 'rgba(255,255,255,.24)');
+    sh.addColorStop(0.5, 'rgba(255,255,255,0)');
     sh.addColorStop(1, 'rgba(0,0,0,.26)');
-    g.fillStyle = sh; g.fillRect(-24, -24, 48, 44);
-    g.restore();
-    // 매끈한 정수리 하이라이트 하나만 (혹마다 그림자를 넣으면 우둘투둘해 보인다)
-    g.fillStyle = 'rgba(255,255,255,.3)';
-    g.beginPath(); g.ellipse(-4, -6.5, 8, 5, -0.3, 0, 6.283); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.16)';
-    g.beginPath(); g.ellipse(-8, 1, 5, 6.5, -0.2, 0, 6.283); g.fill();
-
-    /* ── 뒤 귀 (머리 뒤로 살짝) ── */
-    g.fillStyle = OUT;
-    g.beginPath(); g.ellipse(3.6, -15, 6, 3.4, -0.55, 0, 6.283); g.fill();
-    g.fillStyle = FACE_D;
-    g.beginPath(); g.ellipse(3.6, -15, 4.5, 2.2, -0.55, 0, 6.283); g.fill();
-
-    /* ── 얼굴 ──
-     * 검정·남색 양은 머리와 몸이 한 덩어리로 뭉개졌다.
-     * 얼굴 둘레에 밝은 테두리를 둘러 어떤 털색에서도 머리가 떠 보이게 한다. */
-    g.fillStyle = OUT; headPath(2.6); g.fill();
-    g.fillStyle = 'rgba(255,238,208,.4)'; headPath(1.0); g.fill();    // 분리용 밝은 테
-    g.fillStyle = FACE; headPath(0); g.fill();
-    // 얼굴 음영
-    g.save(); headPath(0); g.clip();
-    g.fillStyle = FACE_L;
-    g.beginPath(); g.ellipse(11.5, -13.6, 7.6, 5.4, 0.2, 0, 6.283); g.fill();
-    g.fillStyle = 'rgba(0,0,0,.22)';
-    g.beginPath(); g.ellipse(6.5, -3.2, 8.4, 5.2, 0.2, 0, 6.283); g.fill();
+    g.fillStyle = sh; g.fillRect(-22, -26, 44, 46);
     g.restore();
 
-    /* ── 앞 귀 (아래로 처진 잎사귀) ── */
-    g.fillStyle = OUT;
-    g.beginPath(); g.ellipse(1.4, -6.4, 4.8, 7.2, 0.5, 0, 6.283); g.fill();
-    g.fillStyle = FACE;
-    g.beginPath(); g.ellipse(1.7, -6.6, 3.4, 5.8, 0.5, 0, 6.283); g.fill();
-    g.fillStyle = 'rgba(0,0,0,.25)';
-    g.beginPath(); g.ellipse(2, -6.8, 1.6, 3.5, 0.5, 0, 6.283); g.fill();
+    /* ── 얼굴판 — 몸 위쪽에 정면으로 ── */
+    const head = (grow) => { g.beginPath(); g.ellipse(0, -9.5, 9.6 + grow, 9.2 + grow, 0, 0, 6.283); };
+    g.fillStyle = 'rgba(255,238,208,.35)'; head(1.1); g.fill();   // 털과 분리해 주는 밝은 테
+    g.fillStyle = FACE; head(0); g.fill();
+    g.save(); head(0); g.clip();
+    g.fillStyle = FACE_L;                                          // 이마 쪽 밝게
+    g.beginPath(); g.ellipse(0, -14, 9, 5.5, 0, 0, 6.283); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.2)';                                // 턱 쪽 어둡게
+    g.beginPath(); g.ellipse(0, -3.5, 8.5, 4, 0, 0, 6.283); g.fill();
+    g.restore();
 
-    /* ── 머리 위 양털 모자 ── */
-    g.fillStyle = OUT;
-    g.beginPath(); g.arc(6.6, -18.6, 6.4, 0, 6.283); g.arc(12.6, -19.6, 5.8, 0, 6.283); g.fill();
-    g.fillStyle = col.hex;
-    g.beginPath(); g.arc(6.6, -18.6, 4.6, 0, 6.283); g.fill();
-    g.beginPath(); g.arc(12.6, -19.6, 4, 0, 6.283); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.22)';
-    g.beginPath(); g.arc(5.6, -19.8, 2.5, 0, 6.283); g.fill();
-
-    /* ── 눈·코 ── */
-    if (dead) {
-      g.strokeStyle = '#efe8f2'; g.lineWidth = 2.1; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(6, -14); g.lineTo(12.5, -7.5); g.moveTo(12.5, -14); g.lineTo(6, -7.5); g.stroke();
-    } else {
-      const lookX = moving ? 1.1 : Math.sin(t / 900) * 0.8;
-      const blink = (t % 4200) < 130 ? 0.12 : 1;      // 가끔 깜빡인다
+    /* ── 귀 — 얼굴 양옆으로 처진 잎사귀 ── */
+    for (const sx of [-1, 1]) {
       g.fillStyle = OUT;
-      g.beginPath(); g.ellipse(9.2, -11, 6.1, 6.7 * blink + 0.5, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(sx * 10.5, -7.5, 4.6, 3, sx * 0.5, 0, 6.283); g.fill();
+      g.fillStyle = FACE;
+      g.beginPath(); g.ellipse(sx * 10.7, -7.6, 3.3, 2, sx * 0.5, 0, 6.283); g.fill();
+      g.fillStyle = 'rgba(0,0,0,.25)';
+      g.beginPath(); g.ellipse(sx * 11.2, -7.7, 1.7, 1, sx * 0.5, 0, 6.283); g.fill();
+    }
+
+    /* ── 정수리 양털 모자 ── */
+    g.fillStyle = OUT;
+    g.beginPath(); g.arc(-4, -17.5, 5.6, 0, 6.283); g.arc(2.5, -19, 5.9, 0, 6.283); g.arc(7.5, -16.5, 4.7, 0, 6.283); g.fill();
+    g.fillStyle = col.hex;
+    g.beginPath(); g.arc(-4, -17.5, 4, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(2.5, -19, 4.3, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(7.5, -16.5, 3.1, 0, 6.283); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.28)';
+    g.beginPath(); g.arc(1.5, -20.2, 2.2, 0, 6.283); g.fill();
+
+    /* ── 눈 — 구스구스덕식 큰 왕눈 두 개 (살짝 겹침) ── */
+    if (dead) {
+      g.strokeStyle = '#efe8f2'; g.lineWidth = 2; g.lineCap = 'round';
+      for (const sx of [-1, 1]) {
+        g.beginPath();
+        g.moveTo(sx * 4.6 - 2.2, -12.2); g.lineTo(sx * 4.6 + 2.2, -7.8);
+        g.moveTo(sx * 4.6 + 2.2, -12.2); g.lineTo(sx * 4.6 - 2.2, -7.8);
+        g.stroke();
+      }
+    } else {
+      const lookX = moving ? 1.5 : Math.sin(t / 900) * 1.0;
+      const blink = (t % 4600) < 130 ? 0.12 : 1;
+      // 흰자 (왼쪽이 살짝 크다 — 구스구스덕의 비대칭 왕눈)
+      g.fillStyle = OUT;
+      g.beginPath(); g.ellipse(-3.9, -10.2, 4.9, 5.6 * blink + 0.4, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(4.3, -10.4, 4.3, 5.0 * blink + 0.4, 0, 0, 6.283); g.fill();
       g.fillStyle = '#fff';
-      g.beginPath(); g.ellipse(9.2, -11, 4.9, 5.5 * blink, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(-3.9, -10.2, 4.1, 4.8 * blink, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(4.3, -10.4, 3.5, 4.2 * blink, 0, 0, 6.283); g.fill();
       if (blink > 0.5) {
         g.fillStyle = '#171322';
-        g.beginPath(); g.arc(10.4 + lookX, -10.4, 2.9, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(-3.0 + lookX, -9.8, 1.75, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(5.1 + lookX, -10, 1.6, 0, 6.283); g.fill();
         g.fillStyle = 'rgba(255,255,255,.95)';
-        g.beginPath(); g.arc(11.5 + lookX, -11.8, 1.25, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(-2.4 + lookX, -10.8, 0.75, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(5.7 + lookX, -11, 0.68, 0, 6.283); g.fill();
       }
-      // 주둥이 + 코
+      // 주둥이 + 콧구멍
       g.fillStyle = FACE_L;
-      g.beginPath(); g.ellipse(14.2, -4.6, 3.6, 3.1, 0.25, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(0, -3.6, 3.6, 2.6, 0, 0, 6.283); g.fill();
       g.fillStyle = FACE_D;
-      g.beginPath(); g.ellipse(15.2, -4.8, 2, 1.5, 0.3, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(-1.1, -3.7, 0.7, 1, 0.2, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(1.1, -3.7, 0.7, 1, -0.2, 0, 6.283); g.fill();
     }
   },
 
@@ -1164,6 +1151,25 @@ const Render = {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
       g.fillText('🐺', 0, -44);
     }
+    // 말풍선 (채팅을 치면 4.8초간 머리 위에)
+    if (p.bubble && Date.now() < p.bubble.until && p.alive) {
+      const txt = p.bubble.text;
+      g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = Math.min(g.measureText(txt).width, 150);
+      const bw = tw + 18, bh = 24, by = -66;
+      g.fillStyle = '#f6f1e6';
+      g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(-5, by + bh / 2 - 1); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2 - 1);
+      g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(36,26,18,.9)';
+      g.beginPath(); g.moveTo(-5, by + bh / 2); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2); g.stroke();
+      g.fillStyle = '#2b2016';
+      g.save(); g.beginPath(); g.rect(-bw / 2 + 4, by - bh / 2, bw - 8, bh); g.clip();
+      g.fillText(txt, 0, by + 1); g.restore();
+    }
+
     const shownName = p.morphName || p.name;      // 변신술사는 이름까지 위장된다
     if (shownName) {
       g.font = '700 13px "Pretendard", system-ui, sans-serif';

@@ -212,15 +212,27 @@ const Meeting = {
     if (this.chatMsgs.length > 300) this.chatMsgs.shift();
     this._append($('#chat'), m);
     this._append($('#lobby-chat'), m);
+    this._append($('#play-chat'), m);
     this._append(document.getElementById('ghost-chat'), m);
     if (!m.sys) Sfx.chat();
+    // 머리 위 말풍선 (구스구스덕처럼). 유령 채팅은 산 사람에게 그려질 몸이 없으니 제외
+    if (!m.sys && m.from && m.channel !== 'dead') {
+      const pl = G.players?.[m.from];
+      if (pl) pl.bubble = { text: String(m.text).slice(0, 42), until: Date.now() + 4800 };
+    }
+    // 채팅창이 닫혀 있으면 버튼에 안읽음 표시
+    if (!m.sys && m.from !== G.myId) {
+      const w = document.getElementById('play-chat-wrap'), b = document.getElementById('btn-chat');
+      if (w && b && w.classList.contains('hidden') && !b.classList.contains('hidden'))
+        b.style.borderColor = 'var(--warn)';
+    }
     // 게임 화면에서 유령끼리 대화가 오면 배지로 알림
     if (UI.screen === 'game' && !m.sys && m.from !== G.myId) {
       const b = $('#btn-ghostchat');
       if (b && !b.classList.contains('hidden')) b.style.borderColor = 'var(--warn)';
     }
   },
-  clearChat() { this.chatMsgs = []; $('#chat').innerHTML = ''; $('#lobby-chat').innerHTML = ''; },
+  clearChat() { this.chatMsgs = []; $('#chat').innerHTML = ''; $('#lobby-chat').innerHTML = ''; const pc = $('#play-chat'); if (pc) pc.innerHTML = ''; },
 
   /** 게임 진행 중 유령/영매용 채팅 창 */
   openGhostChat() {

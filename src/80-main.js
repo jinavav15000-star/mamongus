@@ -49,6 +49,21 @@ const Game = {
     $('#lobby-chat-send').onclick = lobbySend;
     $('#lobby-chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') lobbySend(); });
 
+    /* 대기실 HUD · 맵 채팅 */
+    $('#btn-lobby-close').onclick = () => UI.closeLobbyPanel();
+    $('#btn-lobbypanel').onclick = () => UI.openLobbyPanel();
+    $('#btn-copy2').onclick = () => $('#btn-copy').click();
+    $('#btn-lobby-start').onclick = () => Game.start();
+    $('#btn-chat').onclick = () => UI.togglePlayChat();
+    $('#play-chat-close').onclick = () => UI.closePlayChat();
+    const playSend = () => {
+      const v = $('#play-chat-in').value.trim();
+      if (v) { Net.toHost('chat', { text: v }); $('#play-chat-in').value = ''; }
+    };
+    $('#play-chat-send').onclick = playSend;
+    $('#play-chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') playSend(); e.stopPropagation(); });
+    $('#play-chat-in').addEventListener('keyup', e => e.stopPropagation());
+
     this.bindInput();
     Render.init($('#game-canvas'));
     this.wireNet();
@@ -117,7 +132,8 @@ const Game = {
       Host.pushState();
       history.replaceState(null, '', '#room=' + code);
       UI.loading(false);
-      UI.show('lobby');
+      UI.show('game'); Render.resize();
+      UI.openLobbyPanel();                    // 초대링크가 보이도록 패널을 한 번 열어 준다
       $('#in-name2').value = name;
       this.keepAwake();
       UI.toast('방을 만들었습니다! <b>초대링크 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
@@ -215,7 +231,7 @@ const Game = {
 
   onServer(m) {
     switch (m.t) {
-      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('lobby'); break;
+      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.openLobbyPanel(); break;
       case 'denied':  UI.loading(false); UI.show('home'); this.err(m.reason); Net.destroy(); break;
       case 'state':   this.onState(m); break;
       case 'snap':    this.onSnap(m); break;
@@ -267,9 +283,20 @@ const Game = {
     for (const id in G.players) if (!seen.has(id)) delete G.players[id];
     G.me = G.players[G.myId];
 
-    if (G.phase === 'lobby') { if (UI.screen !== 'lobby') { UI.show('lobby'); Meeting.clearChat(); } UI.renderLobby(m); }
+    if (G.phase === 'lobby') {
+      // 대기실 = 걸어다니는 맵. 옛 로비 화면은 ☰ 패널로 남는다.
+      if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.openLobbyPanel(); }
+      $('#screen-game').classList.add('lobby-mode');
+      $('#lobby-hud').classList.remove('hidden');
+      $('#btn-chat').classList.remove('hidden');
+      UI.renderLobby(m);
+    }
     else if (G.phase === 'play') {
       if (UI.screen !== 'game') { UI.show('game'); Render.resize(); }
+      $('#screen-game').classList.remove('lobby-mode');
+      $('#lobby-hud').classList.add('hidden');
+      $('#btn-chat').classList.remove('hidden');
+      UI.closeLobbyPanel();
       UI.renderTaskBar(); UI.renderTaskList(); this.updateAlert();
     }
     else if (G.phase === 'meeting') {
@@ -317,6 +344,9 @@ const Game = {
   onEvent(m) {
     switch (m.type) {
       case 'start':
+        UI.closeLobbyPanel(); UI.closePlayChat();
+        $('#screen-game').classList.remove('lobby-mode');
+        $('#lobby-hud').classList.add('hidden');
         UI.show('game'); Render.resize(); Meeting.clearChat(); Trail.reset(); G.privateLog = [];
         setTimeout(() => UI.revealRole(), 260);
         Sfx.quack();
@@ -354,7 +384,7 @@ const Game = {
         Sfx.alarm();
         if (roomIdAt(G.me?.x, G.me?.y) === m.room) { UI.toast('🚪 문이 잠겼습니다!', 2600); Render.shake = 7; }
         break;
-      case 'tolobby': UI.closeAllModals(); UI.show('lobby'); Meeting.clearChat(); G.myRole = null; break;
+      case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); UI.openLobbyPanel(); Meeting.clearChat(); G.myRole = null; break;
       case 'over': UI.showResult(m.result); break;
     }
   },
@@ -428,6 +458,8 @@ const Game = {
   readInput() {
     // 임무·수리 창이 열려 있는 동안에는 움직일 수 없다 (키보드로 몰래 도망 방지)
     if (UI.hasModal()) return { dx: 0, dy: 0 };
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return { dx: 0, dy: 0 };
     let dx = this.stick.dx, dy = this.stick.dy;
     const K = this.input.keys;
     if (K['arrowleft'] || K['a']) dx -= 1;
@@ -449,9 +481,10 @@ const Game = {
     if (!me) return;
     G.me = me;
 
-    if (UI.screen === 'game' && G.phase === 'play') {
+    if (UI.screen === 'game' && (G.phase === 'play' || G.phase === 'lobby')) {
+      const inLobby = G.phase === 'lobby';
       this.stepMovement(me, dt);
-      this.updateHud();
+      if (!inLobby) this.updateHud();
       // 원격 보간
       for (const id in G.players) {
         const p = G.players[id]; if (id === G.myId) continue;
@@ -460,6 +493,7 @@ const Game = {
         p.rx += (p.x - p.rx) * k * 3.2; p.ry += (p.y - p.ry) * k * 3.2;
       }
       this.render(me);
+      if (inLobby) return;
       // 동선 기록
       Trail.track(me, this.visibleOthers(me));
       if (Voice.enabled) {
@@ -569,7 +603,7 @@ const Game = {
       me: { ...me, x: me.x, y: me.y },
       others: others.map(p => p.id === G.myId ? p : { ...p, x: p.rx ?? p.x, y: p.ry ?? p.y }),
       bodies: G.bodies, doors: G.doors, sabotage: G.sabotage,
-      visionR: this.visionR(), ghost: !!G.ghost,
+      visionR: this.visionR(), ghost: !!G.ghost, lobby: G.phase === 'lobby',
       myTaskSpots: G.sabotage?.kind === 'comms' ? [] : this.myTaskSpots(),
       canVent: roleInfo(G.myRole).canVent && me.alive,
       duckMates: G.ducksKnown,

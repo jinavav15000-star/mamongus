@@ -160,6 +160,39 @@ section('게임 시작 · 임무');
      new Set(G.order.map(id => Host.P[id].tasks[0].spots.join(','))).size === 1);
 }
 
+section('대기실 맵 · 게임 중 채팅');
+{
+  reset(5);
+  // 로비: 위치 갱신이 허용된다
+  const a = byName('호스트');
+  const x0 = a.x;
+  Host.onPos(a.id, { x: x0 + 50, y: a.y, d: 1, mv: true });
+  ok('로비에서 이동이 반영된다', a.x === x0 + 50);
+
+  // 로비 스냅샷: 전원 위치가 전원에게 (시야 컬링 없음)
+  sent.length = 0;
+  Host.sendSnap();
+  const lobbySnaps = sent.filter(s => s.t === 'snap');
+  ok('로비 스냅샷 전송', lobbySnaps.length > 0);
+  ok('로비 스냅샷엔 전원이 담긴다', lobbySnaps.every(s => s.d.p.length === 5), lobbySnaps[0]?.d.p.length);
+
+  // 게임 중: 산 사람 채팅이 전체에 브로드캐스트된다
+  Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  sent.length = 0;
+  Host.onChat(byName('파랑').id, '늑대 본 사람?', 'all');
+  const bc = sent.find(s => s.t === 'msg');
+  ok('게임 중 산 사람 채팅 브로드캐스트', !!bc && bc.d.text === '늑대 본 사람?', bc);
+
+  // 죽은 사람 채팅은 여전히 유령 채널로만
+  const dead = byName('초록'); dead.alive = false;
+  sent.length = 0;
+  Host.onChat(dead.id, '나 죽었어', 'all');
+  const deadMsgs = sent.filter(s => s.t === 'msg');
+  ok('유령 채팅은 산 사람에게 안 간다',
+     deadMsgs.length > 0 && deadMsgs.every(s => s.d.channel === 'dead'), deadMsgs.map(s => s.d.channel));
+}
+
 section('벤트 안 행동 차단');
 {
   reset(5);

@@ -75,6 +75,7 @@
       <button id="btn-copy" class="btn small">🔗 초대링크 복사</button>
       <div class="grow"></div>
       <button id="btn-leave" class="btn ghost small">나가기</button>
+      <button id="btn-lobby-close" class="btn small">🐑 맵으로</button>
     </div>
 
     <div class="card lobby-me" style="margin-bottom:11px">
@@ -150,6 +151,25 @@
       <div class="actrow" id="actrow2"></div>
     </div>
     <div class="toasts" id="toasts"></div>
+
+    <!-- 대기실 모드 HUD — 맵을 돌아다니며 보이는 것들 -->
+    <div id="lobby-hud" class="hidden">
+      <div class="lb-top">
+        <div class="codechip lb-code" id="lobby-code2">----</div>
+        <button class="btn small" id="btn-copy2">🔗 복사</button>
+        <div class="grow"></div>
+        <button class="iconbtn" id="btn-lobbypanel" title="설정·직업·참가자">☰</button>
+      </div>
+      <button class="btn primary hidden" id="btn-lobby-start">게임 시작</button>
+    </div>
+
+    <!-- 채팅 (대기실 + 게임 중) -->
+    <button class="iconbtn hidden" id="btn-chat">💬</button>
+    <div id="play-chat-wrap" class="hidden">
+      <div class="pc-hd"><span>💬 채팅</span><button id="play-chat-close">✕</button></div>
+      <div class="chat scroll" id="play-chat"></div>
+      <div class="chatinput"><input id="play-chat-in" maxlength="160" placeholder="메시지 입력…" autocomplete="off"><button id="play-chat-send">전송</button></div>
+    </div>
   </div>
 </div>
 

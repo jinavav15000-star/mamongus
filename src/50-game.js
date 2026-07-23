@@ -125,7 +125,10 @@ const Host = {
       id: genId(), uid, peerId, name: cleanName(name),
       color: used.has(color) || !color ? free.id : color,
       role: 'goose', alive: true, connected: true,
-      x: EMERGENCY_BTN.wx, y: EMERGENCY_BTN.wy + 90, dir: 1, moving: false,
+      // 로비에서도 맵을 돌아다니므로 겹치지 않게 원형으로 흩어 놓는다
+      x: EMERGENCY_BTN.wx + Math.cos(G.order.length * 2.4) * (70 + G.order.length * 6),
+      y: EMERGENCY_BTN.wy + 60 + Math.sin(G.order.length * 2.4) * (55 + G.order.length * 4),
+      dir: 1, moving: false,
       ventId: null, tasks: [], killCdEnd: 0, abilityCdEnd: 0, abilityUses: 0,
       emergencyLeft: 0, shielded: false, infected: false, eaten: 0,
       killedThisRound: false, votes: null, ready: false, morphTo: null, morphEnd: 0,
@@ -238,6 +241,15 @@ const Host = {
             (p.morphEnd > now() ? p.morphTo : 0) || 0];
   },
   sendSnap() {
+    // 로비: 대기실이 맵이다. 숨길 것이 없으니 전원 위치를 전원에게 보낸다.
+    if (G.phase === 'lobby') {
+      const arr = G.order.map(i => this.P[i]).filter(p => p && p.connected).map(p => this.packPlayer(p));
+      for (const id of G.order) {
+        const v = this.P[id];
+        if (v && v.connected && !v.isBot) Net.toPeer(v.peerId, 'snap', { p: arr });
+      }
+      return;
+    }
     if (G.phase !== 'play') return;
     for (const id of G.order) {
       const viewer = this.P[id];
@@ -402,7 +414,7 @@ const Host = {
 
   /* ---------------- 이동 ---------------- */
   onPos(id, m) {
-    const p = this.P[id]; if (!p || G.phase !== 'play') return;
+    const p = this.P[id]; if (!p || (G.phase !== 'play' && G.phase !== 'lobby')) return;
     p.x = m.x; p.y = m.y; p.dir = m.d; p.moving = !!m.mv;
     if (m.mv) this.markActive(p);
     if (p.dragging) {
@@ -828,7 +840,7 @@ const Host = {
   onChat(id, text, channel) {
     const p = this.P[id]; if (!p || !text) return;
     text = String(text).slice(0, 160);
-    if (G.phase === 'play' && p.alive) return;                 // 게임 중 산 사람은 채팅 불가
+    // 게임 중 채팅 허용 (구스구스덕처럼). 죽은 사람은 아래 유령 채널로만 흐른다.
     const dead = !p.alive;
     // 유령 채팅은 유령 + 영매에게만
     if (dead && G.phase !== 'lobby') {
@@ -874,6 +886,23 @@ const Host = {
       const p = this.P[id];
       if (!p?.isBot) continue;
       const b = (p._bot ||= { tx: p.x, ty: p.y, idleUntil: 0, taskAt: now() + rnd(12000, 25000), voteAt: 0 });
+
+      // 로비 배회 — 스폰 근처를 어슬렁거린다
+      if (G.phase === 'lobby') {
+        if (now() > b.idleUntil) {
+          const dx = b.tx - p.x, dy = b.ty - p.y, dist = Math.hypot(dx, dy);
+          if (dist < 14) { b.idleUntil = now() + rnd(1200, 4200); p.moving = false;
+            b.tx = EMERGENCY_BTN.wx + rnd(-170, 170); b.ty = EMERGENCY_BTN.wy + rnd(-60, 170); }
+          else {
+            const spd = 2.2 * (dt * 60);
+            const r = moveWithCollision(p.x, p.y, (dx / dist) * spd, (dy / dist) * spd);
+            if (Math.abs(r.x - p.x) < 0.1 && Math.abs(r.y - p.y) < 0.1) { b.tx = p.x; b.ty = p.y; }
+            if (dx) p.dir = dx > 0 ? 1 : -1;
+            p.x = r.x; p.y = r.y; p.moving = true;
+          }
+        }
+        continue;
+      }
 
       if (G.phase === 'play' && p.alive) {
         // 배회 — 목표점에 도착했거나 오래 걸리면 새 목표

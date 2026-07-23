@@ -85,6 +85,19 @@ const UI = {
     m.remove();
   },
   closeAllModals() { while (this.modalStack.length) this.closeModal(); },
+
+  /* ---------------- 대기실 패널 / 맵 채팅 ---------------- */
+  openLobbyPanel()  { $('#screen-lobby').classList.remove('hidden'); },
+  closeLobbyPanel() { $('#screen-lobby').classList.add('hidden'); },
+  togglePlayChat() {
+    const w = $('#play-chat-wrap');
+    w.classList.toggle('hidden');
+    if (!w.classList.contains('hidden')) {
+      $('#btn-chat').style.borderColor = '';                        // 안읽음 배지 해제
+      const box = $('#play-chat'); box.scrollTop = box.scrollHeight;
+    }
+  },
+  closePlayChat() { $('#play-chat-wrap').classList.add('hidden'); },
   hasModal() { return this.modalStack.length > 0; },
 
   /* ---------------- 로비 ---------------- */
@@ -103,6 +116,7 @@ const UI = {
 
   renderLobby(st) {
     $('#lobby-code').textContent = Net.code || '----';
+    $('#lobby-code2').textContent = Net.code || '----';
     $('#tab-count').textContent = st.players.length;
     const list = $('#plist'); list.innerHTML = '';
     st.players.forEach(p => {
@@ -121,6 +135,13 @@ const UI = {
 
     const foot = $('#lobby-foot'); foot.innerHTML = '';
     const isHost = G.myId === st.hostId;
+    { // 맵 위 시작 버튼 (방장만)
+      const b = $('#btn-lobby-start');
+      const n = st.players.filter(p => p.connected).length;
+      b.classList.toggle('hidden', !isHost);
+      b.disabled = n < 4;
+      b.textContent = n < 4 ? `게임 시작 (${n}/4명 필요)` : `🎮 게임 시작 (${n}명)`;
+    }
     if (isHost) {
       const n = st.players.filter(p => p.connected).length;
       const btn = h('button', { cls:'btn primary', style:{ width:'100%', padding:'17px', fontSize:'17px' },
