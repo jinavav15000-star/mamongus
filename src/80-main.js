@@ -384,7 +384,16 @@ const Game = {
       if (id === G.myId) { p.seen = true; if (p.ventId) { p.x = x; p.y = y; } continue; }
       const reappeared = !p.seen;
       p.x = x; p.y = y; p.seen = true;
-      if (reappeared || p.rx == null) { p.rx = x; p.ry = y; }   // 다시 보일 땐 보간 없이 스냅
+      // 스냅샷 버퍼 — 시각을 함께 저장해 두 스냅 사이를 등속으로 보간한다
+      const tNow = performance.now();
+      const last = p.hist?.[p.hist.length - 1];
+      if (reappeared || !last || Math.hypot(x - last.x, y - last.y) > 260) {
+        p.hist = [{ t: tNow, x, y }];        // 재등장·순간이동(회의 소집 등)은 보간 없이 스냅
+        p.rx = x; p.ry = y;
+      } else {
+        p.hist.push({ t: tNow, x, y });
+        if (p.hist.length > 6) p.hist.shift();
+      }
     }
     for (const id in G.players) if (!present.has(id)) G.players[id].seen = false;
     G.trackPos = m.trk || null;          // 추적자 전용 (없으면 null)
@@ -563,13 +572,10 @@ const Game = {
       const inLobby = G.phase === 'lobby';
       this.stepMovement(me, dt);
       if (!inLobby) this.updateHud();
-      // 원격 보간
-      for (const id in G.players) {
-        const p = G.players[id]; if (id === G.myId) continue;
-        if (p.rx == null) { p.rx = p.x; p.ry = p.y; }
-        const k = Math.min(1, dt / 60);
-        p.rx += (p.x - p.rx) * k * 3.2; p.ry += (p.y - p.ry) * k * 3.2;
-      }
+      // 원격 보간 — 130ms 전 시점을 렌더한다.
+      // (직전 방식은 스냅 수신 직후 거의 순간이동 후 다음 수신까지 정지라
+      //  12Hz 계단이 그대로 보였다. 지연 버퍼는 두 스냅 사이를 등속으로 걷는다.)
+      this.interpOthers(performance.now() - 130);
       // 렌더 중 예외가 나면 그 프레임 이후 세상이 검게 남는다.
       // 원인 무관하게 화면이 죽지 않도록 잡고, 맵 재생성을 한 번 시도한다.
       try { this.render(me); }
@@ -622,6 +628,24 @@ const Game = {
     if (now() - this.lastPosSent > 66) {
       this.lastPosSent = now();
       Net.toHost('pos', { x: Math.round(me.x), y: Math.round(me.y), d: me.dir, mv: moving });
+    }
+  },
+
+  /** 스냅샷 버퍼 보간. rt(ms, performance.now 기준) 시점의 위치를 rx/ry 에 채운다.
+   *  버퍼 끝을 넘어서면 외삽하지 않고 마지막 위치에 세운다 (외삽은 벽 뚫는 잔상을 만든다). */
+  interpOthers(rt) {
+    for (const id in G.players) {
+      const p = G.players[id]; if (id === G.myId) continue;
+      const h = p.hist;
+      if (!h || !h.length) { if (p.rx == null) { p.rx = p.x; p.ry = p.y; } continue; }
+      let a = h[0], b = h[0];
+      if (rt >= h[h.length - 1].t) { a = b = h[h.length - 1]; }
+      else if (rt > h[0].t) {
+        for (let i = 1; i < h.length; i++) if (h[i].t >= rt) { a = h[i - 1]; b = h[i]; break; }
+      }
+      const f = b.t > a.t ? (rt - a.t) / (b.t - a.t) : 1;
+      p.rx = a.x + (b.x - a.x) * f;
+      p.ry = a.y + (b.y - a.y) * f;
     }
   },
 

@@ -137,7 +137,11 @@ function raySeg(ox, oy, dx, dy, s) {
   if (Math.abs(den) < 1e-9) return Infinity;
   const t2 = ((s.x1 - ox) * dy - (s.y1 - oy) * dx) / den;
   if (t2 < 0 || t2 > 1) return Infinity;
-  const t1 = Math.abs(sdx) > Math.abs(sdy)
+  /* ⚠️ 나눗셈 축은 '광선'의 지배 성분으로 골라야 한다.
+   * 벽 방향으로 고르면(수정 전) 정확히 수평인 광선 × 세로 벽에서 dy=0 나눗셈이
+   * 되어 벽을 통과했다 — 시야 원의 보간 광선에 0°·90°·180°·270°가 정확히
+   * 포함되어, 눈높이에서 수평·수직으로 빛줄기가 벽을 뚫고 새던 원인. */
+  const t1 = Math.abs(dx) > Math.abs(dy)
     ? (s.x1 + sdx * t2 - ox) / dx
     : (s.y1 + sdy * t2 - oy) / dy;
   return t1 > 0.001 ? t1 : Infinity;

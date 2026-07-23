@@ -160,6 +160,20 @@ section('게임 시작 · 임무');
      new Set(G.order.map(id => Host.P[id].tasks[0].spots.join(','))).size === 1);
 }
 
+section('시야 광선 정밀도 (빛샘 버그)');
+{
+  // 곡물창고(x36..52, y40..55 타일) 안에서 정확히 수평/수직으로 쏜 시선은
+  // 벽에 막혀야 한다. 수정 전엔 0으로 나누기로 벽을 통과했다.
+  const y = 42 * 32 + 16;                       // 오른벽(x=1664)이 막혀 있는 줄
+  ok('수평 시선이 세로 벽에 막힌다', A.lineBlocked(1500, y, 1900, y) === true);
+  const x = 38 * 32 + 16;                       // 윗벽(y=1280)이 막혀 있는 칸
+  ok('수직 시선이 가로 벽에 막힌다', A.lineBlocked(x, 1400, x, 1000) === true);
+  // 시야 폴리곤도 수평 방향으로 벽 너머까지 뻗으면 안 된다
+  const poly = A.visibilityPolygon(1500, y, 600);
+  const leak = poly.filter(([px, py]) => Math.abs(py - y) < 3 && px > 1664 + 8);
+  ok('시야 폴리곤 수평 빛샘 없음', leak.length === 0, leak);
+}
+
 section('대기실 맵 · 게임 중 채팅');
 {
   reset(5);
