@@ -423,6 +423,14 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 #screen-meeting{padding-left:var(--safe-l);padding-right:var(--safe-r);background:radial-gradient(ellipse at top,#2b1f14,#150f0a);z-index:50}
 .meet-hd{padding:calc(10px + var(--safe-t)) 14px 10px;text-align:center;border-bottom:1px solid var(--line);flex:none;position:relative}
 .meet-fs{position:absolute;right:calc(10px + var(--safe-r));top:calc(8px + var(--safe-t))}
+/* 회의 시간 조절 — 단계마다 1인 1회 */
+.meet-tv{position:absolute;left:calc(10px + var(--safe-l));top:calc(8px + var(--safe-t));display:flex;gap:6px}
+.meet-tv button{padding:6px 10px;border-radius:10px;background:#3c2c1d;border:1px solid #6d4e30;
+  font-size:12px;font-weight:800}
+.meet-tv button:disabled{opacity:.35}
+/* 강퇴 버튼 */
+.kickbtn{flex:none;width:24px;height:24px;border-radius:8px;background:#5d1622;border:1px solid #a22b3a;
+  color:#ff8ea1;font-size:12px;font-weight:900;line-height:1}
 .meet-title{font-size:17px;font-weight:900}
 .meet-sub{font-size:12.5px;color:var(--dim);margin-top:2px}
 .meet-timer{font-size:31px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -885,6 +893,10 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
     <div class="meet-title" id="meet-title">긴급 회의</div>
     <div class="meet-sub" id="meet-sub"></div>
     <div class="meet-timer" id="meet-timer">00</div>
+    <div class="meet-tv">
+      <button id="mt-minus">⏬ −15초</button>
+      <button id="mt-plus">⏫ +15초</button>
+    </div>
   </div>
   <div class="meet-body">
     <div class="meet-left scroll" id="meet-left"></div>
@@ -3273,6 +3285,7 @@ const Host = {
   commonTasks: [],
 
   init() {
+    this.banned = new Set();          // 새 방 = 차단 목록 초기화
     G.hostId = G.myId;
     Net.on('data', (m, from) => this.onMsg(m, from));
     Net.on('peerleave', peerId => {
@@ -3331,6 +3344,7 @@ const Host = {
     if (id && this.P[id] && m.t !== 'pos') this.markActive(this.P[id]);
     switch (m.t) {
       case 'hello': {
+        if (this.banned?.has(m.uid)) { Net.toPeer(fromPeer, 'denied', { reason: '이 방에서 내보내진 상태입니다.' }); return; }
         const p = this.addPlayer(fromPeer, m.uid, m.name, m.color);
         if (!p) { Net.toPeer(fromPeer, 'denied', { reason: G.phase !== 'lobby' ? '이미 게임이 진행 중입니다.' : '방이 가득 찼습니다 (최대 16명).' }); return; }
         p.peerId = fromPeer;
@@ -3353,6 +3367,8 @@ const Host = {
       case 'start':    if (id === G.hostId) this.startGame(); break;
       case 'addbot':   if (id === G.hostId) this.addBot(); break;
       case 'rmbots':   if (id === G.hostId) this.removeBots(); break;
+      case 'kick':     if (id === G.hostId) this.kickPlayer(m.target); break;
+      case 'meettime': this.onMeetTime(id, m.delta); break;
       case 'restart':  if (id === G.hostId) this.toLobby(); break;
       case 'pos':      this.onPos(id, m); break;
       case 'kill':     this.onKill(id, m.target); break;
@@ -4113,6 +4129,37 @@ const Host = {
     Net.broadcast('msg', { from: p.id, name: p.name, color: p.color, text, ts: now(), channel: 'all' });
   },
 
+  /* ---------------- 강퇴 ----------------
+   * 오류로 남은 '알 수 없는 양'을 방장이 직접 정리한다.
+   * 내보낸 uid 는 이 방에 다시 못 들어온다 (오류 유령의 재입장 루프 방지). */
+  kickPlayer(targetId) {
+    const p = this.P[targetId];
+    if (!p || targetId === G.hostId) return;
+    (this.banned ||= new Set()).add(p.uid);
+    if (!p.isBot) Net.toPeer(p.peerId, 'kicked', {});
+    delete this.peerToId[p.peerId];
+    delete this.P[targetId];
+    G.order = G.order.filter(x => x !== targetId);
+    this.sys(`👢 ${p.name} 님이 내보내졌습니다.`);
+    this.pushState();
+    if (G.phase !== 'lobby') this.checkWin();
+  },
+
+  /* ---------------- 회의 시간 조절 ----------------
+   * 단계(토론/투표)마다 한 사람당 한 번, ±15초 */
+  onMeetTime(id, delta) {
+    const p = this.P[id];
+    if (!p || !p.alive || G.phase !== 'meeting' || !this.M) return;
+    const key = id + ':' + this.M.phase;
+    this.M.tv ||= {};
+    if (this.M.tv[key]) return;
+    this.M.tv[key] = 1;
+    const d = delta > 0 ? 15000 : -15000;
+    this.M.endsAt = Math.max(now() + 5000, Math.min(now() + 240000, this.M.endsAt + d));
+    this.sys(`⏱️ ${p.name} 님이 시간을 ${d > 0 ? '늘렸' : '줄였'}습니다 (${d > 0 ? '+' : '−'}15초)`);
+    this.pushState();
+  },
+
   /* ---------------- 연습용 봇 ----------------
    * 혼자서는 4인 게임을 테스트할 수 없다. 로비에서 봇을 채워
    * 이동·킬·신고·회의·투표·승리판정까지 전부 혼자 돌려볼 수 있게 한다.
@@ -4226,6 +4273,20 @@ const Host = {
   /* ---------------- 틱 ---------------- */
   tick() {
     this.botTick();
+    // 로비 유령 정리 — 연결이 소리 없이 죽으면 peerleave 가 안 와서
+    // '알 수 없는 양'이 남는다. 25초간 아무 신호 없으면 지운다.
+    if (G.phase === 'lobby' && (!this._purgeAt || now() - this._purgeAt > 5000)) {
+      this._purgeAt = now();
+      for (const id of [...G.order]) {
+        const p = this.P[id];
+        if (!p || p.isBot || id === G.hostId) continue;
+        if (now() - (p.lastActive || 0) > 25000) {
+          delete this.peerToId[p.peerId]; delete this.P[id];
+          G.order = G.order.filter(x => x !== id);
+          this.pushState();
+        }
+      }
+    }
     if (!this._afkTick || now() - this._afkTick > 3000) { this._afkTick = now(); this.updateAfk(); }
     if (G.phase === 'meeting' && this.M) {
       const m = this.M;
@@ -6156,6 +6217,12 @@ const UI = {
           h('div', { cls:'tiny dim' }, p.isBot ? c.name + ' · 🤖봇' : (mine ? c.name + ' · 나' : c.name))),
         p.id === st.hostId ? h('span', { cls:'hostbadge' }, '방장') : null,
         !p.connected ? h('span', { cls:'tiny', style:{color:'var(--bad)'} }, '끊김') : null,
+        // 방장에게만: 강퇴 버튼 (오류로 남은 유령 정리용)
+        (G.myId === st.hostId && !mine)
+          ? h('button', { cls:'kickbtn', title:'내보내기', onclick: () => {
+              if (confirm(p.name + ' 님을 내보낼까요?')) Net.toHost('kick', { target: p.id });
+            } }, '✕')
+          : null,
       ));
     });
     this.renderColors(st.players, st.players.find(p => p.id === G.myId)?.color);
@@ -7049,6 +7116,13 @@ const Meeting = {
 
   render(st) {
     this.bindQcToggle();
+    // 단계(토론→투표)가 바뀌면 시간 조절 기회가 다시 생긴다
+    const ph = st.meeting?.phase;
+    if (this._tvPhase !== ph) {
+      this._tvPhase = ph;
+      const a = $('#mt-minus'), b = $('#mt-plus');
+      if (a) a.disabled = false; if (b) b.disabled = false;
+    }
     const m = st.meeting; if (!m) return;
     const body = m.body;
     $('#meet-title').innerHTML = body
@@ -7346,6 +7420,10 @@ const Game = {
     $('#btn-fs').onclick      = () => Viewport.pressFullscreen();
     $('#btn-fs-lobby').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-meet').onclick  = () => Viewport.pressFullscreen();
+    // 회의 시간 조절 — 한 사람당 단계별 1회 (판정은 방장)
+    for (const [id, d] of [['#mt-minus', -1], ['#mt-plus', 1]]) {
+      $(id).onclick = () => { Net.toHost('meettime', { delta: d }); $(id).disabled = true; };
+    }
     $('#btn-fs-home').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-gate').onclick = () => Viewport.pressFullscreen();
     $('#btn-map').onclick = () => UI.openMap('map');
@@ -7432,7 +7510,9 @@ const Game = {
     if (m) {
       const code = m[1].toUpperCase();
       $('#in-code').value = code;
-      this.autoJoin(code);
+      // 처음 온 사람은 닉네임부터 — '양'으로 들어와 메뉴에서 바꾸는 번거로움 제거
+      if (localStorage.getItem('duckus_name')) this.autoJoin(code);
+      else this.askNameThenJoin(code);
     }
     ['click','touchstart','keydown'].forEach(ev =>
       window.addEventListener(ev, () => { Sfx.resume(); }, { once: true }));
@@ -7512,6 +7592,31 @@ const Game = {
       this.guardUnload();
       UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
+  },
+
+  /** 초대 입장 전 닉네임 입력 (처음 오는 사람만) */
+  askNameThenJoin(code) {
+    const inp = h('input', { maxlength:'10', placeholder:'예: 감자, 민지…', autocomplete:'off',
+      style:{ width:'100%', background:'#1c140d', border:'1px solid #6d4e30', borderRadius:'12px',
+              padding:'13px 15px', color:'var(--txt)', outline:'none', fontSize:'17px', textAlign:'center' } });
+    const go = () => {
+      const name = inp.value.trim().slice(0, 10);
+      if (!name) { inp.style.borderColor = 'var(--bad)'; inp.focus(); return; }
+      localStorage.setItem('duckus_name', name);
+      $('#in-name').value = name;
+      UI.closeModal();
+      this.autoJoin(code);
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    const root = h('div', {},
+      h('div', { style:{ textAlign:'center', fontSize:'14px', marginBottom:'12px', lineHeight:'1.6' } },
+        `방 `, h('b', { style:{ color:'var(--warn)' } }, code), ` 에 초대받았어요!`,
+        h('br'), h('span', { cls:'tiny dim' }, '친구들에게 보일 이름을 정해 주세요')),
+      inp);
+    UI.modal({ title:'🐑 닉네임 정하기', body: root,
+      footer: [h('button', { cls:'btn primary grow', onclick: go }, '이 이름으로 입장')],
+      closable: false });
+    setTimeout(() => inp.focus(), 300);
   },
 
   /** 초대 링크로 들어온 자동 참가. 실패하면 잠시 뒤 재시도 —
@@ -7638,6 +7743,13 @@ const Game = {
     switch (m.t) {
       case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.hintLobbyMenu(); break;
       case 'denied':  UI.loading(false); UI.show('home'); this.err(m.reason); Net.destroy(); break;
+      case 'kicked':
+        Net.destroy();
+        UI.closeAllModals();
+        UI.modal({ title:'👢 내보내짐', body:'<div style="text-align:center;padding:10px 0">방장이 내보냈습니다.</div>',
+          footer:[h('button', { cls:'btn primary grow', onclick: () => { location.href = location.pathname; } }, '확인')],
+          closable:false });
+        break;
       case 'state':   this.onState(m); break;
       case 'snap':    this.onSnap(m); break;
       case 'private': this.onPrivate(m); break;

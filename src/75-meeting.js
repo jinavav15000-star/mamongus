@@ -98,6 +98,13 @@ const Meeting = {
 
   render(st) {
     this.bindQcToggle();
+    // 단계(토론→투표)가 바뀌면 시간 조절 기회가 다시 생긴다
+    const ph = st.meeting?.phase;
+    if (this._tvPhase !== ph) {
+      this._tvPhase = ph;
+      const a = $('#mt-minus'), b = $('#mt-plus');
+      if (a) a.disabled = false; if (b) b.disabled = false;
+    }
     const m = st.meeting; if (!m) return;
     const body = m.body;
     $('#meet-title').innerHTML = body

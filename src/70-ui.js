@@ -141,6 +141,12 @@ const UI = {
           h('div', { cls:'tiny dim' }, p.isBot ? c.name + ' · 🤖봇' : (mine ? c.name + ' · 나' : c.name))),
         p.id === st.hostId ? h('span', { cls:'hostbadge' }, '방장') : null,
         !p.connected ? h('span', { cls:'tiny', style:{color:'var(--bad)'} }, '끊김') : null,
+        // 방장에게만: 강퇴 버튼 (오류로 남은 유령 정리용)
+        (G.myId === st.hostId && !mine)
+          ? h('button', { cls:'kickbtn', title:'내보내기', onclick: () => {
+              if (confirm(p.name + ' 님을 내보낼까요?')) Net.toHost('kick', { target: p.id });
+            } }, '✕')
+          : null,
       ));
     });
     this.renderColors(st.players, st.players.find(p => p.id === G.myId)?.color);

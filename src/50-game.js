@@ -88,6 +88,7 @@ const Host = {
   commonTasks: [],
 
   init() {
+    this.banned = new Set();          // 새 방 = 차단 목록 초기화
     G.hostId = G.myId;
     Net.on('data', (m, from) => this.onMsg(m, from));
     Net.on('peerleave', peerId => {
@@ -146,6 +147,7 @@ const Host = {
     if (id && this.P[id] && m.t !== 'pos') this.markActive(this.P[id]);
     switch (m.t) {
       case 'hello': {
+        if (this.banned?.has(m.uid)) { Net.toPeer(fromPeer, 'denied', { reason: '이 방에서 내보내진 상태입니다.' }); return; }
         const p = this.addPlayer(fromPeer, m.uid, m.name, m.color);
         if (!p) { Net.toPeer(fromPeer, 'denied', { reason: G.phase !== 'lobby' ? '이미 게임이 진행 중입니다.' : '방이 가득 찼습니다 (최대 16명).' }); return; }
         p.peerId = fromPeer;
@@ -168,6 +170,8 @@ const Host = {
       case 'start':    if (id === G.hostId) this.startGame(); break;
       case 'addbot':   if (id === G.hostId) this.addBot(); break;
       case 'rmbots':   if (id === G.hostId) this.removeBots(); break;
+      case 'kick':     if (id === G.hostId) this.kickPlayer(m.target); break;
+      case 'meettime': this.onMeetTime(id, m.delta); break;
       case 'restart':  if (id === G.hostId) this.toLobby(); break;
       case 'pos':      this.onPos(id, m); break;
       case 'kill':     this.onKill(id, m.target); break;
@@ -928,6 +932,37 @@ const Host = {
     Net.broadcast('msg', { from: p.id, name: p.name, color: p.color, text, ts: now(), channel: 'all' });
   },
 
+  /* ---------------- 강퇴 ----------------
+   * 오류로 남은 '알 수 없는 양'을 방장이 직접 정리한다.
+   * 내보낸 uid 는 이 방에 다시 못 들어온다 (오류 유령의 재입장 루프 방지). */
+  kickPlayer(targetId) {
+    const p = this.P[targetId];
+    if (!p || targetId === G.hostId) return;
+    (this.banned ||= new Set()).add(p.uid);
+    if (!p.isBot) Net.toPeer(p.peerId, 'kicked', {});
+    delete this.peerToId[p.peerId];
+    delete this.P[targetId];
+    G.order = G.order.filter(x => x !== targetId);
+    this.sys(`👢 ${p.name} 님이 내보내졌습니다.`);
+    this.pushState();
+    if (G.phase !== 'lobby') this.checkWin();
+  },
+
+  /* ---------------- 회의 시간 조절 ----------------
+   * 단계(토론/투표)마다 한 사람당 한 번, ±15초 */
+  onMeetTime(id, delta) {
+    const p = this.P[id];
+    if (!p || !p.alive || G.phase !== 'meeting' || !this.M) return;
+    const key = id + ':' + this.M.phase;
+    this.M.tv ||= {};
+    if (this.M.tv[key]) return;
+    this.M.tv[key] = 1;
+    const d = delta > 0 ? 15000 : -15000;
+    this.M.endsAt = Math.max(now() + 5000, Math.min(now() + 240000, this.M.endsAt + d));
+    this.sys(`⏱️ ${p.name} 님이 시간을 ${d > 0 ? '늘렸' : '줄였'}습니다 (${d > 0 ? '+' : '−'}15초)`);
+    this.pushState();
+  },
+
   /* ---------------- 연습용 봇 ----------------
    * 혼자서는 4인 게임을 테스트할 수 없다. 로비에서 봇을 채워
    * 이동·킬·신고·회의·투표·승리판정까지 전부 혼자 돌려볼 수 있게 한다.
@@ -1041,6 +1076,20 @@ const Host = {
   /* ---------------- 틱 ---------------- */
   tick() {
     this.botTick();
+    // 로비 유령 정리 — 연결이 소리 없이 죽으면 peerleave 가 안 와서
+    // '알 수 없는 양'이 남는다. 25초간 아무 신호 없으면 지운다.
+    if (G.phase === 'lobby' && (!this._purgeAt || now() - this._purgeAt > 5000)) {
+      this._purgeAt = now();
+      for (const id of [...G.order]) {
+        const p = this.P[id];
+        if (!p || p.isBot || id === G.hostId) continue;
+        if (now() - (p.lastActive || 0) > 25000) {
+          delete this.peerToId[p.peerId]; delete this.P[id];
+          G.order = G.order.filter(x => x !== id);
+          this.pushState();
+        }
+      }
+    }
     if (!this._afkTick || now() - this._afkTick > 3000) { this._afkTick = now(); this.updateAfk(); }
     if (G.phase === 'meeting' && this.M) {
       const m = this.M;

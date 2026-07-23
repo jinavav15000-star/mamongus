@@ -63,7 +63,7 @@ function ok(name, cond, extra) {
 function section(t) { results.push(`\n▸ ${t}`); }
 
 function reset(n = 5) {
-  Host.P = {}; Host.M = null; Host.peerToId = {}; sent.length = 0;
+  Host.P = {}; Host.M = null; Host.peerToId = {}; Host.banned = new Set(); sent.length = 0;
   G.phase = 'lobby'; G.order = []; G.bodies = []; G.sabotage = null; G.doors = {};
   G.result = null; G.taskBar = { done:0, total:0 }; G.round = 1;
   G.settings = JSON.parse(JSON.stringify(A.DEFAULT_SETTINGS));
@@ -252,6 +252,46 @@ section('대기실 이모트');
   a._emoteAt = 0; sent.length = 0;
   Host.onEmote(a.id, 'fart');
   ok('게임 중에는 이모트 차단 (위치 노출 방지)', !sent.some(x => x.t === 'event' && x.d.type === 'emote'));
+}
+
+section('강퇴 · 유령 정리 · 회의 시간');
+{
+  reset(5);
+  const victim = byName('파랑');
+  const vUid = victim.uid;
+  sent.length = 0;
+  Host.kickPlayer(victim.id);
+  ok('강퇴되면 목록에서 사라짐', !G.order.includes(victim.id));
+  ok('강퇴 통지 전송', sent.some(x => x.t === 'kicked'));
+  ok('강퇴 공지 방송', sent.some(x => x.t === 'msg' && /내보내/.test(x.d.text || '')));
+  // 재입장 차단
+  sent.length = 0;
+  Host.onMsg({ t:'hello', uid: vUid, name:'파랑' }, 'peer-again');
+  ok('내보낸 uid 재입장 거부', sent.some(x => x.t === 'denied' && /내보내진/.test(x.d.reason)));
+  ok('방장은 강퇴 불가', (Host.kickPlayer(G.hostId), G.order.includes(G.hostId)));
+
+  // 유령 정리 — 25초간 신호 없는 사람
+  const ghost = byName('초록');
+  ghost.lastActive = Date.now() - 30000;
+  Host._purgeAt = 0;
+  Host.tick();
+  ok('신호 없는 유령 자동 제거', !G.order.includes(ghost.id));
+
+  // 회의 시간 ±
+  reset(5);
+  Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  Host.startMeeting(byName('호스트').id, null);
+  const before = Host.M.endsAt;
+  Host.onMeetTime(byName('파랑').id, 1);
+  ok('시간 연장 +15초', Host.M.endsAt === before + 15000);
+  Host.onMeetTime(byName('파랑').id, 1);
+  ok('같은 단계에서 두 번은 무시', Host.M.endsAt === before + 15000);
+  Host.onMeetTime(byName('초록').id, -1);
+  ok('다른 사람은 줄일 수 있음', Host.M.endsAt === before);
+  Host.M.phase = 'vote';                       // 단계가 바뀌면 다시 가능
+  Host.onMeetTime(byName('파랑').id, -1);
+  ok('단계가 바뀌면 다시 1회 가능', Host.M.endsAt === before - 15000);
 }
 
 section('건초더미 숨기');

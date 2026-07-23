@@ -40,6 +40,10 @@ const Game = {
     $('#btn-fs').onclick      = () => Viewport.pressFullscreen();
     $('#btn-fs-lobby').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-meet').onclick  = () => Viewport.pressFullscreen();
+    // 회의 시간 조절 — 한 사람당 단계별 1회 (판정은 방장)
+    for (const [id, d] of [['#mt-minus', -1], ['#mt-plus', 1]]) {
+      $(id).onclick = () => { Net.toHost('meettime', { delta: d }); $(id).disabled = true; };
+    }
     $('#btn-fs-home').onclick = () => Viewport.pressFullscreen();
     $('#btn-fs-gate').onclick = () => Viewport.pressFullscreen();
     $('#btn-map').onclick = () => UI.openMap('map');
@@ -126,7 +130,9 @@ const Game = {
     if (m) {
       const code = m[1].toUpperCase();
       $('#in-code').value = code;
-      this.autoJoin(code);
+      // 처음 온 사람은 닉네임부터 — '양'으로 들어와 메뉴에서 바꾸는 번거로움 제거
+      if (localStorage.getItem('duckus_name')) this.autoJoin(code);
+      else this.askNameThenJoin(code);
     }
     ['click','touchstart','keydown'].forEach(ev =>
       window.addEventListener(ev, () => { Sfx.resume(); }, { once: true }));
@@ -206,6 +212,31 @@ const Game = {
       this.guardUnload();
       UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
+  },
+
+  /** 초대 입장 전 닉네임 입력 (처음 오는 사람만) */
+  askNameThenJoin(code) {
+    const inp = h('input', { maxlength:'10', placeholder:'예: 감자, 민지…', autocomplete:'off',
+      style:{ width:'100%', background:'#1c140d', border:'1px solid #6d4e30', borderRadius:'12px',
+              padding:'13px 15px', color:'var(--txt)', outline:'none', fontSize:'17px', textAlign:'center' } });
+    const go = () => {
+      const name = inp.value.trim().slice(0, 10);
+      if (!name) { inp.style.borderColor = 'var(--bad)'; inp.focus(); return; }
+      localStorage.setItem('duckus_name', name);
+      $('#in-name').value = name;
+      UI.closeModal();
+      this.autoJoin(code);
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    const root = h('div', {},
+      h('div', { style:{ textAlign:'center', fontSize:'14px', marginBottom:'12px', lineHeight:'1.6' } },
+        `방 `, h('b', { style:{ color:'var(--warn)' } }, code), ` 에 초대받았어요!`,
+        h('br'), h('span', { cls:'tiny dim' }, '친구들에게 보일 이름을 정해 주세요')),
+      inp);
+    UI.modal({ title:'🐑 닉네임 정하기', body: root,
+      footer: [h('button', { cls:'btn primary grow', onclick: go }, '이 이름으로 입장')],
+      closable: false });
+    setTimeout(() => inp.focus(), 300);
   },
 
   /** 초대 링크로 들어온 자동 참가. 실패하면 잠시 뒤 재시도 —
@@ -332,6 +363,13 @@ const Game = {
     switch (m.t) {
       case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.hintLobbyMenu(); break;
       case 'denied':  UI.loading(false); UI.show('home'); this.err(m.reason); Net.destroy(); break;
+      case 'kicked':
+        Net.destroy();
+        UI.closeAllModals();
+        UI.modal({ title:'👢 내보내짐', body:'<div style="text-align:center;padding:10px 0">방장이 내보냈습니다.</div>',
+          footer:[h('button', { cls:'btn primary grow', onclick: () => { location.href = location.pathname; } }, '확인')],
+          closable:false });
+        break;
       case 'state':   this.onState(m); break;
       case 'snap':    this.onSnap(m); break;
       case 'private': this.onPrivate(m); break;
