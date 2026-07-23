@@ -83,6 +83,17 @@ const Render = {
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
+  /** 지푸라기 폭발 — 건초에 숨기·수색당해 튀어나올 때 */
+  strawBurst(x, y, n = 10) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283, sp = rnd(.8, 2.4);
+      this.addFx({ kind:'star', x, y: y - 4,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.1,
+        r: rnd(2, 3.6), life: rnd(500, 850), col: '#e2c37a' });
+    }
+    this.addFx({ kind:'dust', x, y: y + 4, vx: 0, vy: -.2, r: 11, life: 600, soft: 'rgba(214,186,120,', a0: .4 });
+  },
+
   /** 충격파 (킬·사보타주) */
   ringAt(x, y, col = '#ff4d5e', r1 = 90) {
     this.addFx({ kind:'ring', x, y, r0: 10, r1, life: 460, col });
@@ -933,16 +944,29 @@ const Render = {
       if (p.id === state.me.id) return false;
       if (ghostView) return true;
       if (!p.alive) return false;                       // 유령은 산 사람에게 안 보임
-      if (p.ventId) return false;
+      if (p.ventId || p.hideId) return false;
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
+    // 근접한 건초더미 힌트 — 숨을 수 있다는 걸 알려 준다 (내 화면에만)
+    if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
+      for (const hs of HIDE_SPOTS) {
+        const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
+        if (d > 110) continue;
+        g.strokeStyle = `rgba(226,195,122,${d < 80 ? .75 : .35})`;
+        g.lineWidth = 2.5; g.setLineDash([6, 6]);
+        g.lineDashOffset = -(performance.now() / 40) % 12;
+        g.beginPath(); g.arc(hs.wx, hs.wy, 40, 0, 6.283); g.stroke(); g.setLineDash([]);
+      }
+    }
     // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
     if (me.ventId) this.drawInVent(g, me);
     // y 로 정렬해 아래(앞) 캐릭터가 위(뒤) 캐릭터를 가리게 한다.
     // 정렬이 없으면 뒤에 선 캐릭터가 앞 캐릭터의 발을 덮는 역전이 생긴다.
-    const chars = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+    const meHidden = !!me.hideId;
+    const chars = [...drawList, ...((me.ventId || meHidden) ? [] : [state.me])].sort((a, b) => a.y - b.y);
     for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
+    if (meHidden) this.drawInHay(g, state.me);
 
     /* 연출 */
     {
@@ -997,7 +1021,7 @@ const Render = {
       g.translate(this.W / 2 + shx, this.H / 2 + shy);
       g.scale(sc, sc);
       g.translate(-cx, -cy);
-      const labeled = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+      const labeled = [...drawList, ...((me.ventId || me.hideId) ? [] : [state.me])].sort((a, b) => a.y - b.y);
       for (const p of labeled) this.drawLabels(g, p, state, p.id === state.me.id);
       g.restore();
     }
@@ -1270,6 +1294,23 @@ const Render = {
     g.textAlign = 'center'; g.textBaseline = 'bottom';
     g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-30, -40, 60, 16);
     g.fillStyle = '#ffd23d'; g.fillText('숨는 중', 0, -27);
+    g.restore();
+  },
+
+  /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
+  drawInHay(g, me) {
+    const t = performance.now();
+    const blink = (t % 3800) < 140 ? 0.15 : 1;
+    g.save(); g.translate(me.x, me.y);
+    g.fillStyle = 'rgba(20,14,6,.55)';
+    g.beginPath(); g.ellipse(0, -2, 13, 8, 0, 0, 6.283); g.fill();
+    g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
+    g.beginPath(); g.ellipse(-4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-33, -38, 66, 16);
+    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', 0, -25);
     g.restore();
   },
 

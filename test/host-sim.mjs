@@ -37,7 +37,7 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, ROLES, roleInfo, isDuck, isGoose, isNeut, COLORS,
   DEFAULT_SETTINGS, TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, SAB_SPOTS, spotById,
-  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, lineBlocked, WALLS, spawnPoints, assignRoles,
+  walkablePx, roomNameAt, moveWithCollision, visibilityPolygon, lineBlocked, WALLS, spawnPoints, assignRoles, HIDE_SPOTS,
   recommendComp, maxDuck, maxNeut, isNeut: isNeut };
 `, sandbox);
 
@@ -252,6 +252,52 @@ section('대기실 이모트');
   a._emoteAt = 0; sent.length = 0;
   Host.onEmote(a.id, 'fart');
   ok('게임 중에는 이모트 차단 (위치 노출 방지)', !sent.some(x => x.t === 'event' && x.d.type === 'emote'));
+}
+
+section('건초더미 숨기');
+{
+  reset(5);
+  Host.startGame();
+  setRoles({ 호스트:'duck', 파랑:'goose', 초록:'goose', 분홍:'goose', 노랑:'goose' });
+  const wolf = byName('호스트'), sheep = byName('파랑'), other = byName('초록');
+  const spot = A.HIDE_SPOTS[0];
+
+  ok('숨는 곳이 모두 통행 가능 지점', A.HIDE_SPOTS.every(h => A.walkablePx(h.wx, h.wy)),
+     A.HIDE_SPOTS.filter(h => !A.walkablePx(h.wx, h.wy)).map(h => h.id));
+
+  // 숨기
+  put(sheep, spot.wx, spot.wy);
+  Host.onHide(sheep.id, spot.id);
+  ok('건초에 숨음', sheep.hideId === spot.id);
+  ok('숨으면 남에게 안 보임', !Host.visibleTo(wolf).some(p => p.id === sheep.id));
+  ok('숨은 사람 위치는 더미에 고정', sheep.x === spot.wx && sheep.y === spot.wy);
+
+  // 숨은 채 행동 불가
+  Host.onPos(sheep.id, { x: spot.wx + 100, y: spot.wy, d: 1, mv: true });
+  ok('숨는 동안 이동 무시', sheep.x === spot.wx);
+  wolf.killCdEnd = 0; put(wolf, spot.wx + 10, spot.wy);
+  Host.onKill(wolf.id, sheep.id);
+  ok('숨은 사람은 바로 못 죽인다', sheep.alive === true);
+
+  // 수색 — 늑대가 더미를 뒤지면 튀어나온다
+  sent.length = 0;
+  Host.onHide(wolf.id, spot.id);
+  ok('수색당해 튀어나옴', sheep.hideId === null);
+  ok('flushed 이벤트 방송', sent.some(x => x.t === 'event' && x.d.type === 'flushed'));
+  ok('늑대는 그 자리에서 숨지 않음 (수색만 됨)', wolf.hideId == null);
+
+  // 이제 죽일 수 있다
+  Host.onKill(wolf.id, sheep.id);
+  ok('튀어나온 뒤에는 살해 가능', sheep.alive === false);
+
+  // 빈 더미에 늑대가 숨기 → 정상
+  Host.onHide(wolf.id, spot.id);
+  ok('늑대도 숨을 수 있음', wolf.hideId === spot.id);
+  // 회의 소집되면 강제 해제
+  put(other, A.EMERGENCY_BTN.wx, A.EMERGENCY_BTN.wy);
+  other.emergencyLeft = 1;
+  Host.onEmergency(other.id);
+  ok('회의가 열리면 숨음 해제', wolf.hideId === null);
 }
 
 section('벤트 안 행동 차단');

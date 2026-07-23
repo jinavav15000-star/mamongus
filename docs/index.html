@@ -1467,6 +1467,20 @@ const ventNeighbors = (id) => {
   return v ? VENTS.filter(a => a.net === v.net && a.id !== id) : [];
 };
 
+/* ---- 숨는 곳 (건초더미) ---------------------------------------------------
+ * 구스구스덕의 덤불처럼, 들어가면 남에게 안 보인다. 한 더미에 한 명.
+ * 같은 버튼으로 빈 더미면 숨고, 누가 있으면 튀어나오게 한다(수색).
+ * 좌표는 drawProps 의 실제 건초 소품 위치와 맞춰야 한다. */
+const HIDE_SPOTS = [
+  { id:'h1', room:'cafe',   x:51,   y:7    },   // 헛간 앞마당 큰 건초
+  { id:'h2', room:'cafe',   x:52,   y:17   },   // 헛간 앞마당 아래 건초
+  { id:'h3', room:'store',  x:50,   y:42.4 },   // 곡물창고 건초
+  { id:'h4', room:'store',  x:37,   y:42   },   // 곡물창고 짚단
+  { id:'h5', room:'shield', x:75.6, y:49.6 },   // 전기울타리 건초
+  { id:'h6', room:'weapon', x:85.6, y:12   },   // 농기구창고 짚단
+  { id:'h7', room:'cafe',   x:65.5, y:6    },   // 앞마당 짚단 (북동)
+].map(h => ({ ...h, wx: h.x * TILE + TILE / 2, wy: h.y * TILE + TILE / 2 }));
+
 /* ---- 임무 지점 ------------------------------------------------------------*/
 /* kind: 미니게임 ID / long: 장기임무(여러 단계) / vis: 시각임무 */
 const TASK_SPOTS = [
@@ -2215,6 +2229,8 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 건초 부스럭 */
+  rustle() { this.noise(0.16, 2600, 0.4, 900); this.noise(0.12, 1900, 0.3, 700); },
   /** 인사 — 밝게 두 번 통통 */
   wave() { this.tone(620, 0.07, 'triangle', 0, 780, 0.4); this.tone(780, 0.09, 'triangle', 0.09, 990, 0.4); },
   /** 방귀 — 낮은 톱니파가 떨리며 내려간다. 대기실 장난용 */
@@ -3306,6 +3322,7 @@ const Host = {
       case 'report':   this.onReport(id, m.body); break;
       case 'emergency':this.onEmergency(id); break;
       case 'vent':     this.onVent(id, m.vent); break;
+      case 'hide':     this.onHide(id, m.spot); break;
       case 'sabotage': this.onSabotage(id, m.kind, m.room); break;
       case 'sabfix':   this.onSabFix(id, m); break;
       case 'taskstep': this.onTaskStep(id, m.tid); break;
@@ -3373,7 +3390,7 @@ const Host = {
     for (const id of G.order) {
       const p = this.P[id]; if (!p) continue;
       if (p.id === viewer.id || ghost) { out.push(p); continue; }
-      if (!p.alive || p.ventId) continue;                 // 유령·벤트 안은 산 사람에게 안 보임
+      if (!p.alive || p.ventId || p.hideId) continue;     // 유령·벤트·건초 안은 산 사람에게 안 보임
       const d = Math.hypot(p.x - viewer.x, p.y - viewer.y);
       if (d > R + 60) continue;                           // 여유 60px (보간 튐 방지)
       if (d > 40 && lineBlocked(viewer.x, viewer.y, p.x, p.y)) continue;
@@ -3384,7 +3401,7 @@ const Host = {
   packPlayer(p) {
     return [p.id, Math.round(p.x), Math.round(p.y), p.dir,
             (p.moving ? 1 : 0) | (p.alive ? 2 : 0), p.ventId || 0,
-            (p.morphEnd > now() ? p.morphTo : 0) || 0];
+            (p.morphEnd > now() ? p.morphTo : 0) || 0, p.hideId || 0];
   },
   sendSnap() {
     // 로비: 대기실이 맵이다. 숨길 것이 없으니 전원 위치를 전원에게 보낸다.
@@ -3419,7 +3436,7 @@ const Host = {
       const counts = {};
       for (const oid of G.order) {
         const q = this.P[oid];
-        if (!q || !q.alive || q.ventId) continue;
+        if (!q || !q.alive || q.ventId || q.hideId) continue;
         const rid = roomIdAt(q.x, q.y);
         if (rid) counts[rid] = (counts[rid] || 0) + 1;
       }
@@ -3428,7 +3445,7 @@ const Host = {
       const list = [];
       for (const oid of G.order) {
         const q = this.P[oid];
-        if (!q || !q.alive || q.ventId) continue;
+        if (!q || !q.alive || q.ventId || q.hideId) continue;
         if (!CAM_ROOMS.includes(roomIdAt(q.x, q.y))) continue;
         list.push({ color: q.color, x: Math.round(q.x), y: Math.round(q.y) });
       }
@@ -3546,7 +3563,7 @@ const Host = {
     const sp = spawnPoints(alive.length);
     alive.forEach((id, i) => {
       const p = this.P[id];
-      p.role = roles[id]; p.alive = true; p.ventId = null;
+      p.role = roles[id]; p.alive = true; p.ventId = null; p.hideId = null;
       p.x = sp[i].x; p.y = sp[i].y; p.dir = 1; p.moving = false;
       p.tasks = makeTaskList(G.settings, this.commonTasks);
       p.killCdEnd = now() + 12000;
@@ -3568,7 +3585,7 @@ const Host = {
 
   toLobby() {
     G.phase = 'lobby'; G.bodies = []; G.sabotage = null; this.M = null; G.result = null; G.doors = {};
-    for (const id of G.order) { const p = this.P[id]; if (p) { p.alive = true; p.ventId = null; p.tasks = []; p.role = 'goose'; } }
+    for (const id of G.order) { const p = this.P[id]; if (p) { p.alive = true; p.ventId = null; p.hideId = null; p.tasks = []; p.role = 'goose'; } }
     G.taskBar = { done: 0, total: 0 };
     this.pushState(); this.sendPrivateAll(); this.ev('tolobby');
   },
@@ -3576,6 +3593,7 @@ const Host = {
   /* ---------------- 이동 ---------------- */
   onPos(id, m) {
     const p = this.P[id]; if (!p || (G.phase !== 'play' && G.phase !== 'lobby')) return;
+    if (p.hideId) return;                        // 숨는 동안 위치 고정 (나오려면 hide 토글)
     p.x = m.x; p.y = m.y; p.dir = m.d; p.moving = !!m.mv;
     if (m.mv) this.markActive(p);
     if (p.dragging) {
@@ -3587,7 +3605,7 @@ const Host = {
   /* ---------------- 살해 ---------------- */
   onKill(id, targetId) {
     const k = this.P[id], v = this.P[targetId];
-    if (!k || !v || G.phase !== 'play' || !k.alive || !v.alive || k.ventId) return;
+    if (!k || !v || G.phase !== 'play' || !k.alive || !v.alive || k.ventId || k.hideId || v.hideId) return;
     const r = roleInfo(k.role);
     if (!r.canKill) return;
     if (now() < k.killCdEnd) return;
@@ -3636,7 +3654,7 @@ const Host = {
   },
 
   doDeath(v, killerId) {
-    v.alive = false; v.ventId = null;
+    v.alive = false; v.ventId = null; v.hideId = null;
     // 펠리컨은 삼켜버리므로 시체가 남지 않는다 (신고 불가)
     const noBody = killerId !== v.id && roleInfo(this.P[killerId]?.role).noBody;
     if (!noBody) {
@@ -3660,14 +3678,14 @@ const Host = {
 
   /* ---------------- 신고 / 긴급회의 ---------------- */
   onReport(id, bodyId) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 신고 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 신고 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     const b = G.bodies.find(x => x.id === bodyId); if (!b) return;
     if (Math.hypot(p.x - b.x, p.y - b.y) > 110) return;
     this.startMeeting(p.id, b);
   },
   onEmergency(id) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 소집 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 소집 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (p.emergencyLeft <= 0) return;
     if (Math.hypot(p.x - EMERGENCY_BTN.wx, p.y - EMERGENCY_BTN.wy) > 110) return;
@@ -3682,7 +3700,7 @@ const Host = {
     G.sabotage = null; G.doors = {};
     const deadSince = G.bodies.map(b => ({ pid: b.pid, room: b.room, t: b.t }));
     G.bodies = [];
-    for (const id of G.order) { const p = this.P[id]; if (p) { p.votes = null; p.ventId = null; p.dragging = null; p.morphEnd = 0; } }
+    for (const id of G.order) { const p = this.P[id]; if (p) { p.votes = null; p.ventId = null; p.hideId = null; p.dragging = null; p.morphEnd = 0; } }
     this.M = {
       caller: callerId, body: body ? { pid: body.pid, room: body.room, color: body.color } : null,
       phase: 'discuss', endsAt: now() + G.settings.discussSec * 1000,
@@ -3754,7 +3772,7 @@ const Host = {
     const sp = spawnPoints(G.order.length);
     G.order.forEach((id, i) => {
       const p = this.P[id]; if (!p) return;
-      p.x = sp[i].x; p.y = sp[i].y; p.moving = false; p.ventId = null; p.killedThisRound = false;
+      p.x = sp[i].x; p.y = sp[i].y; p.moving = false; p.ventId = null; p.hideId = null; p.killedThisRound = false;
       const r = roleInfo(p.role);
       p.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
       if (r.ability === 'remotefix') p.abilityUses = r.uses || 1;
@@ -3765,7 +3783,7 @@ const Host = {
 
   /* ---------------- 벤트 ---------------- */
   onVent(id, ventId) {
-    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
+    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play' || p.hideId) return;
     if (!roleInfo(p.role).canVent) return;
     if (ventId === null) {
       p.ventId = null; this.pushState();
@@ -3779,6 +3797,39 @@ const Host = {
     p.ventId = ventId; p.x = v.wx; p.y = v.wy;
     this.pushState();
     this.ventNotify(id, entering, ROOMS.find(r => r.id === v.room)?.name || '?', v.wx, v.wy);
+  },
+
+  /* ---------------- 건초더미 숨기 ----------------
+   * 같은 버튼 하나로: 빈 더미 = 숨기 · 누가 있는 더미 = 튀어나오게(수색).
+   * 숨은 사람은 스냅샷에서 빠지므로 콘솔을 열어도 찾을 수 없다. */
+  onHide(id, spotId) {
+    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play' || p.ventId) return;
+    if (spotId === null) {                       // 스스로 나오기 (이동 시도 포함)
+      if (p.hideId) { p.hideId = null; this.pushState(); }
+      return;
+    }
+    const spot = HIDE_SPOTS.find(x => x.id === spotId); if (!spot) return;
+    if (Math.hypot(p.x - spot.wx, p.y - spot.wy) > 90) return;
+    if (p.hideId === spotId) {                   // 내가 숨은 더미 → 나온다
+      p.hideId = null; this.pushState();
+      return;
+    }
+    const occupant = G.order.map(i => this.P[i])
+      .find(q => q && q.alive && q.hideId === spotId && q.id !== id);
+    if (occupant) {                              // 수색 — 튀어나온다!
+      occupant.hideId = null;
+      occupant.lastActive = now();
+      this.pushState();
+      this.ev('flushed', { spot: spotId, at: { x: spot.wx, y: spot.wy } });
+      Net.toPeer(occupant.peerId, 'toast', { text: '🌾 들켰습니다! 누군가 건초를 뒤졌어요.' });
+      Net.toPeer(p.peerId, 'toast', { text: `🌾 ${occupant.name} 님이 숨어 있었습니다!` });
+      return;
+    }
+    if (p.hideId) p.hideId = null;
+    p.hideId = spotId;                           // 숨는다 — 위치를 더미에 고정
+    p.x = spot.wx; p.y = spot.wy;
+    this.pushState();
+    this.ev('rustle', { at: { x: spot.wx, y: spot.wy } });   // 부스럭 소리만 (누군지는 안 알림)
   },
 
   /** 벤트 사용 알림.
@@ -3845,7 +3896,7 @@ const Host = {
 
   /* ---------------- 임무 ---------------- */
   onTaskStep(id, tid) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 임무 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 임무 불가
     const p = this.P[id]; if (!p) return;
     if (!p.alive && !G.settings.ghostTasks) return;
     const t = p.tasks.find(x => x.tid === tid); if (!t || t.step >= t.spots.length) return;
@@ -3881,7 +3932,7 @@ const Host = {
 
   /* ---------------- 특수 능력 ---------------- */
   onAbility(id, m) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 능력 사용 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 능력 사용 불가
     const p = this.P[id]; if (!p || G.phase === 'lobby') return;
     const r = roleInfo(p.role);
     const target = m.target ? this.P[m.target] : null;
@@ -4287,6 +4338,17 @@ const Render = {
     this.addFx({ kind:'ring', x: x + back * 12, y: y + 8, r0: 8, r1: 46, life: 480, col: '#9cc46a' });
     this.addFx({ kind:'emoji', x: x + back * 6, y: y - 6, vx: back * .35, vy: -.75, r: 14, life: 1100, txt: '💨' });
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
+  },
+
+  /** 지푸라기 폭발 — 건초에 숨기·수색당해 튀어나올 때 */
+  strawBurst(x, y, n = 10) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283, sp = rnd(.8, 2.4);
+      this.addFx({ kind:'star', x, y: y - 4,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.1,
+        r: rnd(2, 3.6), life: rnd(500, 850), col: '#e2c37a' });
+    }
+    this.addFx({ kind:'dust', x, y: y + 4, vx: 0, vy: -.2, r: 11, life: 600, soft: 'rgba(214,186,120,', a0: .4 });
   },
 
   /** 충격파 (킬·사보타주) */
@@ -5139,16 +5201,29 @@ const Render = {
       if (p.id === state.me.id) return false;
       if (ghostView) return true;
       if (!p.alive) return false;                       // 유령은 산 사람에게 안 보임
-      if (p.ventId) return false;
+      if (p.ventId || p.hideId) return false;
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
+    // 근접한 건초더미 힌트 — 숨을 수 있다는 걸 알려 준다 (내 화면에만)
+    if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
+      for (const hs of HIDE_SPOTS) {
+        const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
+        if (d > 110) continue;
+        g.strokeStyle = `rgba(226,195,122,${d < 80 ? .75 : .35})`;
+        g.lineWidth = 2.5; g.setLineDash([6, 6]);
+        g.lineDashOffset = -(performance.now() / 40) % 12;
+        g.beginPath(); g.arc(hs.wx, hs.wy, 40, 0, 6.283); g.stroke(); g.setLineDash([]);
+      }
+    }
     // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
     if (me.ventId) this.drawInVent(g, me);
     // y 로 정렬해 아래(앞) 캐릭터가 위(뒤) 캐릭터를 가리게 한다.
     // 정렬이 없으면 뒤에 선 캐릭터가 앞 캐릭터의 발을 덮는 역전이 생긴다.
-    const chars = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+    const meHidden = !!me.hideId;
+    const chars = [...drawList, ...((me.ventId || meHidden) ? [] : [state.me])].sort((a, b) => a.y - b.y);
     for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
+    if (meHidden) this.drawInHay(g, state.me);
 
     /* 연출 */
     {
@@ -5203,7 +5278,7 @@ const Render = {
       g.translate(this.W / 2 + shx, this.H / 2 + shy);
       g.scale(sc, sc);
       g.translate(-cx, -cy);
-      const labeled = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+      const labeled = [...drawList, ...((me.ventId || me.hideId) ? [] : [state.me])].sort((a, b) => a.y - b.y);
       for (const p of labeled) this.drawLabels(g, p, state, p.id === state.me.id);
       g.restore();
     }
@@ -5476,6 +5551,23 @@ const Render = {
     g.textAlign = 'center'; g.textBaseline = 'bottom';
     g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-30, -40, 60, 16);
     g.fillStyle = '#ffd23d'; g.fillText('숨는 중', 0, -27);
+    g.restore();
+  },
+
+  /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
+  drawInHay(g, me) {
+    const t = performance.now();
+    const blink = (t % 3800) < 140 ? 0.15 : 1;
+    g.save(); g.translate(me.x, me.y);
+    g.fillStyle = 'rgba(20,14,6,.55)';
+    g.beginPath(); g.ellipse(0, -2, 13, 8, 0, 0, 6.283); g.fill();
+    g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
+    g.beginPath(); g.ellipse(-4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(4.5, -3, 2.4, 2.4 * blink, 0, 0, 6.283); g.fill();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(-33, -38, 66, 16);
+    g.fillStyle = '#e2c37a'; g.fillText('🌾 숨는 중', 0, -25);
     g.restore();
   },
 
@@ -7295,15 +7387,16 @@ const Game = {
   onSnap(m) {
     // 스냅샷에 없는 사람 = 지금 내 시야 밖 (서버가 걸러냈다)
     const present = new Set();
-    for (const [id, x, y, dir, flags, ventId, morph] of m.p) {
+    for (const [id, x, y, dir, flags, ventId, morph, hid] of m.p) {
       present.add(id);
       const p = G.players[id]; if (!p) continue;
       p.dir = dir; p.moving = !!(flags & 1); p.alive = !!(flags & 2);
       p.ventId = ventId || null;
+      p.hideId = hid || null;
       p.morphId = morph || null;
       p.morphColor = morph ? G.players[morph]?.color : null;
       p.morphName  = morph ? G.players[morph]?.name  : null;
-      if (id === G.myId) { p.seen = true; if (p.ventId) { p.x = x; p.y = y; } continue; }
+      if (id === G.myId) { p.seen = true; if (p.ventId || p.hideId) { p.x = x; p.y = y; } continue; }
       const reappeared = !p.seen;
       p.x = x; p.y = y; p.seen = true;
       // 스냅샷 버퍼 — 시각을 함께 저장해 두 스냅 사이를 등속으로 보간한다
@@ -7353,6 +7446,16 @@ const Game = {
         }
         break;
       case 'shieldblock': Sfx.fixed(); break;
+      case 'rustle':                            // 건초 부스럭 — 근처에만 들린다
+        if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6);
+        }
+        break;
+      case 'flushed':                           // 수색당해 튀어나옴
+        if (G.me && m.at) {
+          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.shake = 5;
+        }
+        break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 380) {
           Sfx.vent(); Render.puffAt(m.at.x, m.at.y);
@@ -7525,6 +7628,15 @@ const Game = {
 
   stepMovement(me, dt) {
     if (me.ventId) { me.moving = false; return; }
+    if (me.hideId) {
+      me.moving = false;
+      const { dx, dy } = this.readInput();
+      if ((dx || dy) && (!this._unhideAt || Date.now() - this._unhideAt > 400)) {
+        this._unhideAt = Date.now();
+        Net.toHost('hide', { spot: null });      // 움직이면 스스로 나온다
+      }
+      return;
+    }
     const { dx, dy } = this.readInput();
     const ghost = !me.alive;
     const spd = G.settings.playerSpeed * (ghost ? 1.35 : 1) * (dt / 16.67);
@@ -7640,7 +7752,7 @@ const Game = {
       me: { ...me, x: me.x, y: me.y },
       others: others.map(p => p.id === G.myId ? p : { ...p, x: p.rx ?? p.x, y: p.ry ?? p.y }),
       bodies: G.bodies, doors: G.doors, sabotage: G.sabotage,
-      visionR: this.visionR(), ghost: !!G.ghost, lobby: G.phase === 'lobby',
+      visionR: this.visionR() * (me.hideId ? 0.55 : 1), ghost: !!G.ghost, lobby: G.phase === 'lobby',
       myTaskSpots: G.sabotage?.kind === 'comms' ? [] : this.myTaskSpots(),
       canVent: roleInfo(G.myRole).canVent && me.alive,
       duckMates: G.ducksKnown,
@@ -7664,14 +7776,14 @@ const Game = {
     /* 신고 */
     if (B.report) {
       const body = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
-      B.report.disabled = !body || !me.alive || !!me.ventId;
+      B.report.disabled = !body || !me.alive || !!me.ventId || !!me.hideId;
     }
     /* 살해 */
     if (B.kill) {
       const range = G.settings.killRange * (r.killRangeMul || 1);
       this.killTarget = this.nearestPlayer(me, range);
       const ready = now() >= G.killCdEnd;
-      B.kill.disabled = !this.killTarget || !ready || !me.alive || !!me.ventId;
+      B.kill.disabled = !this.killTarget || !ready || !me.alive || !!me.ventId || !!me.hideId;
       UI.cooldown(B.kill, G.killCdEnd);
       B.kill.style.borderColor = this.killTarget && ready ? colorOf(this.killTarget.color).hex : '';
     }
@@ -7731,6 +7843,11 @@ const Game = {
   findUseTarget(me) {
     // 벤트 안에서는 아무것도 만질 수 없다 (숨어 있는데 임무가 되면 앞뒤가 안 맞는다)
     if (me.ventId) return null;
+    // 건초에 숨어 있으면 '나오기'만 가능
+    if (me.hideId) {
+      const sp = HIDE_SPOTS.find(x => x.id === me.hideId);
+      return { kind:'hide', icon:'🌾', label:'나오기', data:{ spot: sp } };
+    }
     // 1) 사보타주 수리
     if (G.sabotage && G.sabotage.kind !== 'doors') {
       for (const s of (SAB_SPOTS[G.sabotage.kind] || []))
@@ -7751,6 +7868,11 @@ const Game = {
     if (Math.hypot(me.x - ADMIN_TABLE.wx, me.y - ADMIN_TABLE.wy) < 100) return { kind:'admin', icon:'📊', label:'사무실' };
     if (Math.hypot(me.x - VITALS_PANEL.wx, me.y - VITALS_PANEL.wy) < 100) return { kind:'vitals', icon:'💓', label:'생체신호' };
     if (Math.hypot(me.x - CAMERA_PANEL.wx, me.y - CAMERA_PANEL.wy) < 100) return { kind:'cams', icon:'📹', label:'감시' };
+    // 마지막 순위: 건초더미 (임무가 같은 자리에 있으면 임무가 우선)
+    {
+      const sp = HIDE_SPOTS.find(x => Math.hypot(me.x - x.wx, me.y - x.wy) < 80);
+      if (sp && me.alive) return { kind:'hide', icon:'🌾', label:'숨기', data:{ spot: sp } };
+    }
     return null;
   },
 
@@ -7758,6 +7880,7 @@ const Game = {
   doUse() {
     const t = this.useTarget; if (!t) return;
     Sfx.click();
+    if (t.kind === 'hide') { Net.toHost('hide', { spot: G.me.hideId ? G.me.hideId : t.data.spot.id }); return; }
     if (t.kind === 'task') UI.openTask(t.data.t, t.data.sp);
     else if (t.kind === 'repair') UI.openRepair(t.data);
     else if (t.kind === 'admin') UI.openMap('admin');

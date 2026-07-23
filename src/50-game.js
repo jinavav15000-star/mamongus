@@ -174,6 +174,7 @@ const Host = {
       case 'report':   this.onReport(id, m.body); break;
       case 'emergency':this.onEmergency(id); break;
       case 'vent':     this.onVent(id, m.vent); break;
+      case 'hide':     this.onHide(id, m.spot); break;
       case 'sabotage': this.onSabotage(id, m.kind, m.room); break;
       case 'sabfix':   this.onSabFix(id, m); break;
       case 'taskstep': this.onTaskStep(id, m.tid); break;
@@ -241,7 +242,7 @@ const Host = {
     for (const id of G.order) {
       const p = this.P[id]; if (!p) continue;
       if (p.id === viewer.id || ghost) { out.push(p); continue; }
-      if (!p.alive || p.ventId) continue;                 // 유령·벤트 안은 산 사람에게 안 보임
+      if (!p.alive || p.ventId || p.hideId) continue;     // 유령·벤트·건초 안은 산 사람에게 안 보임
       const d = Math.hypot(p.x - viewer.x, p.y - viewer.y);
       if (d > R + 60) continue;                           // 여유 60px (보간 튐 방지)
       if (d > 40 && lineBlocked(viewer.x, viewer.y, p.x, p.y)) continue;
@@ -252,7 +253,7 @@ const Host = {
   packPlayer(p) {
     return [p.id, Math.round(p.x), Math.round(p.y), p.dir,
             (p.moving ? 1 : 0) | (p.alive ? 2 : 0), p.ventId || 0,
-            (p.morphEnd > now() ? p.morphTo : 0) || 0];
+            (p.morphEnd > now() ? p.morphTo : 0) || 0, p.hideId || 0];
   },
   sendSnap() {
     // 로비: 대기실이 맵이다. 숨길 것이 없으니 전원 위치를 전원에게 보낸다.
@@ -287,7 +288,7 @@ const Host = {
       const counts = {};
       for (const oid of G.order) {
         const q = this.P[oid];
-        if (!q || !q.alive || q.ventId) continue;
+        if (!q || !q.alive || q.ventId || q.hideId) continue;
         const rid = roomIdAt(q.x, q.y);
         if (rid) counts[rid] = (counts[rid] || 0) + 1;
       }
@@ -296,7 +297,7 @@ const Host = {
       const list = [];
       for (const oid of G.order) {
         const q = this.P[oid];
-        if (!q || !q.alive || q.ventId) continue;
+        if (!q || !q.alive || q.ventId || q.hideId) continue;
         if (!CAM_ROOMS.includes(roomIdAt(q.x, q.y))) continue;
         list.push({ color: q.color, x: Math.round(q.x), y: Math.round(q.y) });
       }
@@ -414,7 +415,7 @@ const Host = {
     const sp = spawnPoints(alive.length);
     alive.forEach((id, i) => {
       const p = this.P[id];
-      p.role = roles[id]; p.alive = true; p.ventId = null;
+      p.role = roles[id]; p.alive = true; p.ventId = null; p.hideId = null;
       p.x = sp[i].x; p.y = sp[i].y; p.dir = 1; p.moving = false;
       p.tasks = makeTaskList(G.settings, this.commonTasks);
       p.killCdEnd = now() + 12000;
@@ -436,7 +437,7 @@ const Host = {
 
   toLobby() {
     G.phase = 'lobby'; G.bodies = []; G.sabotage = null; this.M = null; G.result = null; G.doors = {};
-    for (const id of G.order) { const p = this.P[id]; if (p) { p.alive = true; p.ventId = null; p.tasks = []; p.role = 'goose'; } }
+    for (const id of G.order) { const p = this.P[id]; if (p) { p.alive = true; p.ventId = null; p.hideId = null; p.tasks = []; p.role = 'goose'; } }
     G.taskBar = { done: 0, total: 0 };
     this.pushState(); this.sendPrivateAll(); this.ev('tolobby');
   },
@@ -444,6 +445,7 @@ const Host = {
   /* ---------------- 이동 ---------------- */
   onPos(id, m) {
     const p = this.P[id]; if (!p || (G.phase !== 'play' && G.phase !== 'lobby')) return;
+    if (p.hideId) return;                        // 숨는 동안 위치 고정 (나오려면 hide 토글)
     p.x = m.x; p.y = m.y; p.dir = m.d; p.moving = !!m.mv;
     if (m.mv) this.markActive(p);
     if (p.dragging) {
@@ -455,7 +457,7 @@ const Host = {
   /* ---------------- 살해 ---------------- */
   onKill(id, targetId) {
     const k = this.P[id], v = this.P[targetId];
-    if (!k || !v || G.phase !== 'play' || !k.alive || !v.alive || k.ventId) return;
+    if (!k || !v || G.phase !== 'play' || !k.alive || !v.alive || k.ventId || k.hideId || v.hideId) return;
     const r = roleInfo(k.role);
     if (!r.canKill) return;
     if (now() < k.killCdEnd) return;
@@ -504,7 +506,7 @@ const Host = {
   },
 
   doDeath(v, killerId) {
-    v.alive = false; v.ventId = null;
+    v.alive = false; v.ventId = null; v.hideId = null;
     // 펠리컨은 삼켜버리므로 시체가 남지 않는다 (신고 불가)
     const noBody = killerId !== v.id && roleInfo(this.P[killerId]?.role).noBody;
     if (!noBody) {
@@ -528,14 +530,14 @@ const Host = {
 
   /* ---------------- 신고 / 긴급회의 ---------------- */
   onReport(id, bodyId) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 신고 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 신고 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     const b = G.bodies.find(x => x.id === bodyId); if (!b) return;
     if (Math.hypot(p.x - b.x, p.y - b.y) > 110) return;
     this.startMeeting(p.id, b);
   },
   onEmergency(id) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 소집 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 소집 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (p.emergencyLeft <= 0) return;
     if (Math.hypot(p.x - EMERGENCY_BTN.wx, p.y - EMERGENCY_BTN.wy) > 110) return;
@@ -550,7 +552,7 @@ const Host = {
     G.sabotage = null; G.doors = {};
     const deadSince = G.bodies.map(b => ({ pid: b.pid, room: b.room, t: b.t }));
     G.bodies = [];
-    for (const id of G.order) { const p = this.P[id]; if (p) { p.votes = null; p.ventId = null; p.dragging = null; p.morphEnd = 0; } }
+    for (const id of G.order) { const p = this.P[id]; if (p) { p.votes = null; p.ventId = null; p.hideId = null; p.dragging = null; p.morphEnd = 0; } }
     this.M = {
       caller: callerId, body: body ? { pid: body.pid, room: body.room, color: body.color } : null,
       phase: 'discuss', endsAt: now() + G.settings.discussSec * 1000,
@@ -622,7 +624,7 @@ const Host = {
     const sp = spawnPoints(G.order.length);
     G.order.forEach((id, i) => {
       const p = this.P[id]; if (!p) return;
-      p.x = sp[i].x; p.y = sp[i].y; p.moving = false; p.ventId = null; p.killedThisRound = false;
+      p.x = sp[i].x; p.y = sp[i].y; p.moving = false; p.ventId = null; p.hideId = null; p.killedThisRound = false;
       const r = roleInfo(p.role);
       p.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
       if (r.ability === 'remotefix') p.abilityUses = r.uses || 1;
@@ -633,7 +635,7 @@ const Host = {
 
   /* ---------------- 벤트 ---------------- */
   onVent(id, ventId) {
-    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
+    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play' || p.hideId) return;
     if (!roleInfo(p.role).canVent) return;
     if (ventId === null) {
       p.ventId = null; this.pushState();
@@ -647,6 +649,39 @@ const Host = {
     p.ventId = ventId; p.x = v.wx; p.y = v.wy;
     this.pushState();
     this.ventNotify(id, entering, ROOMS.find(r => r.id === v.room)?.name || '?', v.wx, v.wy);
+  },
+
+  /* ---------------- 건초더미 숨기 ----------------
+   * 같은 버튼 하나로: 빈 더미 = 숨기 · 누가 있는 더미 = 튀어나오게(수색).
+   * 숨은 사람은 스냅샷에서 빠지므로 콘솔을 열어도 찾을 수 없다. */
+  onHide(id, spotId) {
+    const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play' || p.ventId) return;
+    if (spotId === null) {                       // 스스로 나오기 (이동 시도 포함)
+      if (p.hideId) { p.hideId = null; this.pushState(); }
+      return;
+    }
+    const spot = HIDE_SPOTS.find(x => x.id === spotId); if (!spot) return;
+    if (Math.hypot(p.x - spot.wx, p.y - spot.wy) > 90) return;
+    if (p.hideId === spotId) {                   // 내가 숨은 더미 → 나온다
+      p.hideId = null; this.pushState();
+      return;
+    }
+    const occupant = G.order.map(i => this.P[i])
+      .find(q => q && q.alive && q.hideId === spotId && q.id !== id);
+    if (occupant) {                              // 수색 — 튀어나온다!
+      occupant.hideId = null;
+      occupant.lastActive = now();
+      this.pushState();
+      this.ev('flushed', { spot: spotId, at: { x: spot.wx, y: spot.wy } });
+      Net.toPeer(occupant.peerId, 'toast', { text: '🌾 들켰습니다! 누군가 건초를 뒤졌어요.' });
+      Net.toPeer(p.peerId, 'toast', { text: `🌾 ${occupant.name} 님이 숨어 있었습니다!` });
+      return;
+    }
+    if (p.hideId) p.hideId = null;
+    p.hideId = spotId;                           // 숨는다 — 위치를 더미에 고정
+    p.x = spot.wx; p.y = spot.wy;
+    this.pushState();
+    this.ev('rustle', { at: { x: spot.wx, y: spot.wy } });   // 부스럭 소리만 (누군지는 안 알림)
   },
 
   /** 벤트 사용 알림.
@@ -713,7 +748,7 @@ const Host = {
 
   /* ---------------- 임무 ---------------- */
   onTaskStep(id, tid) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 임무 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 임무 불가
     const p = this.P[id]; if (!p) return;
     if (!p.alive && !G.settings.ghostTasks) return;
     const t = p.tasks.find(x => x.tid === tid); if (!t || t.step >= t.spots.length) return;
@@ -749,7 +784,7 @@ const Host = {
 
   /* ---------------- 특수 능력 ---------------- */
   onAbility(id, m) {
-    if (this.P[id]?.ventId) return;                 // 벤트 안에서는 능력 사용 불가
+    if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 능력 사용 불가
     const p = this.P[id]; if (!p || G.phase === 'lobby') return;
     const r = roleInfo(p.role);
     const target = m.target ? this.P[m.target] : null;
