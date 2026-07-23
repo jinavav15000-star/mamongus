@@ -887,11 +887,12 @@ const Render = {
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
-    for (const p of drawList) this.drawDuck(g, p, state, false);
-    // 나 자신 — 벤트 안에 있으면 몸이 보이면 안 된다.
-    // (남들은 ventId 로 걸러지는데 나만 무조건 그려져서, 숨었는데도 밖에 서 있는 것처럼 보였다)
+    // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
     if (me.ventId) this.drawInVent(g, me);
-    else this.drawDuck(g, state.me, state, true);
+    // y 로 정렬해 아래(앞) 캐릭터가 위(뒤) 캐릭터를 가리게 한다.
+    // 정렬이 없으면 뒤에 선 캐릭터가 앞 캐릭터의 발을 덮는 역전이 생긴다.
+    const chars = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+    for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
 
     /* 연출 */
     {
@@ -938,8 +939,57 @@ const Render = {
       g.restore();
     }
 
+    /* 이름·말풍선·배지 — 안개 '위'에 그린다.
+     * 월드 패스에서 그리면 머리 위가 벽(시야 밖)일 때 안개에 덮여
+     * 자기 닉네임조차 안 보였다. 라벨은 월드가 아니라 UI 다. */
+    {
+      g.save();
+      g.translate(this.W / 2 + shx, this.H / 2 + shy);
+      g.scale(sc, sc);
+      g.translate(-cx, -cy);
+      const labeled = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+      for (const p of labeled) this.drawLabels(g, p, state, p.id === state.me.id);
+      g.restore();
+    }
+
     // 길안내 (안개 위에 그려야 보인다)
     if (state.guides?.length) this.drawGuides(g, state, cx, cy, sc, shx, shy);
+  },
+
+  /** 이름표 + 말풍선 + 늑대 배지 — 안개 위 라벨 패스에서 호출 */
+  drawLabels(g, p, state, isMe) {
+    const dead = !p.alive;
+    g.save(); g.translate(p.x, p.y);
+    if (state.duckMates?.includes(p.id) && !isMe) {
+      g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.fillText('🐺', 0, -46);
+    }
+    const shownName = p.morphName || p.name;
+    if (shownName) {
+      g.font = '700 13px "Pretendard", system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'bottom';
+      const w = g.measureText(shownName).width;
+      g.fillStyle = 'rgba(0,0,0,.55)';
+      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
+      g.fillStyle = dead ? '#9aa4b8' : (isMe ? '#ffd88a' : '#fff');   // 내 이름은 금색
+      g.fillText(shownName, 0, -33);
+    }
+    if (p.bubble && Date.now() < p.bubble.until && p.alive) {
+      const txt = p.bubble.text;
+      g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = Math.min(g.measureText(txt).width, 150);
+      const bw = tw + 18, bh = 24, by = -66;
+      g.fillStyle = '#f6f1e6';
+      g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(-5, by + bh / 2 - 1); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2 - 1);
+      g.closePath(); g.fill();
+      g.fillStyle = '#2b2016';
+      g.save(); g.beginPath(); g.rect(-bw / 2 + 4, by - bh / 2, bw - 8, bh); g.clip();
+      g.fillText(txt, 0, by + 1); g.restore();
+    }
+    g.restore();
   },
 
   /* ---------------- 길안내 화살표 ----------------
@@ -1146,39 +1196,6 @@ const Render = {
     if (p.shielded) {
       g.strokeStyle = 'rgba(120,220,255,.85)'; g.lineWidth = 2.5;
       g.beginPath(); g.arc(0, -2, 25 + Math.sin(t / 260) * 1.6, 0, 6.283); g.stroke();
-    }
-    if (state.duckMates?.includes(p.id) && !isMe) {
-      g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
-      g.fillText('🐺', 0, -44);
-    }
-    // 말풍선 (채팅을 치면 4.8초간 머리 위에)
-    if (p.bubble && Date.now() < p.bubble.until && p.alive) {
-      const txt = p.bubble.text;
-      g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const tw = Math.min(g.measureText(txt).width, 150);
-      const bw = tw + 18, bh = 24, by = -66;
-      g.fillStyle = '#f6f1e6';
-      g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
-      g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
-      g.beginPath(); g.moveTo(-5, by + bh / 2 - 1); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2 - 1);
-      g.closePath(); g.fill();
-      g.strokeStyle = 'rgba(36,26,18,.9)';
-      g.beginPath(); g.moveTo(-5, by + bh / 2); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2); g.stroke();
-      g.fillStyle = '#2b2016';
-      g.save(); g.beginPath(); g.rect(-bw / 2 + 4, by - bh / 2, bw - 8, bh); g.clip();
-      g.fillText(txt, 0, by + 1); g.restore();
-    }
-
-    const shownName = p.morphName || p.name;      // 변신술사는 이름까지 위장된다
-    if (shownName) {
-      g.font = '700 13px "Pretendard", system-ui, sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'bottom';
-      const w = g.measureText(shownName).width;
-      g.fillStyle = 'rgba(0,0,0,.55)';
-      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
-      g.fillStyle = dead ? '#9aa4b8' : '#fff';
-      g.fillText(shownName, 0, -33);
     }
     g.restore();
   },

@@ -88,6 +88,12 @@ const UI = {
 
   /* ---------------- 대기실 패널 / 맵 채팅 ---------------- */
   openLobbyPanel()  { $('#screen-lobby').classList.remove('hidden'); },
+  /** 첫 입장 안내 — 패널을 강제로 열지 않고 어디 있는지만 알려 준다 */
+  hintLobbyMenu() {
+    if (this._lobbyHinted) return;
+    this._lobbyHinted = true;
+    this.toast('오른쪽 위 <b>☰</b> 에서 닉네임·색상·설정·직업을 바꿀 수 있어요', 6500);
+  },
   closeLobbyPanel() { $('#screen-lobby').classList.add('hidden'); },
   togglePlayChat() {
     const w = $('#play-chat-wrap');
@@ -527,12 +533,15 @@ const UI = {
       else {
         const idx = near[0].i;
         const code = G.sabotage.data.code;
-        root.appendChild(h('div', { cls:'mg-msg' }, '코드를 입력하세요'));
-        root.appendChild(h('div', { style:{ fontSize:'34px', fontWeight:900, letterSpacing:'9px', color:'var(--warn)' } }, code));
-        const disp = h('div', { style:{ fontSize:'27px', fontWeight:900, letterSpacing:'9px', minHeight:'34px' } }, '');
-        root.appendChild(disp);
+        // 코드와 입력값을 한 줄에 — 세로 공간이 곧 '스크롤 없이 보이느냐'다
+        const row = h('div', { style:{ display:'flex', gap:'18px', alignItems:'baseline' } });
+        row.appendChild(h('div', { style:{ fontSize:'26px', fontWeight:900, letterSpacing:'6px', color:'var(--warn)' } }, code));
+        row.appendChild(h('div', { style:{ fontSize:'15px', color:'var(--dim)' } }, '→'));
+        const disp = h('div', { style:{ fontSize:'26px', fontWeight:900, letterSpacing:'6px', minWidth:'110px', minHeight:'30px' } }, '');
+        row.appendChild(disp);
+        root.appendChild(row);
         let buf = '';
-        const pad = h('div', { cls:'mg-keypad', style:{ maxWidth:'250px' } });
+        const pad = h('div', { cls:'mg-keypad', style:{ maxWidth:'340px' } });   // 4열 → 3줄로 끝난다
         '123456789⌫0✔'.split('').forEach(ch => {
           pad.appendChild(h('button', { cls:'mg-key', style:{ width:'70px' }, onclick: () => {
             Sfx.click();

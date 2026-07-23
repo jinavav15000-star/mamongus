@@ -556,7 +556,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .taskbar-label{font-size:10px}
   .iconbtn{width:36px;height:36px;font-size:17px;border-radius:10px}
 
-  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:56%;font-size:10px;padding:5px 8px;line-height:1.25}
+  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
   .tasklist .hd{font-size:9px;margin-bottom:2px}
   .tasklist .ti{margin-bottom:1px}
 
@@ -630,6 +630,30 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   /* --- 결과 --- */
   .result-hd{padding:12px 16px 8px}
   .result-title{font-size:26px}
+}
+
+/* ══════════ 짧은 화면에서 미니게임이 잘리지 않게 ══════════
+   가로 폰(높이 ~360px)에서 온도계·키패드 모달이 화면을 넘어
+   버튼을 보려면 스크롤해야 했다. 사보타주는 시간제한이 있어서 치명적이다. */
+@media (max-height:560px){
+  .modal-box{max-height:calc(100dvh - 12px)}
+  .modal-hd{padding:8px 14px}
+  .modal-hd h2{font-size:16px}
+  .modal-bd{padding:10px 14px}
+  .mg{min-height:0;gap:8px}
+  .mg-msg{font-size:12px}
+  .mg-temp-stand{padding:6px 12px 18px}
+  .mg-temp-bar{height:110px;width:26px}
+  .mg-temp-bulb{width:26px;height:26px;margin-left:-13px;bottom:5px}
+  .mg-temp-read{font-size:17px}
+  .mg-rbtn{padding:9px 15px;font-size:13px}
+  .mg-key{width:56px!important;height:42px;font-size:15px}
+  .mg-keypad{gap:6px;padding:8px}
+  .mg-lock{font-size:30px;margin-bottom:2px}
+  .mg-bigbtn{padding:12px 22px;font-size:14px}
+  .mg-mem{max-width:280px;gap:6px}
+  .mg-garb-tube,.mg-canvas{height:200px}
+  .mg-wire{height:190px}
 }
 
 /* ══════════ 대기실 모드 (맵에서 돌아다니는 로비) ══════════ */
@@ -4760,11 +4784,12 @@ const Render = {
       if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
-    for (const p of drawList) this.drawDuck(g, p, state, false);
-    // 나 자신 — 벤트 안에 있으면 몸이 보이면 안 된다.
-    // (남들은 ventId 로 걸러지는데 나만 무조건 그려져서, 숨었는데도 밖에 서 있는 것처럼 보였다)
+    // 벤트 뚜껑(내가 숨은 표시)은 바닥이므로 다른 캐릭터들 아래에 먼저
     if (me.ventId) this.drawInVent(g, me);
-    else this.drawDuck(g, state.me, state, true);
+    // y 로 정렬해 아래(앞) 캐릭터가 위(뒤) 캐릭터를 가리게 한다.
+    // 정렬이 없으면 뒤에 선 캐릭터가 앞 캐릭터의 발을 덮는 역전이 생긴다.
+    const chars = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+    for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
 
     /* 연출 */
     {
@@ -4811,8 +4836,57 @@ const Render = {
       g.restore();
     }
 
+    /* 이름·말풍선·배지 — 안개 '위'에 그린다.
+     * 월드 패스에서 그리면 머리 위가 벽(시야 밖)일 때 안개에 덮여
+     * 자기 닉네임조차 안 보였다. 라벨은 월드가 아니라 UI 다. */
+    {
+      g.save();
+      g.translate(this.W / 2 + shx, this.H / 2 + shy);
+      g.scale(sc, sc);
+      g.translate(-cx, -cy);
+      const labeled = [...drawList, ...(me.ventId ? [] : [state.me])].sort((a, b) => a.y - b.y);
+      for (const p of labeled) this.drawLabels(g, p, state, p.id === state.me.id);
+      g.restore();
+    }
+
     // 길안내 (안개 위에 그려야 보인다)
     if (state.guides?.length) this.drawGuides(g, state, cx, cy, sc, shx, shy);
+  },
+
+  /** 이름표 + 말풍선 + 늑대 배지 — 안개 위 라벨 패스에서 호출 */
+  drawLabels(g, p, state, isMe) {
+    const dead = !p.alive;
+    g.save(); g.translate(p.x, p.y);
+    if (state.duckMates?.includes(p.id) && !isMe) {
+      g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.fillText('🐺', 0, -46);
+    }
+    const shownName = p.morphName || p.name;
+    if (shownName) {
+      g.font = '700 13px "Pretendard", system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'bottom';
+      const w = g.measureText(shownName).width;
+      g.fillStyle = 'rgba(0,0,0,.55)';
+      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
+      g.fillStyle = dead ? '#9aa4b8' : (isMe ? '#ffd88a' : '#fff');   // 내 이름은 금색
+      g.fillText(shownName, 0, -33);
+    }
+    if (p.bubble && Date.now() < p.bubble.until && p.alive) {
+      const txt = p.bubble.text;
+      g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = Math.min(g.measureText(txt).width, 150);
+      const bw = tw + 18, bh = 24, by = -66;
+      g.fillStyle = '#f6f1e6';
+      g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(-5, by + bh / 2 - 1); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2 - 1);
+      g.closePath(); g.fill();
+      g.fillStyle = '#2b2016';
+      g.save(); g.beginPath(); g.rect(-bw / 2 + 4, by - bh / 2, bw - 8, bh); g.clip();
+      g.fillText(txt, 0, by + 1); g.restore();
+    }
+    g.restore();
   },
 
   /* ---------------- 길안내 화살표 ----------------
@@ -5019,39 +5093,6 @@ const Render = {
     if (p.shielded) {
       g.strokeStyle = 'rgba(120,220,255,.85)'; g.lineWidth = 2.5;
       g.beginPath(); g.arc(0, -2, 25 + Math.sin(t / 260) * 1.6, 0, 6.283); g.stroke();
-    }
-    if (state.duckMates?.includes(p.id) && !isMe) {
-      g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
-      g.fillText('🐺', 0, -44);
-    }
-    // 말풍선 (채팅을 치면 4.8초간 머리 위에)
-    if (p.bubble && Date.now() < p.bubble.until && p.alive) {
-      const txt = p.bubble.text;
-      g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const tw = Math.min(g.measureText(txt).width, 150);
-      const bw = tw + 18, bh = 24, by = -66;
-      g.fillStyle = '#f6f1e6';
-      g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
-      g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
-      g.beginPath(); g.moveTo(-5, by + bh / 2 - 1); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2 - 1);
-      g.closePath(); g.fill();
-      g.strokeStyle = 'rgba(36,26,18,.9)';
-      g.beginPath(); g.moveTo(-5, by + bh / 2); g.lineTo(0, by + bh / 2 + 7); g.lineTo(6, by + bh / 2); g.stroke();
-      g.fillStyle = '#2b2016';
-      g.save(); g.beginPath(); g.rect(-bw / 2 + 4, by - bh / 2, bw - 8, bh); g.clip();
-      g.fillText(txt, 0, by + 1); g.restore();
-    }
-
-    const shownName = p.morphName || p.name;      // 변신술사는 이름까지 위장된다
-    if (shownName) {
-      g.font = '700 13px "Pretendard", system-ui, sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'bottom';
-      const w = g.measureText(shownName).width;
-      g.fillStyle = 'rgba(0,0,0,.55)';
-      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
-      g.fillStyle = dead ? '#9aa4b8' : '#fff';
-      g.fillText(shownName, 0, -33);
     }
     g.restore();
   },
@@ -5318,6 +5359,12 @@ const UI = {
 
   /* ---------------- 대기실 패널 / 맵 채팅 ---------------- */
   openLobbyPanel()  { $('#screen-lobby').classList.remove('hidden'); },
+  /** 첫 입장 안내 — 패널을 강제로 열지 않고 어디 있는지만 알려 준다 */
+  hintLobbyMenu() {
+    if (this._lobbyHinted) return;
+    this._lobbyHinted = true;
+    this.toast('오른쪽 위 <b>☰</b> 에서 닉네임·색상·설정·직업을 바꿀 수 있어요', 6500);
+  },
   closeLobbyPanel() { $('#screen-lobby').classList.add('hidden'); },
   togglePlayChat() {
     const w = $('#play-chat-wrap');
@@ -5757,12 +5804,15 @@ const UI = {
       else {
         const idx = near[0].i;
         const code = G.sabotage.data.code;
-        root.appendChild(h('div', { cls:'mg-msg' }, '코드를 입력하세요'));
-        root.appendChild(h('div', { style:{ fontSize:'34px', fontWeight:900, letterSpacing:'9px', color:'var(--warn)' } }, code));
-        const disp = h('div', { style:{ fontSize:'27px', fontWeight:900, letterSpacing:'9px', minHeight:'34px' } }, '');
-        root.appendChild(disp);
+        // 코드와 입력값을 한 줄에 — 세로 공간이 곧 '스크롤 없이 보이느냐'다
+        const row = h('div', { style:{ display:'flex', gap:'18px', alignItems:'baseline' } });
+        row.appendChild(h('div', { style:{ fontSize:'26px', fontWeight:900, letterSpacing:'6px', color:'var(--warn)' } }, code));
+        row.appendChild(h('div', { style:{ fontSize:'15px', color:'var(--dim)' } }, '→'));
+        const disp = h('div', { style:{ fontSize:'26px', fontWeight:900, letterSpacing:'6px', minWidth:'110px', minHeight:'30px' } }, '');
+        row.appendChild(disp);
+        root.appendChild(row);
         let buf = '';
-        const pad = h('div', { cls:'mg-keypad', style:{ maxWidth:'250px' } });
+        const pad = h('div', { cls:'mg-keypad', style:{ maxWidth:'340px' } });   // 4열 → 3줄로 끝난다
         '123456789⌫0✔'.split('').forEach(ch => {
           pad.appendChild(h('button', { cls:'mg-key', style:{ width:'70px' }, onclick: () => {
             Sfx.click();
@@ -6585,10 +6635,10 @@ const Game = {
       history.replaceState(null, '', '#room=' + code);
       UI.loading(false);
       UI.show('game'); Render.resize();
-      UI.openLobbyPanel();                    // 초대링크가 보이도록 패널을 한 번 열어 준다
+      UI.hintLobbyMenu();
       $('#in-name2').value = name;
       this.keepAwake();
-      UI.toast('방을 만들었습니다! <b>초대링크 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
+      UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
   },
 
@@ -6683,7 +6733,7 @@ const Game = {
 
   onServer(m) {
     switch (m.t) {
-      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.openLobbyPanel(); break;
+      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.hintLobbyMenu(); break;
       case 'denied':  UI.loading(false); UI.show('home'); this.err(m.reason); Net.destroy(); break;
       case 'state':   this.onState(m); break;
       case 'snap':    this.onSnap(m); break;
@@ -6737,7 +6787,7 @@ const Game = {
 
     if (G.phase === 'lobby') {
       // 대기실 = 걸어다니는 맵. 옛 로비 화면은 ☰ 패널로 남는다.
-      if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.openLobbyPanel(); }
+      if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.hintLobbyMenu(); }
       $('#screen-game').classList.add('lobby-mode');
       $('#lobby-hud').classList.remove('hidden');
       $('#btn-chat').classList.remove('hidden');
@@ -6836,7 +6886,7 @@ const Game = {
         Sfx.alarm();
         if (roomIdAt(G.me?.x, G.me?.y) === m.room) { UI.toast('🚪 문이 잠겼습니다!', 2600); Render.shake = 7; }
         break;
-      case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); UI.openLobbyPanel(); Meeting.clearChat(); G.myRole = null; break;
+      case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); Meeting.clearChat(); G.myRole = null; break;
       case 'over': UI.showResult(m.result); break;
     }
   },

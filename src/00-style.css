@@ -532,7 +532,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .taskbar-label{font-size:10px}
   .iconbtn{width:36px;height:36px;font-size:17px;border-radius:10px}
 
-  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:56%;font-size:10px;padding:5px 8px;line-height:1.25}
+  .tasklist{top:calc(48px + var(--safe-t));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
   .tasklist .hd{font-size:9px;margin-bottom:2px}
   .tasklist .ti{margin-bottom:1px}
 
@@ -606,6 +606,30 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   /* --- 결과 --- */
   .result-hd{padding:12px 16px 8px}
   .result-title{font-size:26px}
+}
+
+/* ══════════ 짧은 화면에서 미니게임이 잘리지 않게 ══════════
+   가로 폰(높이 ~360px)에서 온도계·키패드 모달이 화면을 넘어
+   버튼을 보려면 스크롤해야 했다. 사보타주는 시간제한이 있어서 치명적이다. */
+@media (max-height:560px){
+  .modal-box{max-height:calc(100dvh - 12px)}
+  .modal-hd{padding:8px 14px}
+  .modal-hd h2{font-size:16px}
+  .modal-bd{padding:10px 14px}
+  .mg{min-height:0;gap:8px}
+  .mg-msg{font-size:12px}
+  .mg-temp-stand{padding:6px 12px 18px}
+  .mg-temp-bar{height:110px;width:26px}
+  .mg-temp-bulb{width:26px;height:26px;margin-left:-13px;bottom:5px}
+  .mg-temp-read{font-size:17px}
+  .mg-rbtn{padding:9px 15px;font-size:13px}
+  .mg-key{width:56px!important;height:42px;font-size:15px}
+  .mg-keypad{gap:6px;padding:8px}
+  .mg-lock{font-size:30px;margin-bottom:2px}
+  .mg-bigbtn{padding:12px 22px;font-size:14px}
+  .mg-mem{max-width:280px;gap:6px}
+  .mg-garb-tube,.mg-canvas{height:200px}
+  .mg-wire{height:190px}
 }
 
 /* ══════════ 대기실 모드 (맵에서 돌아다니는 로비) ══════════ */

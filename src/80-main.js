@@ -133,10 +133,10 @@ const Game = {
       history.replaceState(null, '', '#room=' + code);
       UI.loading(false);
       UI.show('game'); Render.resize();
-      UI.openLobbyPanel();                    // 초대링크가 보이도록 패널을 한 번 열어 준다
+      UI.hintLobbyMenu();
       $('#in-name2').value = name;
       this.keepAwake();
-      UI.toast('방을 만들었습니다! <b>초대링크 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
+      UI.toast('방을 만들었습니다! 왼쪽 위 <b>🔗 복사</b>를 눌러 카카오톡에 붙여넣으세요.', 7000);
     } catch (e) { this.err(e.message); }
   },
 
@@ -231,7 +231,7 @@ const Game = {
 
   onServer(m) {
     switch (m.t) {
-      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.openLobbyPanel(); break;
+      case 'welcome': G.myId = m.yourId; G.hostId = m.hostId; Net.code = m.code; UI.loading(false); UI.show('game'); Render.resize(); UI.hintLobbyMenu(); break;
       case 'denied':  UI.loading(false); UI.show('home'); this.err(m.reason); Net.destroy(); break;
       case 'state':   this.onState(m); break;
       case 'snap':    this.onSnap(m); break;
@@ -285,7 +285,7 @@ const Game = {
 
     if (G.phase === 'lobby') {
       // 대기실 = 걸어다니는 맵. 옛 로비 화면은 ☰ 패널로 남는다.
-      if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.openLobbyPanel(); }
+      if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.hintLobbyMenu(); }
       $('#screen-game').classList.add('lobby-mode');
       $('#lobby-hud').classList.remove('hidden');
       $('#btn-chat').classList.remove('hidden');
@@ -384,7 +384,7 @@ const Game = {
         Sfx.alarm();
         if (roomIdAt(G.me?.x, G.me?.y) === m.room) { UI.toast('🚪 문이 잠겼습니다!', 2600); Render.shake = 7; }
         break;
-      case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); UI.openLobbyPanel(); Meeting.clearChat(); G.myRole = null; break;
+      case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); Meeting.clearChat(); G.myRole = null; break;
       case 'over': UI.showResult(m.result); break;
     }
   },
