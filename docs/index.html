@@ -1487,49 +1487,53 @@ const ventNeighbors = (id) => {
  * 같은 버튼으로 빈 더미면 숨고, 누가 있으면 튀어나오게 한다(수색).
  * 좌표는 drawProps 의 실제 건초 소품 위치와 맞춰야 한다. */
 const HIDE_SPOTS = [
-  { id:'h1', room:'cafe',   x:51,   y:7    },   // 헛간 앞마당 큰 건초
-  { id:'h2', room:'cafe',   x:52,   y:17   },   // 헛간 앞마당 아래 건초
-  { id:'h3', room:'store',  x:50,   y:42.4 },   // 곡물창고 건초
-  { id:'h4', room:'store',  x:37,   y:42   },   // 곡물창고 짚단
-  { id:'h5', room:'shield', x:75.6, y:49.6 },   // 전기울타리 건초
-  { id:'h6', room:'weapon', x:85.6, y:12   },   // 농기구창고 짚단
-  { id:'h7', room:'cafe',   x:65.5, y:6    },   // 앞마당 짚단 (북동)
+  // type: 'hay'(건초수레·야외) | 'locker'(사물함·실내 — 문이 열리고 닫힌다)
+  // wall: 가구가 붙어 있는 벽 (그림·상호작용 안내가 이 방향으로 붙는다)
+  { id:'h1', room:'cafe',   x:49.5, y:5.5, type:'hay',    wall:'N' },  // 앞마당 북서 건초수레
+  { id:'h2', room:'cafe',   x:66,   y:5.5, type:'hay',    wall:'N' },  // 앞마당 북동 건초수레
+  { id:'h3', room:'store',  x:37.5, y:41,  type:'hay',    wall:'N' },  // 곡물창고 구석 건초
+  { id:'h4', room:'medbay', x:40,   y:9,   type:'locker', wall:'E' },  // 동물병원 사물함
+  { id:'h5', room:'comms',  x:57,   y:50,  type:'locker', wall:'W' },  // 방송실 사물함
+  { id:'h6', room:'weapon', x:86,   y:5,   type:'locker', wall:'N' },  // 농기구창고 사물함
+  { id:'h7', room:'shield', x:76,   y:43,  type:'hay',    wall:'N' },  // 전기울타리 건초
 ].map(h => ({ ...h, wx: h.x * TILE + TILE / 2, wy: h.y * TILE + TILE / 2 }));
 
 /* ---- 임무 지점 ------------------------------------------------------------*/
 /* kind: 미니게임 ID / long: 장기임무(여러 단계) / vis: 시각임무 */
 const TASK_SPOTS = [
-  { id:'t_wire_e',  room:'elect',  x:26, y:43, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_c',  room:'cafe',   x:51, y: 6, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_n',  room:'navig',  x:90, y:28, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_s',  room:'secur',  x:28, y:29, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_a',  room:'admin',  x:56, y:27, kind:'wiring',   name:'전선 잇기',      part:true },
+  /* 전부 벽에 붙어 있다 — 덕몽어스처럼 '벽의 가구를 만지는' 감각.
+   * wall: 가구가 걸린/붙은 벽. 문(복도 개구부)은 피해서 배치했다. */
+  { id:'t_wire_e',  room:'elect',  x:24, y:42, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_c',  room:'cafe',   x:49, y:16, wall:'W', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_n',  room:'navig',  x:93, y:27, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_s',  room:'secur',  x:27, y:28, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_a',  room:'admin',  x:55, y:27, wall:'W', kind:'wiring',   name:'전선 잇기',      part:true },
 
-  { id:'t_card',    room:'admin',  x:64, y:32, kind:'card',     name:'출근 카드 찍기' },
-  { id:'t_swipe2',  room:'cafe',   x:67, y: 6, kind:'keypad',   name:'사료통 잠금해제' },
-  { id:'t_gar_c',   room:'cafe',   x:49, y:18, kind:'garbage',  name:'거름 치우기',    chainNext:'t_gar_s' },
-  { id:'t_gar_s',   room:'store',  x:50, y:53, kind:'garbage',  name:'거름 치우기',    chainHidden:true },
-  { id:'t_fuel1',   room:'store',  x:38, y:42, kind:'fuel',     name:'경유 채우기',    chainNext:'t_fuel2' },
-  { id:'t_fuel2',   room:'upeng',  x: 8, y: 8, kind:'fuel',     name:'경유 채우기',    chainHidden:true, chainNext:'t_fuel3' },
-  { id:'t_fuel3',   room:'loweng', x: 8, y:54, kind:'fuel',     name:'경유 채우기',    chainHidden:true },
-  { id:'t_align1',  room:'upeng',  x:20, y:16, kind:'align',    name:'트랙터 정비' },
-  { id:'t_align2',  room:'loweng', x:20, y:46, kind:'align',    name:'트랙터 정비' },
-  { id:'t_ast',     room:'weapon', x:80, y: 6, kind:'asteroid', name:'까마귀 쫓기',    vis:true },
-  { id:'t_shield',  room:'shield', x:78, y:44, kind:'shields',  name:'울타리 점검',    vis:true },
-  { id:'t_scan',    room:'medbay', x:31, y:11, kind:'scan',     name:'건강 검진',      vis:true },
-  { id:'t_sample',  room:'medbay', x:38, y:10, kind:'sample',   name:'우유 검사' },
-  { id:'t_dl',      room:'comms',  x:58, y:46, kind:'download', name:'주문서 받기',    chainNext:'t_up' },
-  { id:'t_up',      room:'admin',  x:60, y:33, kind:'download', name:'주문서 보내기',  chainHidden:true, up:true },
-  { id:'t_leaf',    room:'oxygen', x:76, y:22, kind:'leaves',   name:'여물통 청소' },
-  { id:'t_div1',    room:'elect',  x:32, y:50, kind:'divert',   name:'전력 분배' },
-  { id:'t_div2',    room:'react',  x: 6, y:35, kind:'divert',   name:'물길 돌리기' },
-  { id:'t_chart',   room:'navig',  x:96, y:28, kind:'chart',    name:'양떼 몰기' },
-  { id:'t_cal',     room:'react',  x:15, y:26, kind:'calib',    name:'물레방아 보정' },
-  { id:'t_temp1',   room:'loweng', x:18, y:53, kind:'temp',     name:'온도 조정' },
-  { id:'t_temp2',   room:'oxygen', x:83, y:27, kind:'temp',     name:'온도 조정' },
-  { id:'t_secur',   room:'secur',  x:35, y:34, kind:'records',  name:'출입 기록 정리' },
-  { id:'t_shoot',   room:'weapon', x:90, y:13, kind:'keypad',   name:'창고 잠금해제' },
-  { id:'t_store',   room:'store',  x:44, y:53, kind:'sort',     name:'곡물 분류' },
+  { id:'t_card',    room:'admin',  x:60, y:26, wall:'N', kind:'card',     name:'출근 카드 찍기' },
+  { id:'t_swipe2',  room:'cafe',   x:68, y:13, wall:'E', kind:'keypad',   name:'사료통 잠금해제' },
+  { id:'t_gar_c',   room:'cafe',   x:55, y:18, wall:'S', kind:'garbage',  name:'거름 치우기',    chainNext:'t_gar_s' },
+  { id:'t_gar_s',   room:'store',  x:50, y:52, wall:'E', kind:'garbage',  name:'거름 치우기',    chainHidden:true },
+  { id:'t_fuel1',   room:'store',  x:37, y:44, wall:'W', kind:'fuel',     name:'경유 채우기',    chainNext:'t_fuel2' },
+  { id:'t_fuel2',   room:'upeng',  x: 8, y: 7, wall:'N', kind:'fuel',     name:'경유 채우기',    chainHidden:true, chainNext:'t_fuel3' },
+  { id:'t_fuel3',   room:'loweng', x: 8, y:54, wall:'S', kind:'fuel',     name:'경유 채우기',    chainHidden:true },
+  { id:'t_align1',  room:'upeng',  x:20, y:16, wall:'E', kind:'align',    name:'트랙터 정비' },
+  { id:'t_align2',  room:'loweng', x:20, y:52, wall:'E', kind:'align',    name:'트랙터 정비' },
+  { id:'t_ast',     room:'weapon', x:80, y: 5, wall:'N', kind:'asteroid', name:'까마귀 쫓기',    vis:true },
+  { id:'t_shield',  room:'shield', x:78, y:51, wall:'S', kind:'shields',  name:'울타리 점검',    vis:true },
+  { id:'t_scan',    room:'medbay', x:29, y:16, wall:'W', kind:'scan',     name:'건강 검진',      vis:true },
+  { id:'t_sample',  room:'medbay', x:37, y: 9, wall:'N', kind:'sample',   name:'우유 검사' },
+  { id:'t_dl',      room:'comms',  x:63, y:45, wall:'N', kind:'download', name:'주문서 받기',    chainNext:'t_up' },
+  { id:'t_up',      room:'admin',  x:56, y:33, wall:'S', kind:'download', name:'주문서 보내기',  chainHidden:true, up:true },
+  { id:'t_leaf',    room:'oxygen', x:75, y:21, wall:'N', kind:'leaves',   name:'여물통 청소' },
+  { id:'t_div1',    room:'elect',  x:26, y:50, wall:'S', kind:'divert',   name:'전력 분배' },
+  { id:'t_div2',    room:'react',  x: 5, y:35, wall:'W', kind:'divert',   name:'전력 분배' },
+  { id:'t_chart',   room:'navig',  x:97, y:30, wall:'E', kind:'chart',    name:'양떼 몰기' },
+  { id:'t_cal',     room:'react',  x:15, y:25, wall:'N', kind:'calib',    name:'물레방아 보정' },
+  { id:'t_temp1',   room:'loweng', x: 7, y:50, wall:'W', kind:'temp',     name:'온도 조정' },
+  { id:'t_temp2',   room:'oxygen', x:80, y:27, wall:'S', kind:'temp',     name:'온도 조정' },
+  { id:'t_secur',   room:'secur',  x:34, y:34, wall:'S', kind:'records', name:'출입 기록 정리' },
+  { id:'t_shoot',   room:'weapon', x:90, y: 8, wall:'E', kind:'keypad',   name:'창고 잠금해제' },
+  { id:'t_store',   room:'store',  x:44, y:53, wall:'S', kind:'sort',     name:'곡물 분류' },
 ].map(t => ({ ...t, wx: t.x * TILE + TILE / 2, wy: t.y * TILE + TILE / 2 }));
 
 /* ---- 사보타주 지점 --------------------------------------------------------*/
@@ -2255,6 +2259,13 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 사물함 끼익 + 쾅 */
+  creak() {
+    this.tone(280, 0.28, 'sawtooth', 0, 180, 0.18);
+    this.tone(190, 0.2, 'sawtooth', 0.05, 240, 0.14);
+    this.noise(0.06, 500, 0.5, 200);
+    setTimeout(() => this.noise(0.08, 350, 0.6, 150), 380);   // 닫히는 쾅
+  },
   /** 건초 부스럭 */
   rustle() { this.noise(0.16, 2600, 0.4, 900); this.noise(0.12, 1900, 0.3, 700); },
   /** 인사 — 밝게 두 번 통통 */
@@ -4366,6 +4377,11 @@ const Render = {
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
+  /** 사물함 문 활짝 → 쾅 (드나들 때, 근처 전원에게 보임) */
+  doorSwing(x, y) {
+    this.addFx({ kind:'door', x, y: y - 22, life: 480 });
+  },
+
   /** 건초 들썩임 — 누가 드나들 때 더미가 눌렸다 튀어오른다 (근처 전원에게 보임) */
   hayBounce(x, y) {
     this.addFx({ kind:'hay', x, y, life: 520 });
@@ -4413,6 +4429,19 @@ const Render = {
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
         g.globalAlpha = 1;
+      } else if (f.kind === 'door') {
+        // 두 짝 문이 활짝 열렸다가 닫힌다 (가로 스케일로 스윙 표현)
+        const open = Math.sin(Math.min(1, p * 1.6) * 3.14159);   // 0→1→0
+        g.save(); g.translate(f.x, f.y);
+        for (const dir of [-1, 1]) {
+          g.save();
+          g.translate(dir * 1.5, 0);
+          g.scale(1 - open * 0.85, 1);
+          g.fillStyle = '#6a675e';
+          g.fillRect(dir === -1 ? -15 : 0, -6, 15, 46);
+          g.restore();
+        }
+        g.restore();
       } else if (f.kind === 'hay') {
         // 눌림 → 반동: sin 곡선으로 세로 스케일이 출렁인다
         const sq = 1 + Math.sin(p * 3.14159 * 2) * 0.16 * (1 - p);
@@ -4690,13 +4719,22 @@ const Render = {
    * 바닥의 노란 동그라미만으로는 "여기서 뭘 하는지"가 안 보인다는 피드백.
    * 종류별로 알아볼 수 있는 소품 + 나무 받침. 정적 레이어라 비용 0. */
   drawTaskProps(g) {
-    const P = TILE / 32;                      // 소품 크기 기준
+    // 가구는 벽에 붙는다: 스폿(서는 자리)에서 벽 쪽으로 밀어 그린다
+    const WALL_OFF = { N: [0, -20], S: [0, 14], E: [18, 0], W: [-18, 0] };
     for (const t of TASK_SPOTS) {
-      const x = t.wx, y = t.wy;
+      const [ox, oy] = WALL_OFF[t.wall] || [0, 0];
+      const x = t.wx + ox, y = t.wy + oy;
       g.save(); g.translate(x, y);
-      // 나무 받침(공통) — 발밑에 깔린 작업 판자
-      g.fillStyle = 'rgba(60,40,20,.55)';
-      g.beginPath(); g.ellipse(0, 12, 22, 8, 0, 0, 6.283); g.fill();
+      // 북쪽 벽 가구는 벽에 '걸린' 판자 위에 얹는다 (액자 느낌)
+      if (t.wall === 'N') {
+        g.fillStyle = '#2b1a0a'; g.fillRect(-17, -26, 34, 30);
+        g.fillStyle = '#5c452e'; g.fillRect(-15, -24, 30, 26);
+      }
+      // 바닥 가구는 그림자
+      else {
+        g.fillStyle = 'rgba(60,40,20,.5)';
+        g.beginPath(); g.ellipse(0, 12, 20, 7, 0, 0, 6.283); g.fill();
+      }
       const box = (w, h, c1, c2, yo = 0) => {
         g.fillStyle = '#2b1a0a'; g.fillRect(-w/2 - 2, -h + 10 + yo - 2, w + 4, h + 4);
         const gr = g.createLinearGradient(0, -h + yo, 0, 10 + yo);
@@ -4790,14 +4828,56 @@ const Render = {
       }
       g.restore();
     }
-    // 숨는 건초더미는 소품이 이미 있으니 갈퀴만 살짝 꽂아 표시해 준다
+    // 숨는 가구 — 실내는 사물함, 야외는 건초수레. 벽에 붙어 있다.
     if (typeof HIDE_SPOTS !== 'undefined') for (const hs of HIDE_SPOTS) {
-      g.save(); g.translate(hs.wx, hs.wy);
-      g.strokeStyle = '#6a4522'; g.lineWidth = 3; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(20, -26); g.lineTo(30, 2); g.stroke();
-      g.strokeStyle = '#8a8578'; g.lineWidth = 2;
-      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(20 + i * 3.4, -26); g.lineTo(19 + i * 4.4, -34); g.stroke(); }
+      const [ox, oy] = WALL_OFF[hs.wall] || [0, 0];
+      g.save(); g.translate(hs.wx + ox * 1.1, hs.wy + oy * 1.1);
+      if (hs.type === 'locker') this.drawLocker(g);
+      else this.drawHayCart(g);
       g.restore();
+    }
+  },
+
+  /** 사물함 — 두 짝 문, 환기 슬릿, 손잡이 */
+  drawLocker(g) {
+    g.fillStyle = 'rgba(0,0,0,.4)';
+    g.beginPath(); g.ellipse(0, 22, 20, 6, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#2b1a0a'; g.fillRect(-18, -30, 36, 52);
+    const gr = g.createLinearGradient(0, -28, 0, 20);
+    gr.addColorStop(0, '#8a8578'); gr.addColorStop(1, '#55524a');
+    g.fillStyle = gr; g.fillRect(-16, -28, 32, 48);
+    g.fillStyle = '#3c3a34'; g.fillRect(-1, -28, 2, 48);      // 문 사이 틈
+    g.fillStyle = 'rgba(20,18,14,.7)';
+    for (const dy of [-20, -14]) { g.fillRect(-12, dy, 9, 2.2); g.fillRect(3, dy, 9, 2.2); }
+    g.fillStyle = '#c9b26a';                                  // 손잡이
+    g.fillRect(-5, -4, 3, 7); g.fillRect(2, -4, 3, 7);
+    g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(-16, -28, 32, 6);
+  },
+
+  /** 건초수레 — 바퀴 달린 수레에 수북한 건초 */
+  drawHayCart(g) {
+    g.fillStyle = 'rgba(0,0,0,.4)';
+    g.beginPath(); g.ellipse(0, 18, 28, 7, 0, 0, 6.283); g.fill();
+    // 바퀴
+    for (const wx of [-16, 16]) {
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(wx, 12, 8, 0, 6.283); g.fill();
+      g.fillStyle = '#4e3319'; g.beginPath(); g.arc(wx, 12, 5.5, 0, 6.283); g.fill();
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(wx, 12, 1.8, 0, 6.283); g.fill();
+    }
+    // 수레 몸통
+    g.fillStyle = '#2b1a0a'; g.fillRect(-24, -4, 48, 16);
+    g.fillStyle = '#7d5730'; g.fillRect(-22, -2, 44, 12);
+    g.fillStyle = '#5c452e'; for (const bx of [-14, -2, 10]) g.fillRect(bx, -2, 2.5, 12);
+    // 건초
+    g.fillStyle = '#2b1a0a';
+    g.beginPath(); g.ellipse(0, -10, 26, 14, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#d9b25f';
+    g.beginPath(); g.ellipse(0, -10, 23, 11.5, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#e8c87a';
+    g.beginPath(); g.ellipse(-6, -14, 12, 6, -0.25, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(140,100,40,.55)'; g.lineWidth = 1.5;
+    for (const [a, b, c, d] of [[-14,-8,-5,-13],[3,-16,10,-8],[-3,-5,7,-3]]) {
+      g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke();
     }
   },
 
@@ -5375,19 +5455,23 @@ const Render = {
     });
     // 근접한 건초더미 — 더미 자체가 살며시 빛나고 🌾 핀이 뜬다 (내 화면에만)
     if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
+      const OFF = { N: [0, -22], S: [0, 15], E: [20, 0], W: [-20, 0] };
       for (const hs of HIDE_SPOTS) {
         const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
         if (d > 120) continue;
         const near = d < 80;
+        const [fx2, fy2] = OFF[hs.wall] || [0, 0];
+        const cx2 = hs.wx + fx2 * 1.1, cy2 = hs.wy + fy2 * 1.1;
         g.save();
         g.shadowColor = `rgba(226,195,122,${near ? .8 : .35})`; g.shadowBlur = 22;
         g.strokeStyle = `rgba(226,195,122,${near ? .6 : .2})`; g.lineWidth = 2.5;
-        g.beginPath(); g.ellipse(hs.wx, hs.wy - 2, 42, 30, 0, 0, 6.283); g.stroke();
+        if (hs.type === 'locker') { g.beginPath(); g.roundRect(cx2 - 19, cy2 - 32, 38, 56, 6); g.stroke(); }
+        else { g.beginPath(); g.ellipse(cx2, cy2 - 6, 30, 24, 0, 0, 6.283); g.stroke(); }
         g.restore();
         if (near) {
           const bob = Math.sin(performance.now() / 300) * 4;
           g.font = '700 17px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
-          g.fillText('🌾', hs.wx, hs.wy - 52 + bob);
+          g.fillText(hs.type === 'locker' ? '🚪' : '🌾', cx2, cy2 - (hs.type === 'locker' ? 48 : 40) + bob);
         }
       }
     }
@@ -5398,7 +5482,11 @@ const Render = {
     const meHidden = !!me.hideId;
     const chars = [...drawList, ...((me.ventId || meHidden) ? [] : [state.me])].sort((a, b) => a.y - b.y);
     for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
-    if (meHidden) this.drawInHay(g, state.me);
+    if (meHidden) {
+      const hs = typeof HIDE_SPOTS !== 'undefined' ? HIDE_SPOTS.find(h => h.id === me.hideId) : null;
+      if (hs?.type === 'locker') this.drawInLocker(g, state.me);
+      else this.drawInHay(g, state.me);
+    }
 
     /* 연출 */
     {
@@ -5730,6 +5818,22 @@ const Render = {
   },
 
   /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
+  /** 사물함 속의 나 — 문틈으로 눈만 */
+  drawInLocker(g, me) {
+    const t = performance.now();
+    const blink = (t % 3600) < 140 ? 0.15 : 1;
+    g.save(); g.translate(me.x, me.y - 8);
+    g.fillStyle = 'rgba(8,6,4,.9)';
+    g.fillRect(-2.2, -16, 4.4, 34);                       // 살짝 벌어진 문틈
+    g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
+    g.beginPath(); g.ellipse(0, -6, 1.6, 2.2 * blink, 0, 0, 6.283); g.fill();
+    g.restore();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(me.x - 33, me.y - 56, 66, 16);
+    g.fillStyle = '#c9c4b8'; g.fillText('🚪 숨는 중', me.x, me.y - 43);
+  },
+
   drawInHay(g, me) {
     const t = performance.now();
     const breathe = 1 + Math.sin(t / 700) * 0.02;
@@ -7671,14 +7775,20 @@ const Game = {
         }
         break;
       case 'shieldblock': Sfx.fixed(); break;
-      case 'rustle':                            // 건초 부스럭 — 근처에만 들린다
+      case 'rustle': {                          // 숨는 소리 — 근처에만 들린다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y);
+          const hs = HIDE_SPOTS.find(h => Math.hypot(h.wx - m.at.x, h.wy - m.at.y) < 40);
+          if (hs?.type === 'locker') { Sfx.creak(); Render.doorSwing(m.at.x, m.at.y); }
+          else { Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y); }
         }
         break;
+      }
       case 'flushed':                           // 수색당해 튀어나옴
         if (G.me && m.at) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); Render.shake = 5;
+          const hs = HIDE_SPOTS.find(h => Math.hypot(h.wx - m.at.x, h.wy - m.at.y) < 40);
+          if (hs?.type === 'locker') { Sfx.creak(); Render.doorSwing(m.at.x, m.at.y); }
+          else { Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); }
+          Render.shake = 5;
         }
         break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다

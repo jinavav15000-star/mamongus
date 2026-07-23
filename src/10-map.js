@@ -218,49 +218,53 @@ const ventNeighbors = (id) => {
  * 같은 버튼으로 빈 더미면 숨고, 누가 있으면 튀어나오게 한다(수색).
  * 좌표는 drawProps 의 실제 건초 소품 위치와 맞춰야 한다. */
 const HIDE_SPOTS = [
-  { id:'h1', room:'cafe',   x:51,   y:7    },   // 헛간 앞마당 큰 건초
-  { id:'h2', room:'cafe',   x:52,   y:17   },   // 헛간 앞마당 아래 건초
-  { id:'h3', room:'store',  x:50,   y:42.4 },   // 곡물창고 건초
-  { id:'h4', room:'store',  x:37,   y:42   },   // 곡물창고 짚단
-  { id:'h5', room:'shield', x:75.6, y:49.6 },   // 전기울타리 건초
-  { id:'h6', room:'weapon', x:85.6, y:12   },   // 농기구창고 짚단
-  { id:'h7', room:'cafe',   x:65.5, y:6    },   // 앞마당 짚단 (북동)
+  // type: 'hay'(건초수레·야외) | 'locker'(사물함·실내 — 문이 열리고 닫힌다)
+  // wall: 가구가 붙어 있는 벽 (그림·상호작용 안내가 이 방향으로 붙는다)
+  { id:'h1', room:'cafe',   x:49.5, y:5.5, type:'hay',    wall:'N' },  // 앞마당 북서 건초수레
+  { id:'h2', room:'cafe',   x:66,   y:5.5, type:'hay',    wall:'N' },  // 앞마당 북동 건초수레
+  { id:'h3', room:'store',  x:37.5, y:41,  type:'hay',    wall:'N' },  // 곡물창고 구석 건초
+  { id:'h4', room:'medbay', x:40,   y:9,   type:'locker', wall:'E' },  // 동물병원 사물함
+  { id:'h5', room:'comms',  x:57,   y:50,  type:'locker', wall:'W' },  // 방송실 사물함
+  { id:'h6', room:'weapon', x:86,   y:5,   type:'locker', wall:'N' },  // 농기구창고 사물함
+  { id:'h7', room:'shield', x:76,   y:43,  type:'hay',    wall:'N' },  // 전기울타리 건초
 ].map(h => ({ ...h, wx: h.x * TILE + TILE / 2, wy: h.y * TILE + TILE / 2 }));
 
 /* ---- 임무 지점 ------------------------------------------------------------*/
 /* kind: 미니게임 ID / long: 장기임무(여러 단계) / vis: 시각임무 */
 const TASK_SPOTS = [
-  { id:'t_wire_e',  room:'elect',  x:26, y:43, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_c',  room:'cafe',   x:51, y: 6, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_n',  room:'navig',  x:90, y:28, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_s',  room:'secur',  x:28, y:29, kind:'wiring',   name:'전선 잇기',      part:true },
-  { id:'t_wire_a',  room:'admin',  x:56, y:27, kind:'wiring',   name:'전선 잇기',      part:true },
+  /* 전부 벽에 붙어 있다 — 덕몽어스처럼 '벽의 가구를 만지는' 감각.
+   * wall: 가구가 걸린/붙은 벽. 문(복도 개구부)은 피해서 배치했다. */
+  { id:'t_wire_e',  room:'elect',  x:24, y:42, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_c',  room:'cafe',   x:49, y:16, wall:'W', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_n',  room:'navig',  x:93, y:27, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_s',  room:'secur',  x:27, y:28, wall:'N', kind:'wiring',   name:'전선 잇기',      part:true },
+  { id:'t_wire_a',  room:'admin',  x:55, y:27, wall:'W', kind:'wiring',   name:'전선 잇기',      part:true },
 
-  { id:'t_card',    room:'admin',  x:64, y:32, kind:'card',     name:'출근 카드 찍기' },
-  { id:'t_swipe2',  room:'cafe',   x:67, y: 6, kind:'keypad',   name:'사료통 잠금해제' },
-  { id:'t_gar_c',   room:'cafe',   x:49, y:18, kind:'garbage',  name:'거름 치우기',    chainNext:'t_gar_s' },
-  { id:'t_gar_s',   room:'store',  x:50, y:53, kind:'garbage',  name:'거름 치우기',    chainHidden:true },
-  { id:'t_fuel1',   room:'store',  x:38, y:42, kind:'fuel',     name:'경유 채우기',    chainNext:'t_fuel2' },
-  { id:'t_fuel2',   room:'upeng',  x: 8, y: 8, kind:'fuel',     name:'경유 채우기',    chainHidden:true, chainNext:'t_fuel3' },
-  { id:'t_fuel3',   room:'loweng', x: 8, y:54, kind:'fuel',     name:'경유 채우기',    chainHidden:true },
-  { id:'t_align1',  room:'upeng',  x:20, y:16, kind:'align',    name:'트랙터 정비' },
-  { id:'t_align2',  room:'loweng', x:20, y:46, kind:'align',    name:'트랙터 정비' },
-  { id:'t_ast',     room:'weapon', x:80, y: 6, kind:'asteroid', name:'까마귀 쫓기',    vis:true },
-  { id:'t_shield',  room:'shield', x:78, y:44, kind:'shields',  name:'울타리 점검',    vis:true },
-  { id:'t_scan',    room:'medbay', x:31, y:11, kind:'scan',     name:'건강 검진',      vis:true },
-  { id:'t_sample',  room:'medbay', x:38, y:10, kind:'sample',   name:'우유 검사' },
-  { id:'t_dl',      room:'comms',  x:58, y:46, kind:'download', name:'주문서 받기',    chainNext:'t_up' },
-  { id:'t_up',      room:'admin',  x:60, y:33, kind:'download', name:'주문서 보내기',  chainHidden:true, up:true },
-  { id:'t_leaf',    room:'oxygen', x:76, y:22, kind:'leaves',   name:'여물통 청소' },
-  { id:'t_div1',    room:'elect',  x:32, y:50, kind:'divert',   name:'전력 분배' },
-  { id:'t_div2',    room:'react',  x: 6, y:35, kind:'divert',   name:'물길 돌리기' },
-  { id:'t_chart',   room:'navig',  x:96, y:28, kind:'chart',    name:'양떼 몰기' },
-  { id:'t_cal',     room:'react',  x:15, y:26, kind:'calib',    name:'물레방아 보정' },
-  { id:'t_temp1',   room:'loweng', x:18, y:53, kind:'temp',     name:'온도 조정' },
-  { id:'t_temp2',   room:'oxygen', x:83, y:27, kind:'temp',     name:'온도 조정' },
-  { id:'t_secur',   room:'secur',  x:35, y:34, kind:'records',  name:'출입 기록 정리' },
-  { id:'t_shoot',   room:'weapon', x:90, y:13, kind:'keypad',   name:'창고 잠금해제' },
-  { id:'t_store',   room:'store',  x:44, y:53, kind:'sort',     name:'곡물 분류' },
+  { id:'t_card',    room:'admin',  x:60, y:26, wall:'N', kind:'card',     name:'출근 카드 찍기' },
+  { id:'t_swipe2',  room:'cafe',   x:68, y:13, wall:'E', kind:'keypad',   name:'사료통 잠금해제' },
+  { id:'t_gar_c',   room:'cafe',   x:55, y:18, wall:'S', kind:'garbage',  name:'거름 치우기',    chainNext:'t_gar_s' },
+  { id:'t_gar_s',   room:'store',  x:50, y:52, wall:'E', kind:'garbage',  name:'거름 치우기',    chainHidden:true },
+  { id:'t_fuel1',   room:'store',  x:37, y:44, wall:'W', kind:'fuel',     name:'경유 채우기',    chainNext:'t_fuel2' },
+  { id:'t_fuel2',   room:'upeng',  x: 8, y: 7, wall:'N', kind:'fuel',     name:'경유 채우기',    chainHidden:true, chainNext:'t_fuel3' },
+  { id:'t_fuel3',   room:'loweng', x: 8, y:54, wall:'S', kind:'fuel',     name:'경유 채우기',    chainHidden:true },
+  { id:'t_align1',  room:'upeng',  x:20, y:16, wall:'E', kind:'align',    name:'트랙터 정비' },
+  { id:'t_align2',  room:'loweng', x:20, y:52, wall:'E', kind:'align',    name:'트랙터 정비' },
+  { id:'t_ast',     room:'weapon', x:80, y: 5, wall:'N', kind:'asteroid', name:'까마귀 쫓기',    vis:true },
+  { id:'t_shield',  room:'shield', x:78, y:51, wall:'S', kind:'shields',  name:'울타리 점검',    vis:true },
+  { id:'t_scan',    room:'medbay', x:29, y:16, wall:'W', kind:'scan',     name:'건강 검진',      vis:true },
+  { id:'t_sample',  room:'medbay', x:37, y: 9, wall:'N', kind:'sample',   name:'우유 검사' },
+  { id:'t_dl',      room:'comms',  x:63, y:45, wall:'N', kind:'download', name:'주문서 받기',    chainNext:'t_up' },
+  { id:'t_up',      room:'admin',  x:56, y:33, wall:'S', kind:'download', name:'주문서 보내기',  chainHidden:true, up:true },
+  { id:'t_leaf',    room:'oxygen', x:75, y:21, wall:'N', kind:'leaves',   name:'여물통 청소' },
+  { id:'t_div1',    room:'elect',  x:26, y:50, wall:'S', kind:'divert',   name:'전력 분배' },
+  { id:'t_div2',    room:'react',  x: 5, y:35, wall:'W', kind:'divert',   name:'전력 분배' },
+  { id:'t_chart',   room:'navig',  x:97, y:30, wall:'E', kind:'chart',    name:'양떼 몰기' },
+  { id:'t_cal',     room:'react',  x:15, y:25, wall:'N', kind:'calib',    name:'물레방아 보정' },
+  { id:'t_temp1',   room:'loweng', x: 7, y:50, wall:'W', kind:'temp',     name:'온도 조정' },
+  { id:'t_temp2',   room:'oxygen', x:80, y:27, wall:'S', kind:'temp',     name:'온도 조정' },
+  { id:'t_secur',   room:'secur',  x:34, y:34, wall:'S', kind:'records', name:'출입 기록 정리' },
+  { id:'t_shoot',   room:'weapon', x:90, y: 8, wall:'E', kind:'keypad',   name:'창고 잠금해제' },
+  { id:'t_store',   room:'store',  x:44, y:53, wall:'S', kind:'sort',     name:'곡물 분류' },
 ].map(t => ({ ...t, wx: t.x * TILE + TILE / 2, wy: t.y * TILE + TILE / 2 }));
 
 /* ---- 사보타주 지점 --------------------------------------------------------*/

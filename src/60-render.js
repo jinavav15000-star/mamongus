@@ -83,6 +83,11 @@ const Render = {
     this.addFx({ kind:'emoji', delay: 260, x: x + back * 22, y: y + 2, vx: back * .3, vy: -.6, r: 11, life: 1000, txt: '💨' });
   },
 
+  /** 사물함 문 활짝 → 쾅 (드나들 때, 근처 전원에게 보임) */
+  doorSwing(x, y) {
+    this.addFx({ kind:'door', x, y: y - 22, life: 480 });
+  },
+
   /** 건초 들썩임 — 누가 드나들 때 더미가 눌렸다 튀어오른다 (근처 전원에게 보임) */
   hayBounce(x, y) {
     this.addFx({ kind:'hay', x, y, life: 520 });
@@ -130,6 +135,19 @@ const Render = {
         g.lineWidth = 3.5 * a + 1;
         g.beginPath(); g.arc(f.x, f.y, f.r0 + (f.r1 - f.r0) * p, 0, 6.283); g.stroke();
         g.globalAlpha = 1;
+      } else if (f.kind === 'door') {
+        // 두 짝 문이 활짝 열렸다가 닫힌다 (가로 스케일로 스윙 표현)
+        const open = Math.sin(Math.min(1, p * 1.6) * 3.14159);   // 0→1→0
+        g.save(); g.translate(f.x, f.y);
+        for (const dir of [-1, 1]) {
+          g.save();
+          g.translate(dir * 1.5, 0);
+          g.scale(1 - open * 0.85, 1);
+          g.fillStyle = '#6a675e';
+          g.fillRect(dir === -1 ? -15 : 0, -6, 15, 46);
+          g.restore();
+        }
+        g.restore();
       } else if (f.kind === 'hay') {
         // 눌림 → 반동: sin 곡선으로 세로 스케일이 출렁인다
         const sq = 1 + Math.sin(p * 3.14159 * 2) * 0.16 * (1 - p);
@@ -407,13 +425,22 @@ const Render = {
    * 바닥의 노란 동그라미만으로는 "여기서 뭘 하는지"가 안 보인다는 피드백.
    * 종류별로 알아볼 수 있는 소품 + 나무 받침. 정적 레이어라 비용 0. */
   drawTaskProps(g) {
-    const P = TILE / 32;                      // 소품 크기 기준
+    // 가구는 벽에 붙는다: 스폿(서는 자리)에서 벽 쪽으로 밀어 그린다
+    const WALL_OFF = { N: [0, -20], S: [0, 14], E: [18, 0], W: [-18, 0] };
     for (const t of TASK_SPOTS) {
-      const x = t.wx, y = t.wy;
+      const [ox, oy] = WALL_OFF[t.wall] || [0, 0];
+      const x = t.wx + ox, y = t.wy + oy;
       g.save(); g.translate(x, y);
-      // 나무 받침(공통) — 발밑에 깔린 작업 판자
-      g.fillStyle = 'rgba(60,40,20,.55)';
-      g.beginPath(); g.ellipse(0, 12, 22, 8, 0, 0, 6.283); g.fill();
+      // 북쪽 벽 가구는 벽에 '걸린' 판자 위에 얹는다 (액자 느낌)
+      if (t.wall === 'N') {
+        g.fillStyle = '#2b1a0a'; g.fillRect(-17, -26, 34, 30);
+        g.fillStyle = '#5c452e'; g.fillRect(-15, -24, 30, 26);
+      }
+      // 바닥 가구는 그림자
+      else {
+        g.fillStyle = 'rgba(60,40,20,.5)';
+        g.beginPath(); g.ellipse(0, 12, 20, 7, 0, 0, 6.283); g.fill();
+      }
       const box = (w, h, c1, c2, yo = 0) => {
         g.fillStyle = '#2b1a0a'; g.fillRect(-w/2 - 2, -h + 10 + yo - 2, w + 4, h + 4);
         const gr = g.createLinearGradient(0, -h + yo, 0, 10 + yo);
@@ -507,14 +534,56 @@ const Render = {
       }
       g.restore();
     }
-    // 숨는 건초더미는 소품이 이미 있으니 갈퀴만 살짝 꽂아 표시해 준다
+    // 숨는 가구 — 실내는 사물함, 야외는 건초수레. 벽에 붙어 있다.
     if (typeof HIDE_SPOTS !== 'undefined') for (const hs of HIDE_SPOTS) {
-      g.save(); g.translate(hs.wx, hs.wy);
-      g.strokeStyle = '#6a4522'; g.lineWidth = 3; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(20, -26); g.lineTo(30, 2); g.stroke();
-      g.strokeStyle = '#8a8578'; g.lineWidth = 2;
-      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(20 + i * 3.4, -26); g.lineTo(19 + i * 4.4, -34); g.stroke(); }
+      const [ox, oy] = WALL_OFF[hs.wall] || [0, 0];
+      g.save(); g.translate(hs.wx + ox * 1.1, hs.wy + oy * 1.1);
+      if (hs.type === 'locker') this.drawLocker(g);
+      else this.drawHayCart(g);
       g.restore();
+    }
+  },
+
+  /** 사물함 — 두 짝 문, 환기 슬릿, 손잡이 */
+  drawLocker(g) {
+    g.fillStyle = 'rgba(0,0,0,.4)';
+    g.beginPath(); g.ellipse(0, 22, 20, 6, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#2b1a0a'; g.fillRect(-18, -30, 36, 52);
+    const gr = g.createLinearGradient(0, -28, 0, 20);
+    gr.addColorStop(0, '#8a8578'); gr.addColorStop(1, '#55524a');
+    g.fillStyle = gr; g.fillRect(-16, -28, 32, 48);
+    g.fillStyle = '#3c3a34'; g.fillRect(-1, -28, 2, 48);      // 문 사이 틈
+    g.fillStyle = 'rgba(20,18,14,.7)';
+    for (const dy of [-20, -14]) { g.fillRect(-12, dy, 9, 2.2); g.fillRect(3, dy, 9, 2.2); }
+    g.fillStyle = '#c9b26a';                                  // 손잡이
+    g.fillRect(-5, -4, 3, 7); g.fillRect(2, -4, 3, 7);
+    g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(-16, -28, 32, 6);
+  },
+
+  /** 건초수레 — 바퀴 달린 수레에 수북한 건초 */
+  drawHayCart(g) {
+    g.fillStyle = 'rgba(0,0,0,.4)';
+    g.beginPath(); g.ellipse(0, 18, 28, 7, 0, 0, 6.283); g.fill();
+    // 바퀴
+    for (const wx of [-16, 16]) {
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(wx, 12, 8, 0, 6.283); g.fill();
+      g.fillStyle = '#4e3319'; g.beginPath(); g.arc(wx, 12, 5.5, 0, 6.283); g.fill();
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(wx, 12, 1.8, 0, 6.283); g.fill();
+    }
+    // 수레 몸통
+    g.fillStyle = '#2b1a0a'; g.fillRect(-24, -4, 48, 16);
+    g.fillStyle = '#7d5730'; g.fillRect(-22, -2, 44, 12);
+    g.fillStyle = '#5c452e'; for (const bx of [-14, -2, 10]) g.fillRect(bx, -2, 2.5, 12);
+    // 건초
+    g.fillStyle = '#2b1a0a';
+    g.beginPath(); g.ellipse(0, -10, 26, 14, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#d9b25f';
+    g.beginPath(); g.ellipse(0, -10, 23, 11.5, 0, 0, 6.283); g.fill();
+    g.fillStyle = '#e8c87a';
+    g.beginPath(); g.ellipse(-6, -14, 12, 6, -0.25, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(140,100,40,.55)'; g.lineWidth = 1.5;
+    for (const [a, b, c, d] of [[-14,-8,-5,-13],[3,-16,10,-8],[-3,-5,7,-3]]) {
+      g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke();
     }
   },
 
@@ -1092,19 +1161,23 @@ const Render = {
     });
     // 근접한 건초더미 — 더미 자체가 살며시 빛나고 🌾 핀이 뜬다 (내 화면에만)
     if (!ghostView && me.alive && !me.ventId && !me.hideId && typeof HIDE_SPOTS !== 'undefined') {
+      const OFF = { N: [0, -22], S: [0, 15], E: [20, 0], W: [-20, 0] };
       for (const hs of HIDE_SPOTS) {
         const d = Math.hypot(me.x - hs.wx, me.y - hs.wy);
         if (d > 120) continue;
         const near = d < 80;
+        const [fx2, fy2] = OFF[hs.wall] || [0, 0];
+        const cx2 = hs.wx + fx2 * 1.1, cy2 = hs.wy + fy2 * 1.1;
         g.save();
         g.shadowColor = `rgba(226,195,122,${near ? .8 : .35})`; g.shadowBlur = 22;
         g.strokeStyle = `rgba(226,195,122,${near ? .6 : .2})`; g.lineWidth = 2.5;
-        g.beginPath(); g.ellipse(hs.wx, hs.wy - 2, 42, 30, 0, 0, 6.283); g.stroke();
+        if (hs.type === 'locker') { g.beginPath(); g.roundRect(cx2 - 19, cy2 - 32, 38, 56, 6); g.stroke(); }
+        else { g.beginPath(); g.ellipse(cx2, cy2 - 6, 30, 24, 0, 0, 6.283); g.stroke(); }
         g.restore();
         if (near) {
           const bob = Math.sin(performance.now() / 300) * 4;
           g.font = '700 17px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
-          g.fillText('🌾', hs.wx, hs.wy - 52 + bob);
+          g.fillText(hs.type === 'locker' ? '🚪' : '🌾', cx2, cy2 - (hs.type === 'locker' ? 48 : 40) + bob);
         }
       }
     }
@@ -1115,7 +1188,11 @@ const Render = {
     const meHidden = !!me.hideId;
     const chars = [...drawList, ...((me.ventId || meHidden) ? [] : [state.me])].sort((a, b) => a.y - b.y);
     for (const p of chars) this.drawDuck(g, p, state, p.id === state.me.id);
-    if (meHidden) this.drawInHay(g, state.me);
+    if (meHidden) {
+      const hs = typeof HIDE_SPOTS !== 'undefined' ? HIDE_SPOTS.find(h => h.id === me.hideId) : null;
+      if (hs?.type === 'locker') this.drawInLocker(g, state.me);
+      else this.drawInHay(g, state.me);
+    }
 
     /* 연출 */
     {
@@ -1447,6 +1524,22 @@ const Render = {
   },
 
   /** 건초에 숨은 나 — 더미 위에 눈만 빼꼼. 남에게는 안 그려진다(서버 컬링) */
+  /** 사물함 속의 나 — 문틈으로 눈만 */
+  drawInLocker(g, me) {
+    const t = performance.now();
+    const blink = (t % 3600) < 140 ? 0.15 : 1;
+    g.save(); g.translate(me.x, me.y - 8);
+    g.fillStyle = 'rgba(8,6,4,.9)';
+    g.fillRect(-2.2, -16, 4.4, 34);                       // 살짝 벌어진 문틈
+    g.fillStyle = `rgba(255,235,170,${0.95 * blink})`;
+    g.beginPath(); g.ellipse(0, -6, 1.6, 2.2 * blink, 0, 0, 6.283); g.fill();
+    g.restore();
+    g.font = '700 11.5px "Pretendard", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(me.x - 33, me.y - 56, 66, 16);
+    g.fillStyle = '#c9c4b8'; g.fillText('🚪 숨는 중', me.x, me.y - 43);
+  },
+
   drawInHay(g, me) {
     const t = performance.now();
     const breathe = 1 + Math.sin(t / 700) * 0.02;

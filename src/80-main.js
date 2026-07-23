@@ -469,14 +469,20 @@ const Game = {
         }
         break;
       case 'shieldblock': Sfx.fixed(); break;
-      case 'rustle':                            // 건초 부스럭 — 근처에만 들린다
+      case 'rustle': {                          // 숨는 소리 — 근처에만 들린다
         if (G.me && m.at && Math.hypot(G.me.x - m.at.x, G.me.y - m.at.y) < 420) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y);
+          const hs = HIDE_SPOTS.find(h => Math.hypot(h.wx - m.at.x, h.wy - m.at.y) < 40);
+          if (hs?.type === 'locker') { Sfx.creak(); Render.doorSwing(m.at.x, m.at.y); }
+          else { Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 6); Render.hayBounce(m.at.x, m.at.y); }
         }
         break;
+      }
       case 'flushed':                           // 수색당해 튀어나옴
         if (G.me && m.at) {
-          Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); Render.shake = 5;
+          const hs = HIDE_SPOTS.find(h => Math.hypot(h.wx - m.at.x, h.wy - m.at.y) < 40);
+          if (hs?.type === 'locker') { Sfx.creak(); Render.doorSwing(m.at.x, m.at.y); }
+          else { Sfx.rustle(); Render.strawBurst(m.at.x, m.at.y, 16); Render.hayBounce(m.at.x, m.at.y); }
+          Render.shake = 5;
         }
         break;
       case 'vent':                              // 소리만. 누가 탔는지는 오지 않는다

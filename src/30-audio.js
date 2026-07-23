@@ -49,6 +49,13 @@ const Sfx = {
   },
 
   click()      { this.tone(880, 0.05, 'square', 0, 660, 0.35); },
+  /** 사물함 끼익 + 쾅 */
+  creak() {
+    this.tone(280, 0.28, 'sawtooth', 0, 180, 0.18);
+    this.tone(190, 0.2, 'sawtooth', 0.05, 240, 0.14);
+    this.noise(0.06, 500, 0.5, 200);
+    setTimeout(() => this.noise(0.08, 350, 0.6, 150), 380);   // 닫히는 쾅
+  },
   /** 건초 부스럭 */
   rustle() { this.noise(0.16, 2600, 0.4, 900); this.noise(0.12, 1900, 0.3, 700); },
   /** 인사 — 밝게 두 번 통통 */
