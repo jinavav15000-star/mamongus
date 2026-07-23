@@ -110,10 +110,11 @@ function setup() {
   G.myRole = 'goose'; G.myTasks = []; G.privateLog = []; G.abilityUses = 0;
   G.abilityCdEnd = 0; G.killCdEnd = 0; G.mySample = null; G.dragging = null;
   G.order = ['me', 'p2', 'p3'];
+  // seen 은 스냅샷이 채운다. true = 지금 내 시야 안(좌표가 최신)
   G.players = {
-    me: { id:'me', name:'나',   color:'red',   alive:true, x: A.EMERGENCY_BTN.wx, y: A.EMERGENCY_BTN.wy },
-    p2: { id:'p2', name:'파랑', color:'blue',  alive:true, x: A.EMERGENCY_BTN.wx + 60, y: A.EMERGENCY_BTN.wy },
-    p3: { id:'p3', name:'초록', color:'green', alive:true, x: 200, y: 200 },
+    me: { id:'me', name:'나',   color:'red',   alive:true, seen:true, x: A.EMERGENCY_BTN.wx, y: A.EMERGENCY_BTN.wy },
+    p2: { id:'p2', name:'파랑', color:'blue',  alive:true, seen:true, x: A.EMERGENCY_BTN.wx + 60, y: A.EMERGENCY_BTN.wy },
+    p3: { id:'p3', name:'초록', color:'green', alive:true, seen:true, x: 200, y: 200 },
   };
   G.me = G.players.me;
   return G.players;
@@ -522,6 +523,30 @@ section('렌더러 실행');
     });
   } catch (e) { err = String(e); }
   ok('미니맵 렌더 가능 (사무실·카메라 모드)', err === null, err);
+}
+
+/* ---- 시야에서 사라진 사람의 낡은 좌표 -------------------------------------*/
+section('사라진 사람의 낡은 좌표');
+{
+  const P = setup();
+  G.myRole = 'duck'; G.killCdEnd = 0; G.me.ventId = null;
+
+  // p2 는 지금 안 보이지만(스냅샷에 없음) 마지막으로 본 위치가 코앞이다.
+  // p3 는 지금 실제로 보이고 조금 더 멀다.
+  P.p2.x = G.me.x + 20;  P.p2.y = G.me.y; P.p2.seen = false; P.p2.alive = true;
+  P.p3.x = G.me.x + 70;  P.p3.y = G.me.y; P.p3.seen = true;  P.p3.alive = true;
+
+  const tgt = Game.nearestPlayer(G.me, 200);
+  ok('안 보이는 사람은 대상으로 잡지 않는다', tgt?.id === 'p3', tgt?.id);
+
+  sent.length = 0;
+  Game.doKill();
+  ok('실제로 보이는 사람에게 살해를 보낸다',
+     sent.some(s => s.t === 'kill' && s.d.target === 'p3'), sent.filter(s => s.t === 'kill'));
+
+  // 동선 기록도 안 보이는 사람을 목격했다고 적으면 안 된다
+  const vis = Game.visibleOthers(G.me).map(p => p.id);
+  ok('목격 목록에도 안 보이는 사람은 없다', !vis.includes('p2') && vis.includes('p3'), vis);
 }
 
 /* ---- 버튼 반응성 · 벤트 은신 ----------------------------------------------*/

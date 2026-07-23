@@ -506,7 +506,7 @@ const Game = {
     const out = [];
     for (const id in G.players) {
       const p = G.players[id];
-      if (id === G.myId || !p.alive || p.ventId) continue;
+      if (id === G.myId || !p.alive || p.ventId || !p.seen) continue;   // 낡은 좌표 제외
       if (Math.hypot(p.x - me.x, p.y - me.y) > R) continue;
       if (lineBlocked(me.x, me.y, p.x, p.y)) continue;
       out.push(p);
@@ -647,6 +647,10 @@ const Game = {
     for (const id in G.players) {
       const p = G.players[id];
       if (id === G.myId || !p.alive || p.ventId) continue;
+      // ⚠️ 지금 스냅샷에 없는 사람(=시야 밖)은 좌표가 마지막으로 본 자리에 멈춰 있다.
+      //    이걸 거르지 않으면 이미 떠난 사람이 '가장 가까운 대상'으로 잡혀
+      //    방장이 "너무 멀다"로 거부한다 → 옆에 다른 양이 있으면 살해가 안 먹던 원인.
+      if (!p.seen) continue;
       const d = Math.hypot(p.x - me.x, p.y - me.y);
       if (d < bd) { bd = d; best = p; }
     }

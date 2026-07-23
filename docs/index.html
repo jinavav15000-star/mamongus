@@ -4677,6 +4677,7 @@ const Render = {
       if (ghostView) return true;
       if (!p.alive) return false;                       // 유령은 산 사람에게 안 보임
       if (p.ventId) return false;
+      if (!p.seen) return false;                        // 스냅샷에 없다 = 지금 없는 사람 (좌표가 낡음)
       return this.inView(p.x, p.y, me, R, poly);
     });
     for (const p of drawList) this.drawDuck(g, p, state, false);
@@ -4817,7 +4818,7 @@ const Render = {
     };
     const headPath = (grow) => {
       g.beginPath();
-      g.ellipse(9.2, -9.5, 8.0 + grow, 9.1 + grow, 0.18, 0, 6.283);
+      g.ellipse(10, -10, 9.8 + grow, 10.8 + grow, 0.16, 0, 6.283);
     };
 
     /* ── 다리 ──
@@ -4854,73 +4855,72 @@ const Render = {
     sh.addColorStop(0.45, 'rgba(255,255,255,0)');
     sh.addColorStop(1, 'rgba(0,0,0,.26)');
     g.fillStyle = sh; g.fillRect(-24, -24, 48, 44);
-    // 털 뭉치 결 — 혹 경계에 옅은 그림자를 넣어 덩어리감을 준다
-    g.strokeStyle = 'rgba(0,0,0,.13)'; g.lineWidth = 2;
-    for (const [bx, by, br] of BUMPS) { g.beginPath(); g.arc(bx, by, br, 0.6, 2.6); g.stroke(); }
     g.restore();
-    // 정수리 하이라이트
-    g.fillStyle = 'rgba(255,255,255,.26)';
-    g.beginPath(); g.ellipse(-4, -6, 7, 4.4, -0.3, 0, 6.283); g.fill();
+    // 매끈한 정수리 하이라이트 하나만 (혹마다 그림자를 넣으면 우둘투둘해 보인다)
+    g.fillStyle = 'rgba(255,255,255,.3)';
+    g.beginPath(); g.ellipse(-4, -6.5, 8, 5, -0.3, 0, 6.283); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.16)';
+    g.beginPath(); g.ellipse(-8, 1, 5, 6.5, -0.2, 0, 6.283); g.fill();
 
     /* ── 뒤 귀 (머리 뒤로 살짝) ── */
     g.fillStyle = OUT;
-    g.beginPath(); g.ellipse(3.4, -13.6, 5.6, 3.2, -0.55, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(3.6, -15, 6, 3.4, -0.55, 0, 6.283); g.fill();
     g.fillStyle = FACE_D;
-    g.beginPath(); g.ellipse(3.4, -13.6, 4.2, 2.1, -0.55, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(3.6, -15, 4.5, 2.2, -0.55, 0, 6.283); g.fill();
 
     /* ── 얼굴 ──
      * 검정·남색 양은 머리와 몸이 한 덩어리로 뭉개졌다.
      * 얼굴 둘레에 밝은 테두리를 둘러 어떤 털색에서도 머리가 떠 보이게 한다. */
     g.fillStyle = OUT; headPath(2.6); g.fill();
-    g.fillStyle = 'rgba(255,238,208,.5)'; headPath(1.3); g.fill();    // 분리용 밝은 테
+    g.fillStyle = 'rgba(255,238,208,.4)'; headPath(1.0); g.fill();    // 분리용 밝은 테
     g.fillStyle = FACE; headPath(0); g.fill();
     // 얼굴 음영
     g.save(); headPath(0); g.clip();
     g.fillStyle = FACE_L;
-    g.beginPath(); g.ellipse(10.5, -12.8, 6.4, 4.6, 0.2, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(11.5, -13.6, 7.6, 5.4, 0.2, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(0,0,0,.22)';
-    g.beginPath(); g.ellipse(6, -3.4, 7.4, 4.6, 0.2, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(6.5, -3.2, 8.4, 5.2, 0.2, 0, 6.283); g.fill();
     g.restore();
 
     /* ── 앞 귀 (아래로 처진 잎사귀) ── */
     g.fillStyle = OUT;
-    g.beginPath(); g.ellipse(1.6, -6.2, 4.4, 6.6, 0.5, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(1.4, -6.4, 4.8, 7.2, 0.5, 0, 6.283); g.fill();
     g.fillStyle = FACE;
-    g.beginPath(); g.ellipse(1.9, -6.4, 3.1, 5.2, 0.5, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(1.7, -6.6, 3.4, 5.8, 0.5, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(0,0,0,.25)';
-    g.beginPath(); g.ellipse(2.2, -6.6, 1.5, 3.2, 0.5, 0, 6.283); g.fill();
+    g.beginPath(); g.ellipse(2, -6.8, 1.6, 3.5, 0.5, 0, 6.283); g.fill();
 
     /* ── 머리 위 양털 모자 ── */
     g.fillStyle = OUT;
-    g.beginPath(); g.arc(6.4, -17, 6.1, 0, 6.283); g.arc(12, -18, 5.5, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(6.6, -18.6, 6.4, 0, 6.283); g.arc(12.6, -19.6, 5.8, 0, 6.283); g.fill();
     g.fillStyle = col.hex;
-    g.beginPath(); g.arc(6.4, -17, 4.4, 0, 6.283); g.fill();
-    g.beginPath(); g.arc(12, -18, 3.8, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(6.6, -18.6, 4.6, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(12.6, -19.6, 4, 0, 6.283); g.fill();
     g.fillStyle = 'rgba(255,255,255,.22)';
-    g.beginPath(); g.arc(5.4, -18.2, 2.4, 0, 6.283); g.fill();
+    g.beginPath(); g.arc(5.6, -19.8, 2.5, 0, 6.283); g.fill();
 
     /* ── 눈·코 ── */
     if (dead) {
       g.strokeStyle = '#efe8f2'; g.lineWidth = 2.1; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(6, -13); g.lineTo(11, -8); g.moveTo(11, -13); g.lineTo(6, -8); g.stroke();
+      g.beginPath(); g.moveTo(6, -14); g.lineTo(12.5, -7.5); g.moveTo(12.5, -14); g.lineTo(6, -7.5); g.stroke();
     } else {
       const lookX = moving ? 1.1 : Math.sin(t / 900) * 0.8;
       const blink = (t % 4200) < 130 ? 0.12 : 1;      // 가끔 깜빡인다
       g.fillStyle = OUT;
-      g.beginPath(); g.ellipse(8.6, -10.6, 4.6, 5.1 * blink + 0.4, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(9.2, -11, 6.1, 6.7 * blink + 0.5, 0, 0, 6.283); g.fill();
       g.fillStyle = '#fff';
-      g.beginPath(); g.ellipse(8.6, -10.6, 3.6, 4.1 * blink, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(9.2, -11, 4.9, 5.5 * blink, 0, 0, 6.283); g.fill();
       if (blink > 0.5) {
         g.fillStyle = '#171322';
-        g.beginPath(); g.arc(9.5 + lookX, -10.1, 2.05, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(10.4 + lookX, -10.4, 2.9, 0, 6.283); g.fill();
         g.fillStyle = 'rgba(255,255,255,.95)';
-        g.beginPath(); g.arc(10.3 + lookX, -11.2, 0.9, 0, 6.283); g.fill();
+        g.beginPath(); g.arc(11.5 + lookX, -11.8, 1.25, 0, 6.283); g.fill();
       }
       // 주둥이 + 코
       g.fillStyle = FACE_L;
-      g.beginPath(); g.ellipse(14.6, -5.6, 3.1, 2.6, 0.25, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(14.2, -4.6, 3.6, 3.1, 0.25, 0, 6.283); g.fill();
       g.fillStyle = FACE_D;
-      g.beginPath(); g.ellipse(15.5, -5.8, 1.8, 1.3, 0.3, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(15.2, -4.8, 2, 1.5, 0.3, 0, 6.283); g.fill();
     }
   },
 
@@ -4952,10 +4952,6 @@ const Render = {
     if (p.shielded) {
       g.strokeStyle = 'rgba(120,220,255,.85)'; g.lineWidth = 2.5;
       g.beginPath(); g.arc(0, -2, 25 + Math.sin(t / 260) * 1.6, 0, 6.283); g.stroke();
-    }
-    if (isMe) {
-      g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.setLineDash([4, 5]);
-      g.beginPath(); g.arc(0, -2, 27, 0, 6.283); g.stroke(); g.setLineDash([]);
     }
     if (state.duckMates?.includes(p.id) && !isMe) {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center';
@@ -6843,7 +6839,7 @@ const Game = {
     const out = [];
     for (const id in G.players) {
       const p = G.players[id];
-      if (id === G.myId || !p.alive || p.ventId) continue;
+      if (id === G.myId || !p.alive || p.ventId || !p.seen) continue;   // 낡은 좌표 제외
       if (Math.hypot(p.x - me.x, p.y - me.y) > R) continue;
       if (lineBlocked(me.x, me.y, p.x, p.y)) continue;
       out.push(p);
@@ -6984,6 +6980,10 @@ const Game = {
     for (const id in G.players) {
       const p = G.players[id];
       if (id === G.myId || !p.alive || p.ventId) continue;
+      // ⚠️ 지금 스냅샷에 없는 사람(=시야 밖)은 좌표가 마지막으로 본 자리에 멈춰 있다.
+      //    이걸 거르지 않으면 이미 떠난 사람이 '가장 가까운 대상'으로 잡혀
+      //    방장이 "너무 멀다"로 거부한다 → 옆에 다른 양이 있으면 살해가 안 먹던 원인.
+      if (!p.seen) continue;
       const d = Math.hypot(p.x - me.x, p.y - me.y);
       if (d < bd) { bd = d; best = p; }
     }
