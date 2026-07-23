@@ -348,6 +348,7 @@ const Game = {
     if (G.phase === 'lobby') {
       // 대기실 = 걸어다니는 맵. 옛 로비 화면은 ☰ 패널로 남는다.
       if (UI.screen !== 'game') { UI.show('game'); Render.resize(); Meeting.clearChat(); UI.hintLobbyMenu(); }
+      Bgm.play('lobby');
       $('#screen-game').classList.add('lobby-mode');
       $('#lobby-hud').classList.remove('hidden');
       $('#btn-chat').classList.remove('hidden');
@@ -359,6 +360,7 @@ const Game = {
       $('#lobby-hud').classList.add('hidden');
       $('#btn-chat').classList.remove('hidden');
       UI.closeLobbyPanel();
+      if (UI.screen === 'game') Bgm.play('play');
       UI.renderTaskBar(); UI.renderTaskList(); this.updateAlert();
     }
     else if (G.phase === 'meeting') {
@@ -438,11 +440,12 @@ const Game = {
         }
         break;
       }
-      case 'meeting': Sfx.bodyFound(); Render.shake = 12; break;   // 종이 울리면 화면이 덜컹
+      case 'meeting': Sfx.bodyFound(); Render.shake = 12; Bgm.play('meeting'); break;   // 종이 울리면 화면이 덜컹
       case 'votestart': Sfx.alarm(); Meeting.render({ meeting: G.meeting }); break;
       case 'voted': Sfx.vote(); break;
-      case 'ejectresult': UI.playEject(m); break;
+      case 'ejectresult': Bgm.stop(); UI.playEject(m); break;
       case 'resume':
+        Bgm.play('play');
         UI.closeAllModals(); UI.show('game'); Render.resize(); Trail.reset(); Meeting.myVote = null;
         UI.toast('라운드 ' + G.round + ' 시작', 2200);
         break;
@@ -460,7 +463,7 @@ const Game = {
         if (roomIdAt(G.me?.x, G.me?.y) === m.room) { UI.toast('🚪 문이 잠겼습니다!', 2600); Render.shake = 7; }
         break;
       case 'tolobby': UI.closeAllModals(); UI.show('game'); Render.resize(); Meeting.clearChat(); G.myRole = null; break;
-      case 'over': UI.showResult(m.result); break;
+      case 'over': Bgm.stop(); UI.showResult(m.result); break;
     }
   },
 
@@ -612,6 +615,10 @@ const Game = {
       if (dx) me.dir = dx > 0 ? 1 : -1;
     }
     me.moving = moving;
+    if (moving && (!this._stepAt || Date.now() - this._stepAt > 300)) {
+      this._stepAt = Date.now();
+      Sfx.step();
+    }
     if (now() - this.lastPosSent > 66) {
       this.lastPosSent = now();
       Net.toHost('pos', { x: Math.round(me.x), y: Math.round(me.y), d: me.dir, mv: moving });

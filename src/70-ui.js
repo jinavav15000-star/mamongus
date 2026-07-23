@@ -584,9 +584,12 @@ const UI = {
     root.appendChild(fsBtn);
     if (!Viewport.lockOk && Viewport.isPhone)
       root.appendChild(h('div', { cls:'tiny dim' }, '이 기기는 가로 고정이 지원되지 않아, 폰을 눕히면 가로로 전환됩니다.'));
-    const sfxBtn = h('button', { cls:'btn', onclick: () => { Sfx.muted = !Sfx.muted; sfxBtn.textContent = Sfx.muted ? '🔇 효과음 꺼짐' : '🔊 효과음 켜짐'; } },
+    const sfxBtn = h('button', { cls:'btn', onclick: () => { Sfx.setMuted(!Sfx.muted); sfxBtn.textContent = Sfx.muted ? '🔇 효과음 꺼짐' : '🔊 효과음 켜짐'; } },
       Sfx.muted ? '🔇 효과음 꺼짐' : '🔊 효과음 켜짐');
+    const bgmBtn = h('button', { cls:'btn', onclick: () => { Bgm.setEnabled(!Bgm.enabled); bgmBtn.textContent = Bgm.enabled ? '🎵 배경음악 켜짐' : '🎵 배경음악 꺼짐'; } },
+      Bgm.enabled ? '🎵 배경음악 켜짐' : '🎵 배경음악 꺼짐');
     root.appendChild(sfxBtn);
+    root.appendChild(bgmBtn);
     const vBtn = h('button', { cls:'btn' + (Voice.enabled ? ' primary' : ''), onclick: async () => {
       if (Voice.enabled) { Voice.disable(); vBtn.textContent = '🎙️ 음성채팅 켜기'; vBtn.classList.remove('primary'); UI.toast('음성채팅을 껐습니다.'); }
       else {
