@@ -28,6 +28,7 @@ const G = {
   doors: {},                 // roomId -> unlockAt(ms)
   taskBar: { done: 0, total: 0 },
   myId: null, myRole: null, myTasks: [], myVentId: null,
+  spectate: null,            // 유령 관전 — 따라가는 플레이어 id (클라 전용, 서버로 안 감)
   ducksKnown: [], loversKnown: [],
   hostId: null,
   successor: null,           // 방장이 사라지면 이 사람이 이어받는다

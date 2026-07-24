@@ -49,6 +49,10 @@ const Game = {
     $('#btn-map').onclick = () => UI.openMap('map');
     $('#btn-menu').onclick = () => UI.openMenu();
     $('#btn-ghostchat').onclick = () => Meeting.openGhostChat();
+    // 유령 관전 — ◀▶ 로 산 사람을 넘겨가며 따라간다. pointerdown(즉각 반응).
+    onPress($('#spec-prev'), () => Game.spectNext(-1));
+    onPress($('#spec-next'), () => Game.spectNext(1));
+    onPress($('#spec-off'),  () => Game.spectStop());
     $('#chat-send').onclick = () => Meeting.send($('#chat-in').value);
     $('#chat-in').addEventListener('keydown', e => { if (e.key === 'Enter') Meeting.send(e.target.value); });
     const lobbySend = () => { const v = $('#lobby-chat-in').value.trim(); if (v) { Net.toHost('chat', { text: v }); $('#lobby-chat-in').value = ''; } };
@@ -444,6 +448,10 @@ const Game = {
       if (UI.screen !== 'meeting') Meeting.open(m); else Meeting.render(m);
     }
     else if (G.phase === 'over' && m.result) { if (UI.screen !== 'result') UI.showResult(m.result); }
+
+    // 관전은 게임(회의 포함) 중에만 유지된다. 로비·결과 화면에선 푼다.
+    if (G.phase !== 'play' && G.phase !== 'meeting') G.spectate = null;
+    UI.updateSpectateBar();
   },
 
   onSnap(m) {
@@ -489,6 +497,7 @@ const Game = {
     // 유령이거나 영매면 게임 중에도 유령 채팅을 쓸 수 있다
     $('#btn-ghostchat').classList.toggle('hidden', !(G.ghost || m.role === 'medium'));
     UI.buildActionButtons(); UI.renderRoleChip(); UI.renderTaskList();
+    UI.updateSpectateBar();                  // 방금 죽었으면 관전 바가 나타난다
   },
 
   onEvent(m) {
@@ -701,7 +710,10 @@ const Game = {
           pos[this.voicePeers[id]] = { x: q.x, y: q.y };
         }
         const deadSet = new Set(Object.entries(this.voicePeers).filter(([pid]) => !G.players[pid]?.alive).map(([, peer]) => peer));
-        Voice.update({ x: me.x, y: me.y }, pos, false, deadSet, !!G.ghost);
+        // 관전 중이면 '귀'도 따라가는 사람 자리에 둔다 — 그 주변 대화가 들린다
+        const specP = G.spectate ? G.players[G.spectate] : null;
+        const ear = specP?.alive ? { x: specP.rx ?? specP.x, y: specP.ry ?? specP.y } : { x: me.x, y: me.y };
+        Voice.update(ear, pos, false, deadSet, !!G.ghost);
       }
     } else if (UI.screen === 'meeting' && G.meeting) {
       Meeting.updateTimer(G.meeting);
@@ -711,6 +723,13 @@ const Game = {
   },
 
   stepMovement(me, dt) {
+    // 관전 중 — 내 유령은 그 자리에 서 있는다. 조이스틱을 움직이면 자유 이동으로 복귀.
+    if (G.spectate) {
+      me.moving = false;
+      const { dx, dy } = this.readInput();
+      if (dx || dy) Game.spectStop();
+      return;
+    }
     if (me.ventId) { me.moving = false; return; }
     if (me.hideId) {
       me.moving = false;
@@ -831,9 +850,12 @@ const Game = {
 
   render(me) {
     const others = Object.values(G.players);
+    const spec = this.spectTarget();         // 관전 대상 (죽으면 자동 승계)
     Render.draw({
       guides: this.buildGuides(me),
       me: { ...me, x: me.x, y: me.y },
+      cam: spec ? { x: spec.rx ?? spec.x, y: spec.ry ?? spec.y } : null,
+      spectate: !!spec,
       others: others.map(p => p.id === G.myId ? p : { ...p, x: p.rx ?? p.x, y: p.ry ?? p.y }),
       bodies: G.bodies, doors: G.doors, sabotage: G.sabotage,
       visionR: this.visionR() * (me.hideId ? 0.55 : 1), ghost: !!G.ghost, lobby: G.phase === 'lobby',
@@ -1053,6 +1075,40 @@ const Game = {
         break;
       }
     }
+  },
+
+  /* ═══════════ 유령 관전 ═══════════
+   * 유령은 서버가 전원 좌표를 보내주므로(시야 컬링 없음) 새 데이터가 필요 없다 —
+   * 카메라와 귀(음성 청취 위치)만 따라가는 사람에게 붙인다. */
+  spectList() {
+    return G.order.filter(id => id !== G.myId && G.players[id]?.alive);
+  },
+  /** 지금 따라가는 대상. 죽었거나 나갔으면 자동으로 다음 사람에게 넘어간다 */
+  spectTarget() {
+    if (!G.ghost || G.phase !== 'play' || !G.spectate) return null;
+    let t = G.players[G.spectate];
+    if (!t || !t.alive) {                    // 보던 사람이 죽었다 → 다음 산 사람
+      const list = this.spectList();
+      if (!list.length) { this.spectStop(); return null; }
+      G.spectate = list[0]; t = G.players[G.spectate];
+      UI.updateSpectateBar();
+    }
+    return t;
+  },
+  spectNext(dir) {
+    if (!G.ghost || G.phase !== 'play') return;
+    const list = this.spectList();
+    if (!list.length) return UI.toast('따라갈 사람이 없습니다.');
+    const i = list.indexOf(G.spectate);
+    G.spectate = i < 0 ? (dir > 0 ? list[0] : list[list.length - 1])
+                       : list[(i + dir + list.length) % list.length];
+    Sfx.click();
+    UI.updateSpectateBar();
+  },
+  spectStop() {
+    if (!G.spectate) return;
+    G.spectate = null;
+    UI.updateSpectateBar();
   },
 
   completeStep(tid) { Net.toHost('taskstep', { tid }); },

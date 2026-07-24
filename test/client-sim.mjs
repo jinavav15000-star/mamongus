@@ -87,7 +87,7 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, Game, UI, Meeting, Trail, QUICK, ROLES, roleInfo,
   TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, ADMIN_TABLE, VITALS_PANEL, CAMERA_PANEL,
-  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL };
+  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL, Voice };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -643,6 +643,84 @@ section('연출');
   try { R.fx = []; R.dustAt(0,0); R.sparkleAt(0,0); R.puffAt(0,0); R.ringAt(0,0); R.drawFx(ctx2d()); }
   catch (e) { fxErr = String(e); }
   ok('모든 파티클 종류가 그려진다', fxErr === null, fxErr);
+}
+
+/* ---- 유령 관전 · 유령 음성 -------------------------------------------------*/
+section('유령 관전');
+{
+  const P = setup();
+  G.ghost = true; G.phase = 'play'; P.me.alive = false;
+
+  ok('관전 후보 = 나를 뺀 산 사람', JSON.stringify(Game.spectList()) === JSON.stringify(['p2', 'p3']));
+  Game.spectNext(1);
+  ok('▶ 첫 대상 = p2', G.spectate === 'p2');
+  Game.spectNext(1);
+  ok('▶ 다음 = p3', G.spectate === 'p3');
+  Game.spectNext(1);
+  ok('끝에서 처음으로 순환', G.spectate === 'p2');
+  Game.spectNext(-1);
+  ok('◀ 역방향 순환', G.spectate === 'p3');
+
+  // 보던 사람이 죽으면 자동으로 다음 산 사람에게
+  P.p3.alive = false;
+  const t = Game.spectTarget();
+  ok('대상 사망 → 자동 승계', t && t.id === 'p2', G.spectate);
+  // 전원이 죽으면 자유 이동으로
+  P.p2.alive = false;
+  ok('산 사람이 없으면 관전 해제', Game.spectTarget() === null && G.spectate === null);
+
+  // 조이스틱을 움직이면 관전이 풀린다
+  P.p2.alive = true; G.spectate = 'p2';
+  Game.stick.dx = 1; Game.stick.dy = 0;
+  Game.stepMovement(P.me, 16);
+  ok('이동 입력 → 관전 해제 + 제자리', G.spectate === null && P.me.moving === false);
+  Game.stick.dx = 0;
+
+  // 카메라가 따라가는 사람 위치로 (렌더러에 cam 전달)
+  G.spectate = 'p2';
+  P.p2.rx = P.p2.x; P.p2.ry = P.p2.y;
+  A.Render.g = ctx2d(); A.Render.W = 800; A.Render.H = 600; A.Render.scale = 1;
+  A.Render.mapCv = { width: 100, height: 100 };
+  let err = null;
+  try { Game.render(P.me); } catch (e) { err = String(e); }
+  ok('관전 렌더 가능', err === null, err);
+  ok('카메라 = 관전 대상 위치', Math.abs(A.Render.cam.x - P.p2.x) < 1 && Math.abs(A.Render.cam.y - P.p2.y) < 1,
+     { cam: A.Render.cam, p2: { x: P.p2.x, y: P.p2.y } });
+
+  // 살아 있으면 관전 불가
+  G.ghost = false; G.spectate = null; P.me.alive = true;
+  Game.spectNext(1);
+  ok('산 사람은 관전 불가', G.spectate === null);
+  G.phase = 'lobby';
+}
+
+section('유령 음성 (덕몽어스 기준)');
+{
+  const V = A.Voice;
+  const mkNode = () => ({ panner: { setPosition(){} }, gain: { gain: { value: 9 } } });
+  const listener = { x: 1000, y: 1000 };
+  const run = (pos, meeting, dead, iAmDead) => {
+    const n = mkNode();
+    V.enabled = true;
+    V.ctx = { listener: { setPosition(){} } };
+    V.nodes = new Map([['peerA', n]]);
+    V.update(listener, pos ? { peerA: pos } : {}, meeting, new Set(dead ? ['peerA'] : []), iAmDead);
+    V.enabled = false; V.ctx = null; V.nodes = new Map();
+    return n.gain.gain.value;
+  };
+  ok('유령끼리는 맵 반대편이라도 최대 음량',
+     run({ x: 9999, y: 9999 }, false, true, true) === 1);
+  ok('유령끼리는 위치를 몰라도 들린다 (건초 속 등)',
+     run(null, false, true, true) === 1);
+  ok('산 사람에게 유령 목소리는 무음', run({ x: 1000, y: 1010 }, false, true, false) === 0);
+  ok('유령은 산 사람 목소리를 거리 감쇠로 듣는다 (가까움=1)',
+     run({ x: 1000, y: 1050 }, false, false, true) === 1);
+  ok('유령도 멀리 있는 산 사람은 안 들린다 (380px 밖=0)',
+     run({ x: 1000, y: 1500 }, false, false, true) === 0);
+  ok('산 사람끼리 거리 감쇠 유지', run({ x: 1000, y: 1050 }, false, false, false) === 1 &&
+     run({ x: 1000, y: 1500 }, false, false, false) === 0);
+  ok('회의 중엔 산 사람 전원 같은 크기', run({ x: 9999, y: 9999 }, true, false, false) === 1);
+  ok('회의 중에도 유령 목소리는 산 사람에게 무음', run({ x: 9999, y: 9999 }, true, true, false) === 0);
 }
 
 /* ---- 출력 -----------------------------------------------------------------*/

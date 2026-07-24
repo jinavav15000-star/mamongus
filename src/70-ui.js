@@ -394,6 +394,25 @@ const UI = {
     el.classList.remove('hidden'); el.innerHTML = text;
   },
 
+  /** 유령 관전 바 — 죽어 있고 게임 화면일 때만 보인다 */
+  updateSpectateBar() {
+    const el = $('#spectate-bar'); if (!el) return;
+    const show = !!G.ghost && G.phase === 'play' && this.screen === 'game';
+    el.classList.toggle('hidden', !show);
+    if (!show) return;
+    const t = G.spectate ? G.players[G.spectate] : null;
+    const nm = $('#spec-name');
+    if (t) {
+      nm.textContent = '👁 ' + t.name;
+      nm.style.color = colorOf(t.color).hex;
+      $('#spec-off').classList.remove('hidden');
+    } else {
+      nm.textContent = '👻 자유 이동';
+      nm.style.color = '';
+      $('#spec-off').classList.add('hidden');
+    }
+  },
+
   cooldown(btn, endsAt, uses) {
     if (!btn) return;
     const cd = btn.querySelector('.cd');
@@ -863,7 +882,7 @@ const UI = {
     const cap = h('div', { cls:'killcine-cap' },
       asVictim ? '💀 살해당했습니다' : '🔪 처리했습니다');
     const sub = h('div', { cls:'killcine-sub' },
-      asVictim ? '이제 유령입니다 — 임무는 계속할 수 있어요' : '들키기 전에 자리를 뜨세요');
+      asVictim ? '이제 유령입니다 — 임무 계속 · 아래 ◀▶ 로 다른 사람 관전' : '들키기 전에 자리를 뜨세요');
     wrap.append(cv, cap, sub);
     document.body.appendChild(wrap);
     this._killCine = wrap;

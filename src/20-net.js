@@ -356,8 +356,10 @@ const Voice = {
       const speakerDead = deadSet.has(peerId);
       // 유령의 목소리는 산 사람에게 들리지 않는다
       let g = iAmDead ? 1 : (speakerDead ? 0 : 1);
-      if (meeting) {
+      if (meeting || (iAmDead && speakerDead)) {
         // 회의: 거리 무시, 전원 같은 크기 (화자를 귀 옆에)
+        // 유령끼리도 마찬가지 — 죽은 사람들은 맵 어디서든 서로 대화한다 (덕몽어스 방식).
+        // 산 사람 목소리는 유령에게도 여전히 거리 감쇠로 들린다 (구경하는 재미).
         if (n.panner.positionX) { n.panner.positionX.value = listener.x; n.panner.positionZ.value = listener.y; }
         else n.panner.setPosition(listener.x, 0, listener.y);
       } else if (!p) {

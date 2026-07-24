@@ -1244,9 +1244,9 @@ const Render = {
     g.save();
     g.fillStyle = '#080b07'; g.fillRect(0, 0, this.W, this.H);
 
-    // 카메라
+    // 카메라 — 관전 중이면 내가 아니라 따라가는 사람을 중심에 둔다
     const sc = this.scale;
-    let cx = me.x, cy = me.y;
+    let cx = state.cam?.x ?? me.x, cy = state.cam?.y ?? me.y;
     const halfW = this.W / (2 * sc), halfH = this.H / (2 * sc);
     if (WORLD_W > halfW * 2) cx = clamp(cx, halfW, WORLD_W - halfW); else cx = WORLD_W / 2;
     if (WORLD_H > halfH * 2) cy = clamp(cy, halfH, WORLD_H - halfH); else cy = WORLD_H / 2;
