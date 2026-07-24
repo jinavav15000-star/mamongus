@@ -231,6 +231,7 @@ const Render = {
     g.fillStyle = '#0a0f0a'; g.fillRect(0, 0, WORLD_W, WORLD_H);
 
     this.drawFloors(g);
+    this.drawDecor(g);        // 장식(창문·액자·러그…)이 아래, 상호작용 가구가 위
     this.drawProps(g);
     this.drawTaskProps(g);
     this.drawWalls(g);
@@ -397,6 +398,217 @@ const Render = {
       g.fillStyle = grd2; g.fillRect(x, y, w, h);
     }
     g.restore();
+  },
+
+  /* ---------------- 장식 (기능 없음 · 밀도용) ----------------
+   * 덕몽어스의 방은 벽마다 창문·액자·선반이 빼곡하다. 그 밀도를 채운다.
+   * 전부 정적 레이어. 상호작용 가구(임무·숨기)와 겹치지 않는 좌표만 사용.
+   * 좌표는 타일 단위. */
+  drawDecor(g) {
+    const T = TILE;
+    const px = (tx, ty) => [tx * T, ty * T];
+
+    /* ── 헬퍼 ── */
+    const win = (tx, ty, w = 1.6, lit = true) => {           // 헛간 창문 (십자 창살)
+      const [x, y] = px(tx, ty); const W = w * T, H = w * T * 0.78;
+      g.fillStyle = '#2b1a0a'; g.fillRect(x - 3, y - 3, W + 6, H + 6);
+      g.fillStyle = lit ? '#ffd98a' : '#1a2433';
+      g.fillRect(x, y, W, H);
+      if (lit) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x + 2, y + 2, W * .4, H * .3); }
+      g.strokeStyle = '#4e3319'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x + W / 2, y); g.lineTo(x + W / 2, y + H);
+      g.moveTo(x, y + H / 2); g.lineTo(x + W, y + H / 2); g.stroke();
+    };
+    const frame = (tx, ty, motif = 'sheep') => {             // 벽 액자
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#2b1a0a'; g.fillRect(x - 2, y - 2, 30, 24);
+      g.fillStyle = '#c9a25a'; g.fillRect(x, y, 26, 20);
+      g.fillStyle = motif === 'sheep' ? '#9db87a' : '#7aa8c8'; g.fillRect(x + 3, y + 3, 20, 14);
+      if (motif === 'sheep') {                               // 초원 위 양
+        g.fillStyle = '#f4efe6'; g.beginPath(); g.ellipse(x + 13, y + 11, 4.5, 3, 0, 0, 6.283); g.fill();
+        g.fillStyle = '#3d3844'; g.beginPath(); g.arc(x + 17, y + 10, 1.6, 0, 6.283); g.fill();
+      } else {                                               // 산 풍경
+        g.fillStyle = '#5c452e'; g.beginPath();
+        g.moveTo(x + 4, y + 15); g.lineTo(x + 10, y + 7); g.lineTo(x + 15, y + 15); g.closePath(); g.fill();
+        g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 19, y + 6.5, 2, 0, 6.283); g.fill();
+      }
+    };
+    const shelf = (tx, ty, w = 2) => {                       // 선반 + 병
+      const [x, y] = px(tx, ty); const W = w * T;
+      g.fillStyle = '#2b1a0a'; g.fillRect(x - 2, y + 12, W + 4, 6);
+      g.fillStyle = '#7d5730'; g.fillRect(x, y + 13, W, 4);
+      const jars = ['#9db87a', '#c98a4a', '#a8687a', '#7aa8c8'];
+      for (let i = 0; i < w * 2; i++) {
+        g.fillStyle = jars[i % jars.length];
+        g.fillRect(x + 5 + i * (W - 12) / (w * 2), y + 1, 7, 12);
+        g.fillStyle = '#4e3319';
+        g.fillRect(x + 5 + i * (W - 12) / (w * 2), y - 1, 7, 3);
+      }
+    };
+    const toolRack = (tx, ty) => {                           // 공구걸이 (낫·갈퀴·삽)
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#5c452e'; g.fillRect(x, y, 56, 5);
+      g.strokeStyle = '#8a6134'; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x + 9, y + 5); g.lineTo(x + 9, y + 30); g.stroke();      // 삽
+      g.fillStyle = '#8a8578'; g.beginPath(); g.ellipse(x + 9, y + 34, 4.5, 6, 0, 0, 6.283); g.fill();
+      g.strokeStyle = '#8a6134'; g.beginPath(); g.moveTo(x + 27, y + 5); g.lineTo(x + 27, y + 32); g.stroke(); // 갈퀴
+      g.strokeStyle = '#8a8578'; g.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x + 27 + i * 4, y + 32); g.lineTo(x + 27 + i * 5, y + 39); g.stroke(); }
+      g.strokeStyle = '#8a6134'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x + 45, y + 5); g.lineTo(x + 45, y + 26); g.stroke();    // 낫
+      g.strokeStyle = '#b8b2a4'; g.beginPath(); g.arc(x + 40, y + 28, 7, -0.6, 1.8); g.stroke();
+    };
+    const sign = (tx, ty, kind) => {                         // 작은 벽 표지
+      const [x, y] = px(tx, ty);
+      g.fillStyle = kind === 'warn' ? '#c9a23a' : '#e8e2d4';
+      g.fillRect(x, y, 20, 20);
+      g.strokeStyle = '#2b1a0a'; g.lineWidth = 2; g.strokeRect(x, y, 20, 20);
+      g.fillStyle = '#2b1a0a'; g.font = '900 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(kind === 'warn' ? '⚡' : '✚', x + 10, y + 11);
+    };
+    const rug = (tx, ty, w, h, c = '#8a4f3a') => {           // 러그
+      const [x, y] = px(tx, ty);
+      g.fillStyle = c; g.globalAlpha = .8;
+      g.beginPath(); g.roundRect(x, y, w * T, h * T, 8); g.fill();
+      g.globalAlpha = 1;
+      g.strokeStyle = 'rgba(255,235,200,.35)'; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(x + 5, y + 5, w * T - 10, h * T - 10, 5); g.stroke();
+    };
+    const stain = (tx, ty, r, c) => {                        // 바닥 얼룩
+      const [x, y] = px(tx, ty);
+      g.fillStyle = c;
+      g.beginPath(); g.ellipse(x, y, r, r * .62, .3, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(x + r * .7, y + r * .3, r * .4, r * .25, 0, 0, 6.283); g.fill();
+    };
+    const tuft = (tx, ty, flower = false) => {               // 풀·꽃
+      const [x, y] = px(tx, ty);
+      g.strokeStyle = '#7ba05a'; g.lineWidth = 2; g.lineCap = 'round';
+      for (let i = -2; i <= 2; i++) {
+        g.beginPath(); g.moveTo(x + i * 3, y); g.quadraticCurveTo(x + i * 4, y - 7, x + i * 5, y - 11); g.stroke();
+      }
+      if (flower) { g.fillStyle = ['#e8a0b4', '#ffd23d', '#c99bff'][((tx * 7 + ty) | 0) % 3];
+        g.beginPath(); g.arc(x + 2, y - 12, 3.2, 0, 6.283); g.fill(); }
+    };
+    const rope = (tx, ty) => {                               // 밧줄 코일 (벽걸이)
+      const [x, y] = px(tx, ty);
+      g.strokeStyle = '#b8965a'; g.lineWidth = 4;
+      g.beginPath(); g.arc(x, y, 9, 0, 6.283); g.stroke();
+      g.beginPath(); g.arc(x, y, 5, 0, 6.283); g.stroke();
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(x, y - 11, 2, 0, 6.283); g.fill();
+    };
+    const horseshoe = (tx, ty) => {
+      const [x, y] = px(tx, ty);
+      g.strokeStyle = '#8a8578'; g.lineWidth = 4.5; g.lineCap = 'round';
+      g.beginPath(); g.arc(x, y, 8, -0.5, 3.64); g.stroke();
+    };
+    const board = (tx, ty) => {                              // 코르크 게시판
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#2b1a0a'; g.fillRect(x - 2, y - 2, 40, 30);
+      g.fillStyle = '#b8905a'; g.fillRect(x, y, 36, 26);
+      for (const [mx, my, mc] of [[4, 4, '#f4efe2'], [20, 5, '#ffd98a'], [7, 15, '#a8d8c8'], [22, 16, '#f4efe2']]) {
+        g.fillStyle = mc; g.fillRect(x + mx, y + my, 11, 8);
+        g.fillStyle = '#c1475e'; g.beginPath(); g.arc(x + mx + 5, y + my, 1.4, 0, 6.283); g.fill();
+      }
+    };
+    const clock = (tx, ty) => {
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(x, y, 12, 0, 6.283); g.fill();
+      g.fillStyle = '#e8e2d4'; g.beginPath(); g.arc(x, y, 9.5, 0, 6.283); g.fill();
+      g.strokeStyle = '#2b1a0a'; g.lineWidth = 2; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 6); g.moveTo(x, y); g.lineTo(x + 4.5, y + 2); g.stroke();
+    };
+    const clothesline = (tx1, tx2, ty) => {                  // 빨랫줄
+      const [x1, y] = px(tx1, ty); const [x2] = px(tx2, ty);
+      g.strokeStyle = '#8a6134'; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x1, y - 26); g.lineTo(x1, y + 6); g.stroke();
+      g.beginPath(); g.moveTo(x2, y - 26); g.lineTo(x2, y + 6); g.stroke();
+      g.strokeStyle = 'rgba(230,220,200,.8)'; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x1, y - 24); g.quadraticCurveTo((x1 + x2) / 2, y - 17, x2, y - 24); g.stroke();
+      const cloth = ['#e8a0b4', '#a8d8c8', '#f4efe2'];
+      for (let i = 0; i < 3; i++) {
+        const cx = x1 + (x2 - x1) * (0.25 + i * 0.25);
+        const cy = y - 22 + Math.sin(0.5 + i) * 2.5;
+        g.fillStyle = cloth[i];
+        g.fillRect(cx - 6, cy, 12, 14);
+      }
+    };
+    const pot = (tx, ty) => {                                // 화분
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#a8623a'; g.beginPath();
+      g.moveTo(x - 7, y - 8); g.lineTo(x + 7, y - 8); g.lineTo(x + 5, y + 4); g.lineTo(x - 5, y + 4);
+      g.closePath(); g.fill();
+      g.fillStyle = '#5a8a4a';
+      for (const [lx, ly] of [[-4, -13], [0, -16], [4, -12]]) {
+        g.beginPath(); g.ellipse(x + lx, y + ly, 3.5, 5.5, lx * .1, 0, 6.283); g.fill();
+      }
+    };
+    const gear = (tx, ty, r = 12) => {                       // 톱니(물레방아 부속)
+      const [x, y] = px(tx, ty);
+      g.fillStyle = '#6a675e';
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * 6.283;
+        g.fillRect(x + Math.cos(a) * r - 2.5, y + Math.sin(a) * r - 2.5, 5, 5);
+      }
+      g.beginPath(); g.arc(x, y, r * .8, 0, 6.283); g.fill();
+      g.fillStyle = '#2b1a0a'; g.beginPath(); g.arc(x, y, r * .3, 0, 6.283); g.fill();
+    };
+    const cable = (tx1, ty1, tx2, ty2) => {                  // 벽 케이블 (늘어짐)
+      const [x1, y1] = px(tx1, ty1); const [x2, y2] = px(tx2, ty2);
+      g.strokeStyle = '#3a3630'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x1, y1);
+      g.quadraticCurveTo((x1 + x2) / 2, Math.max(y1, y2) + 14, x2, y2); g.stroke();
+    };
+    const flag = (tx, ty) => {                               // 깃발
+      const [x, y] = px(tx, ty);
+      g.strokeStyle = '#8a6134'; g.lineWidth = 3.5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 34); g.stroke();
+      g.fillStyle = '#c1475e';
+      g.beginPath(); g.moveTo(x + 2, y - 33); g.lineTo(x + 24, y - 27); g.lineTo(x + 2, y - 20);
+      g.closePath(); g.fill();
+    };
+
+    /* ── 방별 배치 (임무·숨기 가구와 안 겹치는 좌표) ── */
+    // 헛간 앞마당(48,4,22,16) — 야외
+    clothesline(50.2, 53.4, 5.2);
+    tuft(48.7, 9.5, true); tuft(69.2, 12.5); tuft(49.3, 14.2); tuft(68.6, 16.8, true); tuft(57, 19.3);
+    stain(54, 10, 14, 'rgba(120,90,50,.25)');
+    // 곡물창고(36,40,16,15)
+    shelf(38.9, 40.6, 2); rope(48.5, 41.3);
+    stain(45, 47, 16, 'rgba(180,150,90,.18)');
+    // 동물병원(28,8,14,11)
+    sign(28.5, 8.5, 'cross'); frame(29.3, 8.45, 'sheep'); win(30.5, 8.4, 1.5);
+    rug(32, 12.5, 3, 2, '#7aa8b8');
+    // 사무실(54,25,13,10)
+    board(55.2, 25.4); clock(63.2, 25.9); frame(64.6, 25.5, 'mountain');
+    rug(55.3, 31.2, 2.8, 1.9, '#8a6a3a');
+    // 방송실(56,44,13,10)
+    win(56.4, 44.4, 1.4, false);
+    cable(65, 44.6, 68.5, 44.6);
+    // 발전기실(22,41,12,11)
+    sign(25.5, 41.5, 'warn'); cable(30.2, 41.7, 33.4, 41.7);
+    stain(27, 46, 12, 'rgba(30,25,20,.35)');
+    // 물레방아(4,24,14,14)
+    gear(6.5, 25.3); gear(9, 26, 8); rope(12, 25.3);
+    stain(9, 31, 18, 'rgba(70,110,140,.2)'); stain(6, 35.5, 10, 'rgba(70,110,140,.16)');
+    // 북쪽 차고(6,6,16,12)
+    toolRack(9.6, 6.3); sign(17.5, 6.5, 'warn');
+    stain(13, 11, 15, 'rgba(30,25,20,.3)');
+    // 남쪽 차고(6,44,16,12)
+    toolRack(9.6, 44.3); horseshoe(17.5, 45);
+    stain(15, 50, 13, 'rgba(30,25,20,.3)');
+    // 농기구창고(76,4,16,11)
+    toolRack(77.5, 4.3); horseshoe(83.3, 5); rope(89.5, 5.2);
+    // 온실(74,20,11,9)
+    pot(75.5, 24.5); pot(76.6, 26.8); pot(82.5, 23.5);
+    tuft(79, 28.2, true);
+    // 망루(88,26,11,10)
+    flag(89, 27.3); frame(95.3, 26.5, 'mountain');
+    // 감시초소(26,27,11,9)
+    win(28.4, 27.4, 1.3, false); rope(33.8, 28.2);
+    rug(29, 30.5, 2.6, 1.8, '#5a6a3a');
+    // 전기울타리(74,42,13,11)
+    sign(76.9, 42.5, 'warn'); cable(83, 42.7, 86.2, 42.7);
+    tuft(75, 47.5); tuft(85.5, 48.8, true); tuft(80, 52.2);
   },
 
   /* ---------------- 벽 = 나무 기둥·판자 ---------------- */
