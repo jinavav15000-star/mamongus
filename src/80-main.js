@@ -405,6 +405,7 @@ const Game = {
     G.phase = m.phase; G.round = m.round; G.order = m.order; G.settings = m.settings;
     G.hostId = m.hostId; G.taskBar = m.taskBar; G.bodies = m.bodies;
     G.sabotage = m.sabotage; G.doors = m.doors; G.meeting = m.meeting; G.result = m.result;
+    G.hunt = m.hunt || null;
     G.sabCdEnd = m.sabCdEnd || 0;
     G.gen = m.gen || 0;
 
@@ -569,6 +570,15 @@ const Game = {
   },
 
   updateAlert() {
+    // 사냥 모드 카운트다운 — 사보타주가 없을 때 항상 떠 있는 시계
+    if (!G.sabotage && G.hunt && G.phase === 'play') {
+      const left = Math.max(0, Math.ceil((G.hunt.endsAt - now()) / 1000));
+      const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
+      const iAmWolf = G.hunt.wolves?.includes(G.myId);
+      UI.setAlert(`🐺 늑대 사냥 · <span style="font-variant-numeric:tabular-nums;font-weight:800">${mm}:${ss}</span>` +
+        `<span class="tiny" style="opacity:.8"> ${iAmWolf ? '— 시간 안에 전부 사냥!' : '— 버티면 승리!'}</span>`);
+      return;
+    }
     if (!G.sabotage) { UI.setAlert(null); return; }
     const S = G.sabotage;
     const nm = { lights:'💡 정전 — 발전기실에서 복구', comms:'📡 방송 두절 — 방송실에서 복구',
@@ -697,7 +707,7 @@ const Game = {
       Meeting.updateTimer(G.meeting);
       if (Voice.enabled) Voice.update({ x:0, y:0 }, {}, true, new Set(Object.entries(this.voicePeers).filter(([pid]) => !G.players[pid]?.alive).map(([, p]) => p)), !!G.ghost);
     }
-    if (G.sabotage?.endsAt) this.updateAlert();
+    if (G.sabotage?.endsAt || (G.hunt && G.phase === 'play')) this.updateAlert();
   },
 
   stepMovement(me, dt) {
@@ -829,7 +839,8 @@ const Game = {
       visionR: this.visionR() * (me.hideId ? 0.55 : 1), ghost: !!G.ghost, lobby: G.phase === 'lobby',
       myTaskSpots: G.sabotage?.kind === 'comms' ? [] : this.myTaskSpots(),
       canVent: roleInfo(G.myRole).canVent && me.alive,
-      duckMates: G.ducksKnown,
+      // 사냥 모드는 늑대가 공개다 — 전원에게 🐺 배지가 보인다
+      duckMates: G.hunt ? G.hunt.wolves : G.ducksKnown,
     });
   },
 
@@ -935,8 +946,8 @@ const Game = {
       if (sp && Math.hypot(me.x - sp.wx, me.y - sp.wy) < 78)
         return { kind:'task', icon:'📋', label:'임무', data:{ t, sp } };
     }
-    // 3) 긴급 버튼
-    if (me.alive && Math.hypot(me.x - EMERGENCY_BTN.wx, me.y - EMERGENCY_BTN.wy) < 100)
+    // 3) 긴급 버튼 (사냥 모드엔 회의가 없다)
+    if (!G.hunt && me.alive && Math.hypot(me.x - EMERGENCY_BTN.wx, me.y - EMERGENCY_BTN.wy) < 100)
       return { kind:'emergency', icon:'🔔', label:'긴급회의' };
     // 4) 패널
     if (Math.hypot(me.x - ADMIN_TABLE.wx, me.y - ADMIN_TABLE.wy) < 100) return { kind:'admin', icon:'📊', label:'사무실' };
@@ -970,6 +981,7 @@ const Game = {
   },
 
   doReport() {
+    if (G.hunt) return;                      // 사냥 모드엔 신고가 없다
     const me = G.me; if (!me?.alive || me.ventId) return;
     const b = G.bodies.find(b => Math.hypot(me.x - b.x, me.y - b.y) < 110);
     if (!b) return;

@@ -4,35 +4,46 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
+/** d.if(settings) 가 false 를 돌려주면 그 줄(그룹 제목 포함)은 그리지 않는다 —
+ *  클래식 전용/사냥 전용 설정을 상대 모드에서 숨기기 위함 */
+const ifClassic = s => s.mode !== 'hunt';
+const ifHunt    = s => s.mode === 'hunt';
 const SETTING_DEFS = [
-  { g:'인원 구성' },
-  { k:'duckCount',   label:'늑대 수',          min:1, max:4,  step:1 },
-  { k:'neutralCount',label:'중립 수',          min:0, max:3,  step:1 },
+  { g:'게임 모드' },
+  { k:'mode', seg:[['classic','🕵️ 클래식'], ['hunt','🐺 늑대 사냥']] },
+  { g:'늑대 사냥 — 회의 없는 술래잡기', if:ifHunt },
+  { k:'huntSec',     label:'제한시간',         min:120, max:600, step:30, if:ifHunt,
+    fmt:v => `${Math.floor(v / 60)}분${v % 60 ? ' ' + v % 60 + '초' : ''}` },
+  { k:'huntKillCd',  label:'늑대 킬 쿨다운',   min:5, max:40, step:5, unit:'초', if:ifHunt },
+  { k:'huntTaskCut', label:'임무당 시간 단축', min:0, max:20, step:2, unit:'초', if:ifHunt },
+  { g:'인원 구성', if:ifClassic },
+  { k:'duckCount',   label:'늑대 수',          min:1, max:4,  step:1, if:ifClassic },
+  { k:'neutralCount',label:'중립 수',          min:0, max:3,  step:1, if:ifClassic },
   { g:'전투' },
-  { k:'killCd',      label:'킬 쿨다운',        min:10, max:60, step:5, unit:'초' },
+  { k:'killCd',      label:'킬 쿨다운',        min:10, max:60, step:5, unit:'초', if:ifClassic },
   { k:'killRange',   label:'킬 사거리',        min:60, max:170, step:10 },
   { k:'playerSpeed', label:'이동 속도',        min:2,  max:6,  step:0.25, fmt:v => v.toFixed(2) },
   { g:'시야' },
   { k:'visionCrew',  label:'양 시야',        min:200, max:620, step:20 },
   { k:'visionDuck',  label:'늑대 시야',        min:200, max:720, step:20 },
-  { k:'visionDark',  label:'정전 시 시야',     min:80,  max:300, step:10 },
-  { g:'회의' },
-  { k:'emergencies', label:'긴급회의 횟수',    min:0, max:5, step:1, unit:'회' },
-  { k:'discussSec',  label:'토론 시간',        min:15, max:180, step:15, unit:'초' },
-  { k:'voteSec',     label:'투표 시간',        min:15, max:180, step:15, unit:'초' },
-  { k:'confirmEject',label:'추방 시 직업 공개', bool:true },
-  { k:'anonVotes',   label:'익명 투표',        bool:true },
-  { k:'showKiller',  label:'죽을 때 범인 보임', bool:true },
+  { k:'visionDark',  label:'정전 시 시야',     min:80,  max:300, step:10, if:ifClassic },
+  { g:'회의', if:ifClassic },
+  { k:'emergencies', label:'긴급회의 횟수',    min:0, max:5, step:1, unit:'회', if:ifClassic },
+  { k:'discussSec',  label:'토론 시간',        min:15, max:180, step:15, unit:'초', if:ifClassic },
+  { k:'voteSec',     label:'투표 시간',        min:15, max:180, step:15, unit:'초', if:ifClassic },
+  { k:'confirmEject',label:'추방 시 직업 공개', bool:true, if:ifClassic },
+  { k:'anonVotes',   label:'익명 투표',        bool:true, if:ifClassic },
+  { k:'showKiller',  label:'죽을 때 범인 보임', bool:true, if:ifClassic },
   { g:'임무' },
   { k:'taskCommon',  label:'공통 임무',        min:0, max:2, step:1, unit:'개' },
   { k:'taskShort',   label:'짧은 임무',        min:1, max:8, step:1, unit:'개' },
   { k:'taskLong',    label:'긴 임무',          min:0, max:3, step:1, unit:'개' },
-  { k:'visualTasks', label:'시각 임무 표시',   bool:true },
+  { k:'visualTasks', label:'시각 임무 표시',   bool:true, if:ifClassic },
   { k:'ghostTasks',  label:'유령도 임무 수행', bool:true },
-  { g:'사보타주' },
-  { k:'sabotageCd',  label:'사보타주 쿨다운',  min:10, max:60, step:5, unit:'초' },
-  { k:'reactorSec',  label:'물레방아 제한시간',  min:20, max:90, step:5, unit:'초' },
-  { k:'oxygenSec',   label:'물탱크 제한시간',    min:20, max:90, step:5, unit:'초' },
+  { g:'사보타주', if:ifClassic },
+  { k:'sabotageCd',  label:'사보타주 쿨다운',  min:10, max:60, step:5, unit:'초', if:ifClassic },
+  { k:'reactorSec',  label:'물레방아 제한시간',  min:20, max:90, step:5, unit:'초', if:ifClassic },
+  { k:'oxygenSec',   label:'물탱크 제한시간',    min:20, max:90, step:5, unit:'초', if:ifClassic },
 ];
 
 const UI = {
@@ -178,10 +189,16 @@ const UI = {
       if (nBots > 0) foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'5px' } },
         '봇은 돌아다니고 임무를 하고 투표도 합니다. 혼자서 게임을 익혀보세요.'));
       { const nn = st.players.filter(p => p.connected).length;
-        const eff = Math.max(1, Math.min(st.settings.duckCount, maxDuck(Math.max(4, nn))));
-        const effN = Math.max(0, Math.min(st.settings.neutralCount, maxNeut(Math.max(4, nn), eff)));
-        foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
-          `현재 ${nn}명 기준 — 늑대 ${eff}마리 · 중립 ${effN}명 · 나머지 양`)); }
+        if (st.settings.mode === 'hunt') {
+          const w = nn <= 8 ? 1 : 2;
+          foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
+            `🐺 늑대 사냥 — 늑대 ${w}마리 · 제한시간 ${Math.round(st.settings.huntSec / 60)}분 · 나머지는 도망치는 양`));
+        } else {
+          const eff = Math.max(1, Math.min(st.settings.duckCount, maxDuck(Math.max(4, nn))));
+          const effN = Math.max(0, Math.min(st.settings.neutralCount, maxNeut(Math.max(4, nn), eff)));
+          foot.appendChild(h('div', { cls:'tiny dim', style:{ textAlign:'center', marginTop:'8px' } },
+            `현재 ${nn}명 기준 — 늑대 ${eff}마리 · 중립 ${effN}명 · 나머지 양`));
+        } }
       foot.appendChild(h('div', { cls:'tiny', style:{ textAlign:'center', marginTop:'6px', color:'var(--warn)' } },
         '⚠️ 방장이 다른 앱으로 넘어가면 모두의 화면이 잠시 멈춥니다. 나가면 다음 사람이 자동으로 이어받습니다.'));
     } else {
@@ -201,9 +218,24 @@ const UI = {
     if (!isHost) body.appendChild(h('div', { cls:'tiny dim', style:{ marginBottom:'10px' } }, '방장만 변경할 수 있습니다.'));
     const grid = h('div', { cls:'setgrid' });
     SETTING_DEFS.forEach(d => {
+      if (d.if && !d.if(st.settings)) return;   // 다른 모드 전용 설정은 숨긴다
       // 그룹 제목은 한 줄 전체를 차지한다. 여기서 셀을 하나라도 더 넣으면
       // 이후 모든 라벨·컨트롤 짝이 한 칸씩 밀린다.
       if (d.g) { grid.appendChild(h('div', { cls:'tiny setgroup', style:{ gridColumn:'1 / -1', color:'var(--acc)', fontWeight:800, marginTop:'6px' } }, d.g)); return; }
+      if (d.seg) {                               // 모드 선택 — 좌우로 넓은 세그먼트 버튼
+        const row = h('div', { cls:'row', style:{ gridColumn:'1 / -1', gap:'8px' } });
+        d.seg.forEach(([val, lbl]) => {
+          const cur = (st.settings[d.k] || d.seg[0][0]) === val;
+          const b = h('button', { cls:'btn small grow' + (cur ? ' primary' : ' ghost'),
+            onclick: () => isHost && Game.setSetting(d.k, val) }, lbl);
+          b.disabled = !isHost; row.appendChild(b);
+        });
+        grid.appendChild(row);
+        if ((st.settings[d.k] || 'classic') === 'hunt')
+          grid.appendChild(h('div', { cls:'tiny dim', style:{ gridColumn:'1 / -1', lineHeight:1.5 } },
+            '회의·투표 없는 술래잡기. 늑대 정체가 공개되고, 양은 시간이 다 될 때까지 도망치거나 숨습니다. 임무를 하면 남은 시간이 줄어요.'));
+        return;
+      }
       grid.appendChild(h('div', { cls:'lbl' }, d.label));
       if (d.bool) {
         const b = h('button', { cls:'btn small' + (st.settings[d.k] ? ' primary' : ' ghost'),
@@ -231,6 +263,10 @@ const UI = {
 
   renderRoleWeights(st, isHost) {
     const body = $('#roles-body'); body.innerHTML = '';
+    if (st.settings.mode === 'hunt') {
+      body.appendChild(h('div', { cls:'tiny', style:{ color:'var(--warn)', marginBottom:'8px', lineHeight:1.5 } },
+        '🐺 늑대 사냥 모드에서는 특수 직업이 나오지 않습니다 (늑대와 양뿐). 아래 설정은 클래식 모드에만 적용돼요.'));
+    }
     const groups = [['양 진영', GOOSE_ROLES, 'var(--goose)'], ['늑대 진영', DUCK_ROLES, 'var(--duck)'], ['중립', NEUT_ROLES, 'var(--neut)']];
     groups.forEach(([gname, keys, col]) => {
       body.appendChild(h('div', { style:{ color:col, fontWeight:800, fontSize:'13px', margin:'12px 0 6px' } }, gname));
@@ -260,16 +296,17 @@ const UI = {
       row.appendChild(b); return b;
     };
     this.btn = {};
-    this.btn.report = mk('btn-report', 'report', '📢', '신고');
+    // 사냥 모드: 신고(회의) 없음 · 늑대의 '방해'는 문 잠그기 전용
+    if (!G.hunt) this.btn.report = mk('btn-report', 'report', '📢', '신고');
     if (r.canKill) this.btn.kill = mk('btn-kill', 'kill', '🔪', '살해');
     if (r.canVent) this.btn.vent = mk('btn-vent', 'vent', '🕳️', '벤트');
-    if (r.faction === F.DUCK) this.btn.sab = mk('btn-sab', 'sab', '💥', '방해');
+    if (r.faction === F.DUCK) this.btn.sab = mk('btn-sab', 'sab', G.hunt ? '🚪' : '💥', G.hunt ? '문잠금' : '방해');
     if (r.ability) this.btn.abil = mk('btn-abil', 'abil', r.icon, ABILITY_LABEL[r.ability] || '능력');
 
     // ⚠️ click 이 아니라 pointerdown 으로 받는다.
     //   click 은 touchstart→touchend 사이에 손가락이 조금만 밀려도 취소된다.
     //   급하게 누르는 살해·벤트 버튼에서 "눌렀는데 씹혔다"의 큰 원인이었다.
-    onPress(this.btn.report, () => Game.doReport());
+    if (this.btn.report) onPress(this.btn.report, () => Game.doReport());
     if (this.btn.kill) onPress(this.btn.kill, () => Game.doKill());
     if (this.btn.vent) onPress(this.btn.vent, () => Game.doVent());
     if (this.btn.sab) onPress(this.btn.sab, () => UI.openSabotage());
@@ -286,9 +323,12 @@ const UI = {
     const r = roleInfo(G.myRole);
     const col = FACTION_COLOR[r.faction];
     const el = $('#rolechip');
+    const desc = G.hunt
+      ? (r.faction === F.DUCK ? '제한시간 안에 양을 모두 사냥하세요.' : '시간이 다 될 때까지 도망치고 숨으세요. 임무가 시간을 줄여줍니다.')
+      : r.desc;
     el.innerHTML =
       `<div class="rn" style="color:${col}">${r.icon} ${r.name}</div>` +
-      `<div class="rd">${G.ghost ? '👻 유령 — 임무를 계속하세요' : r.desc}</div>` +
+      `<div class="rd">${G.ghost ? '👻 유령 — 임무를 계속하세요' : desc}</div>` +
       (G.privateLog.length ? `<div class="rd" style="color:var(--warn)">📒 기록 ${G.privateLog.length}건 · 눌러서 보기</div>` : '');
     el.onclick = () => this.openRolePanel();
   },
@@ -467,6 +507,20 @@ const UI = {
     const root = h('div', {});
     const cdLeft = Math.ceil((G.sabCdEnd - now()) / 1000);
     if (cdLeft > 0) root.appendChild(h('div', { cls:'mg-msg bad', style:{ marginBottom:'10px' } }, `쿨다운 ${cdLeft}초`));
+    // 사냥 모드 늑대는 문 잠그기만 쓸 수 있다 (치명 사보타주는 술래잡기를 망친다)
+    if (G.hunt) {
+      root.appendChild(h('div', { cls:'tiny dim', style:{ marginBottom:'8px' } }, '한 방의 문을 잠가 도망갈 길을 끊으세요.'));
+      const dg = h('div', { cls:'doorgrid' });
+      DOOR_ROOMS.forEach(id => {
+        const r = ROOMS.find(x => x.id === id);
+        const b = h('button', { onclick: () => { Game.sabotage('doors', id); UI.closeModal(); } }, r.name);
+        b.disabled = cdLeft > 0 || (G.doors[id] > now());
+        dg.appendChild(b);
+      });
+      root.appendChild(dg);
+      this.modal({ title:'🚪 문 잠그기', body: root });
+      return;
+    }
     if (G.sabotage) root.appendChild(h('div', { cls:'mg-msg bad', style:{ marginBottom:'10px' } }, '이미 진행 중인 사보타주가 있습니다.'));
     const grid = h('div', { cls:'sabgrid' });
     const items = [
@@ -738,7 +792,15 @@ const UI = {
     const firstTime = !localStorage.getItem('duckus_played');
 
     // 진영별 "지금 뭘 해야 하나" 3줄 — 이 장르가 처음인 사람 기준으로 쓴다
-    const todo = r.faction === F.DUCK ? [
+    const todo = G.hunt ? (r.faction === F.DUCK ? [
+      ['🐺', '<b>정체가 모두에게 공개됩니다.</b> 숨을 필요 없이 쫓아가세요'],
+      ['🔪', '킬 쿨다운이 짧습니다 — 계속 몰아붙이세요'],
+      ['🚪', '문 잠그기와 벤트로 도망갈 길을 끊으세요. 수상한 건초는 뒤져보세요'],
+    ] : [
+      ['🏃', '<b>늑대(🐺 표시)에게서 도망치세요!</b> 잡히면 끝입니다'],
+      ['📋', '임무를 하나 할 때마다 <b>남은 시간이 줄어듭니다</b>'],
+      ['🌾', '건초·사물함에 <b>숨을 수 있어요</b> — 늑대가 뒤지면 들킵니다'],
+    ]) : r.faction === F.DUCK ? [
       ['🤫', '<b>정체를 숨기세요.</b> 임무를 하는 척하며 돌아다닙니다'],
       ['🔪', '단둘이 됐을 때 <b>살해</b> 버튼 — 아무도 못 봐야 합니다'],
       ['💬', '회의에서 시치미 떼고 <b>다른 사람을 의심</b>하세요'],
@@ -752,6 +814,13 @@ const UI = {
       ['💬', '회의에서 <b>본 것을 채팅</b>으로 말하고, 늑대 같은 사람에게 투표하세요'],
     ];
 
+    // 사냥 모드는 '숨어들어라/색출하라' 류의 클래식 설명이 오히려 헷갈린다
+    const desc = G.hunt
+      ? (r.faction === F.DUCK ? '제한시간 안에 양을 모두 사냥하세요. 모두가 당신을 알아봅니다.'
+                              : '시간이 다 될 때까지 살아남으세요. 도망치고, 숨고, 임무로 시계를 당기세요.')
+      : r.desc;
+    const tip = G.hunt ? '' : (r.tip || '');
+
     // 가로 화면(높이 360px)에서 세로로 쌓으면 '이렇게 하세요'가 화면 밖으로 밀린다.
     // 왼쪽 = 정체, 오른쪽 = 설명+행동 — 스크롤 없이 한눈에.
     const root = h('div', { style:{ padding:'2px 0' } });
@@ -763,8 +832,8 @@ const UI = {
           <div style="font-size:22px;font-weight:900;margin-top:2px">${r.name}</div>
         </div>
         <div style="flex:1;min-width:0;text-align:left">
-          <div style="font-size:12.5px;line-height:1.45;color:var(--txt)">${r.desc}</div>
-          ${r.tip ? `<div style="font-size:11.5px;line-height:1.4;color:var(--warn);margin-top:5px">💡 ${r.tip}</div>` : ''}
+          <div style="font-size:12.5px;line-height:1.45;color:var(--txt)">${desc}</div>
+          ${tip ? `<div style="font-size:11.5px;line-height:1.4;color:var(--warn);margin-top:5px">💡 ${tip}</div>` : ''}
           <div style="margin-top:8px;background:#1f1610;border:1px solid #3e2d1e;border-radius:11px;padding:8px 11px">
             <div style="font-size:11px;font-weight:800;color:var(--dim);margin-bottom:5px">이렇게 하세요</div>
             ${todo.map(([ic, tx]) => `<div style="display:flex;gap:8px;font-size:12px;line-height:1.45;margin-bottom:3px"><span>${ic}</span><span>${tx}</span></div>`).join('')}

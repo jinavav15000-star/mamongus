@@ -996,6 +996,98 @@ section('연습용 봇');
   ok('봇 제거 후 사람만 남음', G.order.length === 1 && !Object.values(Host.P).some(p => p.isBot));
 }
 
+section('늑대 사냥 모드');
+{
+  // 시작 구성: 늑대 1(공개) + 양, 특수 직업·중립 없음
+  reset(5);
+  G.settings.mode = 'hunt';
+  Host.startGame();
+  ok('phase = play', G.phase === 'play');
+  ok('G.hunt 생성 (제한시간·늑대 목록)', !!G.hunt && G.hunt.wolves.length === 1 && G.hunt.endsAt > Date.now());
+  const wolves = G.order.filter(i => A.isDuck(Host.P[i].role));
+  ok('늑대 1마리 (5명)', wolves.length === 1, wolves.length);
+  ok('나머지는 전부 평범한 양', G.order.every(i => ['duck','goose'].includes(Host.P[i].role)),
+     G.order.map(i => Host.P[i].role));
+  ok('늑대는 임무 없음', wolves.every(i => Host.P[i].tasks.length === 0));
+  ok('양은 임무 보유 · 임무바 > 0', G.taskBar.total > 0 &&
+     G.order.filter(i => !A.isDuck(Host.P[i].role)).every(i => Host.P[i].tasks.length > 0));
+  ok('state 브로드캐스트에 hunt 포함', sent.some(x => x.t === 'state' && x.d.hunt?.wolves?.length === 1));
+  ok('늑대 공지 시스템 메시지', sent.some(x => x.t === 'msg' && /늑대는/.test(x.d.text || '')));
+  ok('첫 킬 유예 (쿨다운 ≥ 15초)', Host.P[wolves[0]].killCdEnd - Date.now() > 15000);
+
+  const wolf = Host.P[wolves[0]];
+  const sheep = G.order.filter(i => !A.isDuck(Host.P[i].role)).map(i => Host.P[i]);
+
+  // 회의가 열리지 않아야 한다
+  wolf.killCdEnd = 0;
+  put(wolf, 1000, 1000); put(sheep[0], 1010, 1010);
+  Host.onKill(wolf.id, sheep[0].id);
+  ok('킬 동작 (시체 생성)', !sheep[0].alive && G.bodies.length === 1);
+  ok('4:1에서도 게임 계속 (늑대 과반 규칙 없음)', G.phase === 'play', G.phase);
+  ok('킬 쿨다운 = huntKillCd', Math.abs(wolf.killCdEnd - Date.now() - G.settings.huntKillCd * 1000) < 1500);
+  put(sheep[1], 1000, 1000);
+  Host.onReport(sheep[1].id, G.bodies[0].id);
+  ok('신고해도 회의가 안 열림', G.phase === 'play' && !Host.M);
+  sheep[1].emergencyLeft = 3;
+  put(sheep[1], A.EMERGENCY_BTN.wx, A.EMERGENCY_BTN.wy);
+  Host.onEmergency(sheep[1].id);
+  ok('긴급 회의도 안 열림', G.phase === 'play' && !Host.M);
+
+  // 사보타주: 문만 허용
+  Host.onSabotage(wolf.id, 'reactor');
+  ok('치명 사보타주 차단', !G.sabotage);
+  G.sabCdEnd = 0;
+  Host.onSabotage(wolf.id, 'doors', 'store');
+  ok('문 잠그기는 허용', G.doors.store > Date.now());
+
+  // 임무 → 시간 단축
+  const before = G.hunt.endsAt;
+  const st = sheep[1];
+  Host.onTaskStep(st.id, st.tasks[0].tid);
+  ok('임무 1단계 = 남은 시간 단축', before - G.hunt.endsAt === G.settings.huntTaskCut * 1000,
+     { before, after: G.hunt.endsAt });
+
+  // 시간 만료 → 양 승리
+  G.hunt.endsAt = Date.now() - 1;
+  Host.tick();
+  ok('시간 만료 → 양 승리', G.phase === 'over' && G.result?.faction === 'goose', G.result?.reason);
+
+  // 양 전멸 → 늑대 승리
+  reset(4);
+  G.settings.mode = 'hunt';
+  Host.startGame();
+  const w2 = Host.P[G.order.find(i => A.isDuck(Host.P[i].role))];
+  const s2 = G.order.filter(i => !A.isDuck(Host.P[i].role)).map(i => Host.P[i]);
+  w2.killCdEnd = 0;
+  for (const s of s2) {
+    put(w2, 1000, 1000); put(s, 1005, 1005);
+    w2.killCdEnd = 0;
+    Host.onKill(w2.id, s.id);
+  }
+  ok('양 전멸 → 늑대 승리', G.phase === 'over' && G.result?.faction === 'duck', { phase: G.phase, r: G.result?.reason });
+
+  // 방장 마이그레이션에 hunt 가 실린다
+  reset(5);
+  G.settings.mode = 'hunt';
+  Host.startGame();
+  const snap = Host.exportState();
+  ok('마이그레이션 스냅샷에 hunt 포함', !!snap.hunt && snap.hunt.wolves.length === 1);
+
+  // 인원 9명 이상이면 늑대 2마리
+  reset(9);
+  G.settings.mode = 'hunt';
+  Host.startGame();
+  ok('9명 → 늑대 2마리', G.order.filter(i => A.isDuck(Host.P[i].role)).length === 2);
+
+  // 클래식으로 돌아가면 hunt 가 비워진다
+  Host.toLobby();
+  G.settings.mode = 'classic';
+  Host.startGame();
+  ok('클래식 시작 시 hunt = null', G.hunt === null);
+  ok('클래식은 회의가 정상 동작', (() => { Host.startMeeting(G.order[0], null); return G.phase === 'meeting'; })());
+  Host.toLobby();
+}
+
 /* ---- 출력 -----------------------------------------------------------------*/
 console.log(results.join('\n'));
 console.log(`\n${'─'.repeat(52)}`);

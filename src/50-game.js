@@ -2,6 +2,8 @@
  *  마몽어스 · 게임 로직 (호스트 권한)
  * ==========================================================================*/
 const DEFAULT_SETTINGS = {
+  mode: 'classic',                      // classic(마피아) | hunt(늑대 사냥 술래잡기)
+  huntSec: 300, huntKillCd: 15, huntTaskCut: 8,
   duckCount: 2, neutralCount: 1,
   killCd: 30, killRange: 92, playerSpeed: 3.35,
   visionCrew: 330, visionDuck: 470, visionDark: 145,
@@ -21,6 +23,7 @@ const G = {
   bodies: [],
   settings: { ...DEFAULT_SETTINGS },
   meeting: null,
+  hunt: null,                // 늑대 사냥 모드 {endsAt, wolves:[id]} — 늑대 정체는 공개다
   sabotage: null,            // {kind, endsAt, data}
   doors: {},                 // roomId -> unlockAt(ms)
   taskBar: { done: 0, total: 0 },
@@ -40,6 +43,12 @@ const G = {
 /** 호스트 시계 기준 현재 시각. 모든 타이머·쿨다운의 단일 기준점.
  *  (기기마다 시계가 몇 초씩 다르므로 절대 Date.now() 를 직접 쓰지 않는다) */
 const now = () => Date.now() + Net.clockOffset;
+/** 늑대 사냥 모드인가 — 회의·투표 없는 술래잡기 */
+const isHunt = () => G.settings.mode === 'hunt';
+/** 모드에 맞는 킬 쿨다운(ms). 사냥 모드는 몰아붙일 수 있게 짧다 */
+const killCdMs = r => (isHunt() ? G.settings.huntKillCd : G.settings.killCd) * 1000 * (r.cdMul || 1);
+/** 사냥 모드 늑대 수 — 8명까지 1마리, 9명부터 2마리 */
+const huntWolves = n => (n <= 8 ? 1 : 2);
 const genId = () => Math.random().toString(36).slice(2, 8);
 /** 닉네임은 토스트·추방 연출에서 innerHTML 로도 쓰이므로 호스트에서 한 번 걸러낸다 */
 const cleanName = n => String(n || '양').replace(/[<>&"'`\\]/g, '').trim().slice(0, 10) || '양';
@@ -234,6 +243,7 @@ const Host = {
       taskBar: G.taskBar, bodies: G.bodies, sabotage: G.sabotage,
       doors: G.doors, meeting: this.pubMeeting(), result: G.result,
       sabCdEnd: G.sabCdEnd, gen: Net.gen,
+      hunt: G.hunt,          // 사냥 모드 — 늑대 정체·제한시간은 공개 정보다
     });
   },
   /** 수신자가 실제로 볼 수 있는 사람만 담은 스냅샷.
@@ -345,6 +355,7 @@ const Host = {
       settings: G.settings, bodies: G.bodies, sabotage: G.sabotage,
       doors: G.doors, taskBar: G.taskBar, meeting: this.M, result: G.result,
       sabCdEnd: G.sabCdEnd, startedAt: G.startedAt, commonTasks: this.commonTasks,
+      hunt: G.hunt,
       hostClockNow: now(),
     };
   },
@@ -379,6 +390,7 @@ const Host = {
     G.sabotage = snap.sabotage ? { ...snap.sabotage, endsAt: fix(snap.sabotage.endsAt) } : null;
     G.doors = {}; for (const k in (snap.doors || {})) G.doors[k] = fix(snap.doors[k]);
     G.taskBar = snap.taskBar; G.result = snap.result;
+    G.hunt = snap.hunt ? { ...snap.hunt, endsAt: fix(snap.hunt.endsAt) } : null;
     G.sabCdEnd = fix(snap.sabCdEnd); G.startedAt = fix(snap.startedAt);
     this.commonTasks = snap.commonTasks || [];
     this.M = snap.meeting ? { ...snap.meeting, endsAt: fix(snap.meeting.endsAt) } : null;
@@ -398,6 +410,44 @@ const Host = {
     const alive = G.order.filter(i => this.P[i]?.connected);
     if (alive.length < 4) { Net.toPeer(this.P[G.hostId].peerId, 'toast', { text: '최소 4명이 필요합니다.' }); return; }
     G.order = alive;
+
+    /* ── 늑대 사냥 모드 — 회의 없는 술래잡기 ──
+     * 특수 직업·중립 없이 늑대 1~2 + 양. 늑대 정체는 전원에게 공개된다.
+     * 양은 제한시간까지 버티면 승리, 임무를 하면 남은 시간이 깎인다. */
+    if (isHunt()) {
+      const nW = huntWolves(alive.length);
+      const shuffled = shuffle([...alive]);
+      const wolves = shuffled.slice(0, nW);
+      this.commonTasks = pickN(COMMON_POOL, Math.min(G.settings.taskCommon, COMMON_POOL.length));
+      const sp = spawnPoints(alive.length);
+      alive.forEach((id, i) => {
+        const p = this.P[id];
+        const wolf = wolves.includes(id);
+        p.role = wolf ? 'duck' : 'goose';
+        p.alive = true; p.ventId = null; p.hideId = null;
+        p.x = sp[i].x; p.y = sp[i].y; p.dir = 1; p.moving = false;
+        // 늑대는 임무가 없다 (가짜 임무도 의미 없음 — 정체가 공개니까)
+        p.tasks = wolf ? [] : makeTaskList(G.settings, this.commonTasks);
+        // 첫 킬은 20초 뒤 — 양들이 흩어져 도망갈 시간
+        p.killCdEnd = now() + 20000;
+        p.abilityCdEnd = 0; p.abilityUses = 0;
+        p.emergencyLeft = 0;                    // 긴급 회의 없음
+        p.shielded = false; p.infected = false; p.eaten = 0;
+        p.killedThisRound = false; p.morphTo = null; p.morphEnd = 0; p.dragging = null;
+        p.lastActive = now(); p.afk = false;
+        p.trackTarget = null; p.trackEnd = 0; p.guarding = null;
+      });
+      G.hunt = { endsAt: now() + G.settings.huntSec * 1000, wolves };
+      G.bodies = []; G.sabotage = null; G.doors = {}; this.M = null; G.result = null;
+      G.round = 1; G.phase = 'play'; G.startedAt = now();
+      this.recalcTaskBar();
+      this.pushState(); this.sendPrivateAll();
+      this.ev('start');
+      const wNames = wolves.map(i => this.P[i].name).join(', ');
+      this.sys(`🐺 늑대는 ${wNames}! ${Math.round(G.settings.huntSec / 60)}분을 버티면 양들이 이깁니다. 임무를 하면 시간이 줄어요.`);
+      return;
+    }
+    G.hunt = null;
     // 인원수에 맞는 자동 구성.
     // 방장이 직접 만진 적 없으면 권장값을 쓰고, 만졌어도 상한을 넘으면 깎는다.
     // (5명 방에 늑대 2로 시작하면 한 명만 죽어도 게임이 끝난다)
@@ -440,7 +490,7 @@ const Host = {
   },
 
   toLobby() {
-    G.phase = 'lobby'; G.bodies = []; G.sabotage = null; this.M = null; G.result = null; G.doors = {};
+    G.phase = 'lobby'; G.bodies = []; G.sabotage = null; this.M = null; G.result = null; G.doors = {}; G.hunt = null;
     for (const id of G.order) { const p = this.P[id]; if (p) { p.alive = true; p.ventId = null; p.hideId = null; p.tasks = []; p.role = 'goose'; } }
     G.taskBar = { done: 0, total: 0 };
     this.pushState(); this.sendPrivateAll(); this.ev('tolobby');
@@ -478,7 +528,7 @@ const Host = {
     const bg = G.order.map(i => this.P[i]).find(q => q && q.alive && q.role === 'bodyguard' && q.guarding === v.id);
     if (bg) {
       bg.guarding = null;
-      k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
+      k.killCdEnd = now() + killCdMs(r);
       this.doDeath(bg, k.id);
       this.sys(`🛡️ 경호원 ${bg.name} 님이 ${v.name} 님을 지키고 쓰러졌습니다.`);
       Net.toPeer(v.peerId, 'toast', { text: '🛡️ 경호원이 당신을 대신해 죽었습니다!' });
@@ -489,7 +539,7 @@ const Host = {
     // 의사 방패
     if (v.shielded) {
       v.shielded = false;
-      k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
+      k.killCdEnd = now() + killCdMs(r);
       this.sendPrivate(v.id); this.sendPrivate(k.id);
       Net.toPeer(v.peerId, 'toast', { text: '🛡️ 방패가 살해 시도를 막았습니다!' });
       Net.toPeer(k.peerId, 'toast', { text: '🛡️ 대상이 방패로 보호받고 있습니다!' });
@@ -502,7 +552,7 @@ const Host = {
       Net.toPeer(k.peerId, 'toast', { text: '💀 양을 죽였습니다. 당신도 함께 쓰러집니다.' });
       this.afterDeath(); return;
     }
-    k.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
+    k.killCdEnd = now() + killCdMs(r);
     k.killedThisRound = true;
     this.doDeath(v, k.id);
     this.sendPrivate(k.id);
@@ -534,6 +584,7 @@ const Host = {
 
   /* ---------------- 신고 / 긴급회의 ---------------- */
   onReport(id, bodyId) {
+    if (G.hunt) return;                                     // 사냥 모드엔 회의가 없다
     if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 신고 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     const b = G.bodies.find(x => x.id === bodyId); if (!b) return;
@@ -541,6 +592,7 @@ const Host = {
     this.startMeeting(p.id, b);
   },
   onEmergency(id) {
+    if (G.hunt) return;                                     // 사냥 모드엔 회의가 없다
     if (this.P[id]?.ventId || this.P[id]?.hideId) return;   // 벤트·건초 안에서는 소집 불가
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (p.emergencyLeft <= 0) return;
@@ -630,7 +682,7 @@ const Host = {
       const p = this.P[id]; if (!p) return;
       p.x = sp[i].x; p.y = sp[i].y; p.moving = false; p.ventId = null; p.hideId = null; p.killedThisRound = false;
       const r = roleInfo(p.role);
-      p.killCdEnd = now() + G.settings.killCd * 1000 * (r.cdMul || 1);
+      p.killCdEnd = now() + killCdMs(r);
       if (r.ability === 'remotefix') p.abilityUses = r.uses || 1;
     });
     G.sabCdEnd = now() + 10000;
@@ -704,6 +756,7 @@ const Host = {
   onSabotage(id, kind, room) {
     const p = this.P[id]; if (!p || !p.alive || G.phase !== 'play') return;
     if (!isDuck(p.role)) return;
+    if (G.hunt && kind !== 'doors') return;   // 사냥 모드 늑대는 문 잠그기만 (치명 사보타주 없음)
     if (now() < G.sabCdEnd) return;
     if (kind === 'doors') {
       if (!room || G.doors[room] > now()) return;
@@ -757,6 +810,11 @@ const Host = {
     if (!p.alive && !G.settings.ghostTasks) return;
     const t = p.tasks.find(x => x.tid === tid); if (!t || t.step >= t.spots.length) return;
     t.step++;
+    // 사냥 모드: 임무 한 단계마다 남은 시간이 깎인다 (양들이 능동적으로 시계를 당긴다)
+    if (G.hunt && G.settings.huntTaskCut > 0) {
+      G.hunt.endsAt -= G.settings.huntTaskCut * 1000;
+      Net.toPeer(p.peerId, 'toast', { text: `⏱️ 임무 완료 — 남은 시간 ${G.settings.huntTaskCut}초 단축!` });
+    }
     this.sendPrivate(id);
     this.recalcTaskBar();
     this.pushState();
@@ -1014,6 +1072,40 @@ const Host = {
       }
 
       if (G.phase === 'play' && p.alive) {
+        /* ── 사냥 모드 봇 — 혼자서도 술래잡기를 테스트할 수 있게 ──
+         * 늑대 봇: 가장 가까운 양을 쫓아가 사거리에 들면 문다.
+         * 양 봇: 늑대가 가까이 오면 반대 방향으로 도망친다. */
+        if (G.hunt) {
+          if (isDuck(p.role)) {
+            let prey = null, pd = 1e9;
+            for (const oid of G.order) {
+              const q = this.P[oid];
+              if (!q || !q.alive || isDuck(q.role) || q.hideId || q.ventId) continue;
+              const d = Math.hypot(q.x - p.x, q.y - p.y);
+              if (d < pd) { pd = d; prey = q; }
+            }
+            if (prey) {
+              if (pd < G.settings.killRange && now() >= p.killCdEnd) this.onKill(id, prey.id);
+              else {
+                const spd = G.settings.playerSpeed * 1.02 * (dt * 60);
+                const r = moveWithCollision(p.x, p.y, (prey.x - p.x) / pd * spd, (prey.y - p.y) / pd * spd);
+                if (prey.x !== p.x) p.dir = prey.x > p.x ? 1 : -1;
+                p.x = r.x; p.y = r.y; p.moving = true; p.lastActive = now();
+              }
+              continue;
+            }
+          } else {
+            const wolf = (G.hunt.wolves || []).map(w => this.P[w])
+              .filter(w => w && w.alive && !w.ventId)
+              .sort((a, c) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(c.x - p.x, c.y - p.y))[0];
+            const wd = wolf ? Math.hypot(wolf.x - p.x, wolf.y - p.y) : 1e9;
+            if (wd < 300) {                       // 도망! — 늑대 반대쪽으로 목표를 다시 잡는다
+              b.tx = p.x + (p.x - wolf.x) / wd * 260;
+              b.ty = p.y + (p.y - wolf.y) / wd * 260;
+              b.deadline = now() + 4000; b.idleUntil = 0;
+            }
+          }
+        }
         // 배회 — 목표점에 도착했거나 오래 걸리면 새 목표
         if (now() > b.idleUntil) {
           const dx = b.tx - p.x, dy = b.ty - p.y;
@@ -1109,6 +1201,10 @@ const Host = {
       if (G.sabotage?.endsAt && now() >= G.sabotage.endsAt) {
         this.finish('duck', G.sabotage.kind === 'reactor' ? '물레방아가 부서졌습니다' : '물이 모두 말랐습니다');
       }
+      // 사냥 모드: 시간이 다 되면 살아남은 양들의 승리
+      if (G.hunt && now() >= G.hunt.endsAt) {
+        this.finish('goose', '⏱️ 시간이 다 됐습니다 — 양들이 끝까지 살아남았습니다');
+      }
     }
   },
 
@@ -1119,6 +1215,15 @@ const Host = {
     const ducks = alive.filter(p => isDuck(p.role));
     const neutKillers = alive.filter(p => isNeut(p.role) && isKiller(p.role));
     const others = alive.filter(p => !isDuck(p.role));
+
+    /* 사냥 모드 — "늑대 과반" 규칙이 없다 (4명 방에서 1킬에 끝나버린다).
+     * 늑대 승리 = 양 전멸뿐. 양 승리 = 시간 만료(tick에서) 또는 임무 전부 완료. */
+    if (G.hunt) {
+      if (G.taskBar.total > 0 && G.taskBar.done >= G.taskBar.total) return this.finish('goose', '양들이 모든 임무를 완수했습니다');
+      if (ducks.length === 0) return this.finish('goose', '늑대가 사라졌습니다');
+      if (others.length === 0) return this.finish('duck', '🐺 늑대가 양을 모두 사냥했습니다');
+      return false;
+    }
 
     // 중립 단독 승리
     for (const p of alive) {
