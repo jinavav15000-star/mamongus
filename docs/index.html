@@ -116,6 +116,15 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .swatch.taken{opacity:.22;pointer-events:none}
 .err{color:var(--bad);font-size:13px;min-height:18px;text-align:center}
 
+/* 모자 고르기 — 미리보기를 캔버스로 그린다 (그림 파일 0개) */
+.hatlabel{font-size:12px;color:var(--dim);font-weight:800;margin:11px 0 6px 3px}
+.hatgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.hatbtn{background:#1c140d;border:2px solid #3e2d1e;border-radius:11px;padding:0;
+  display:flex;align-items:flex-end;justify-content:center;overflow:hidden;transition:.12s}
+.hatbtn canvas{display:block;width:100%;height:auto}
+.hatbtn.sel{border-color:var(--acc);background:#2b2016}
+.hatbtn:active{transform:scale(.94)}
+
 /* ---------- 로비 ---------- */
 .lobbybar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .codechip{background:#1f1610;border:1.5px dashed #6d4e30;border-radius:12px;padding:9px 15px;
@@ -812,6 +821,8 @@ src:url(data:font/woff2;base64,d09GMgABAAAAAHKsAA0AAAABAEgAAHJVAAEAQgAAAAAAAAAAA
                style="flex:1;background:#1c140d;border:1px solid #4b3623;border-radius:11px;padding:10px 13px;color:var(--txt);outline:none">
       </div>
       <div class="colorgrid" id="colorgrid"></div>
+      <div class="hatlabel">🎩 모자</div>
+      <div class="hatgrid" id="hatgrid"></div>
     </div>
 
     <div class="lobby-main">
@@ -1633,6 +1644,31 @@ const COLORS = [
   { id:'coral',  name:'코랄',   hex:'#ff7f6e', dark:'#c04f40' },
 ];
 const colorOf = id => COLORS.find(c => c.id === id) || COLORS[0];
+
+/* ---------------------------------------------------------------------------
+ *  모자 — 색상과 함께 고르는 유일한 치장. 그림은 코드로 그리므로 용량이 0이다.
+ *  (그리는 함수는 60-render.js 의 HAT_DRAW 에 있다. 여기엔 목록만 둔다 —
+ *   호스트 검증·UI 목록이 렌더러보다 먼저 로드되기 때문)
+ *  ⚠️ id 를 추가하면 HAT_DRAW 에도 같은 id 를 넣을 것. 테스트가 짝을 검사한다.
+ * -------------------------------------------------------------------------*/
+const HATS = [
+  { id:'none',    name:'없음' },
+  { id:'straw',   name:'밀짚모자' },
+  { id:'cowboy',  name:'카우보이' },
+  { id:'cap',     name:'야구모자' },
+  { id:'beanie',  name:'털모자' },
+  { id:'party',   name:'고깔모자' },
+  { id:'crown',   name:'왕관' },
+  { id:'bow',     name:'리본' },
+  { id:'flower',  name:'꽃' },
+  { id:'leaf',    name:'나뭇잎' },
+  { id:'horns',   name:'뿔' },
+  { id:'bucket',  name:'양동이' },
+  { id:'sprout',  name:'새싹' },
+];
+/** 클라이언트가 보낸 값을 그대로 믿지 않는다 (모르는 id 는 그림이 없어 렌더가 깨진다) */
+const HAT_IDS = new Set(HATS.map(h => h.id));
+const validHat = id => (HAT_IDS.has(id) ? id : 'none');
 
 /** 한글 마지막 글자에 받침이 있는지 — 조사(이었/였, 을/를 …) 선택용 */
 const hasJong = s => {
@@ -3657,13 +3693,14 @@ const Host = {
   },
   stopTimers() { clearInterval(this.tickTimer); clearInterval(this.snapTimer); clearInterval(this.migTimer); },
 
-  addPlayer(peerId, uid, name, color) {
+  addPlayer(peerId, uid, name, color, hat) {
     // 재접속 복구
     const existing = Object.values(this.P).find(p => p.uid === uid);
     if (existing) {
       delete this.peerToId[existing.peerId];
       existing.peerId = peerId; existing.connected = true;
       if (name) existing.name = cleanName(name);
+      if (hat) existing.hat = validHat(hat);
       this.peerToId[peerId] = existing.id;
       return existing;
     }
@@ -3674,6 +3711,7 @@ const Host = {
     const p = {
       id: genId(), uid, peerId, name: cleanName(name),
       color: used.has(color) || !color ? free.id : color,
+      hat: validHat(hat),
       role: 'goose', alive: true, connected: true,
       // 로비에서도 맵을 돌아다니므로 겹치지 않게 원형으로 흩어 놓는다
       x: EMERGENCY_BTN.wx + Math.cos(G.order.length * 2.4) * (70 + G.order.length * 6),
@@ -3697,7 +3735,7 @@ const Host = {
     switch (m.t) {
       case 'hello': {
         if (this.banned?.has(m.uid)) { Net.toPeer(fromPeer, 'denied', { reason: '이 방에서 내보내진 상태입니다.' }); return; }
-        const p = this.addPlayer(fromPeer, m.uid, m.name, m.color);
+        const p = this.addPlayer(fromPeer, m.uid, m.name, m.color, m.hat);
         if (!p) { Net.toPeer(fromPeer, 'denied', { reason: G.phase !== 'lobby' ? '이미 게임이 진행 중입니다.' : '방이 가득 찼습니다 (최대 16명).' }); return; }
         p.peerId = fromPeer;
         Net.toPeer(fromPeer, 'welcome', { yourId: p.id, hostId: G.hostId, code: Net.code });
@@ -3707,6 +3745,11 @@ const Host = {
         break;
       }
       case 'setName': { const p = this.P[id]; if (p && G.phase === 'lobby') { p.name = cleanName(m.name); this.pushState(); } break; }
+      case 'setHat': {
+        // 모자는 순수 치장이라 중복 허용. 다만 모르는 id 는 그림이 없어 렌더가 깨지므로 거른다
+        const p = this.P[id]; if (!p || G.phase !== 'lobby') break;
+        p.hat = validHat(m.hat); this.pushState(); break;
+      }
       case 'setColor': {
         const p = this.P[id]; if (!p || G.phase !== 'lobby') break;
         if (Object.values(this.P).some(q => q.id !== id && q.color === m.color)) break;
@@ -3752,7 +3795,7 @@ const Host = {
    *  state 는 전원 브로드캐스트라, 좌표를 담으면 콘솔로 전원 위치가 노출된다.
    *  위치는 sendSnap 에서 수신자별 시야 컬링을 거쳐 나간다. */
   pubPlayer(p) {
-    return { id: p.id, name: p.name, color: p.color, alive: p.alive,
+    return { id: p.id, name: p.name, color: p.color, hat: p.hat || 'none', alive: p.alive,
              connected: p.connected, afk: !!p.afk, isBot: !!p.isBot };
   },
   /** 투표 중에는 "누가 투표했는지"만 공개하고 "누구에게"는 감춘다 (밴드왜건 방지) */
@@ -6275,9 +6318,12 @@ const Render = {
   drawLabels(g, p, state, isMe) {
     const dead = !p.alive;
     g.save(); g.translate(p.x, p.y);
+    // 이름표가 모자를 덮지 않도록, 쓴 모자의 높이만큼 위로 밀어 올린다
+    const hatId = p.morphId ? p.morphHat : p.hat;
+    const lift = Math.max(0, (this.HAT_TOP[hatId] || 25) - 25);
     if (state.duckMates?.includes(p.id) && !isMe) {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
-      g.fillText('🐺', 0, -46);
+      g.fillText('🐺', 0, -46 - lift);
     }
     const shownName = p.morphName || p.name;
     if (shownName) {
@@ -6285,16 +6331,16 @@ const Render = {
       g.textAlign = 'center'; g.textBaseline = 'bottom';
       const w = g.measureText(shownName).width;
       g.fillStyle = 'rgba(0,0,0,.55)';
-      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
+      g.fillRect(-w / 2 - 5, -46 - lift, w + 10, 17);
       g.fillStyle = dead ? '#9aa4b8' : (isMe ? '#ffd88a' : '#fff');   // 내 이름은 금색
-      g.fillText(shownName, 0, -33);
+      g.fillText(shownName, 0, -33 - lift);
     }
     if (p.bubble && Date.now() < p.bubble.until && p.alive) {
       const txt = p.bubble.text;
       g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       const tw = Math.min(g.measureText(txt).width, 150);
-      const bw = tw + 18, bh = 24, by = -66;
+      const bw = tw + 18, bh = 24, by = -66 - lift;
       g.fillStyle = '#f6f1e6';
       g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
       g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
@@ -6373,6 +6419,157 @@ const Render = {
    * 월드 렌더링과 킬 연출이 같은 그림을 쓰도록 분리해 둔다. */
   /** 양 캐릭터. 양털이 플레이어 색, 얼굴은 진회색(서퍽종) — 어떤 색 양털과도 대비된다.
    *  머리가 +x 쪽에 있어 앞으로 내밀어져 진행 방향을 알려준다. */
+  /* ══════════ 모자 ══════════
+   * 캐릭터 좌표계(중심 0,0 · 얼굴 중심 -9.5 · 정수리 ≈ -25)에 그대로 그린다.
+   * charShape 의 좌우 반전 안에서 호출되므로 야구모자 챙은 저절로 보는 방향을 향한다.
+   * 목록(이름·순서)은 15-roles.js 의 HATS 에 있다 — id 가 짝이 맞아야 한다. */
+  /** 모자별 꼭대기 높이(양수, 캐릭터 중심 기준).
+   *  이름표가 모자를 덮지 않도록 이만큼 위로 올린다 (모자 없는 머리 꼭대기 ≈ 25).
+   *  ⚠️ 그림을 고치면 이 값도 같이 고칠 것 — `node tools/shot-hats.mjs` 가
+   *     실제로 그려진 픽셀을 재서 표와 어긋나면 알려 준다. */
+  HAT_TOP: {
+    none: 25, straw: 32, cowboy: 33, cap: 30, beanie: 36, party: 40,
+    crown: 31, bow: 28, flower: 31, leaf: 29, horns: 26, bucket: 35, sprout: 31,
+  },
+
+  HAT_DRAW: {
+    straw(g) {                                        // 밀짚모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -20.6, 17.5, 6.2, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#e0bb64';
+      g.beginPath(); g.ellipse(0, -21, 16, 5.2, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -24.6, 8.6, 6.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#d9b25f';
+      g.beginPath(); g.ellipse(0, -24.3, 7.3, 5.5, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#b8452f'; g.fillRect(-7.4, -23.2, 14.8, 2.5);
+    },
+    cowboy(g) {                                       // 카우보이
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -20.6, 17, 5.6, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#8a5a34';
+      g.beginPath(); g.ellipse(0, -21, 15.4, 4.6, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(-13.6, -22.6, 4.2, 3, 0.55, 0, 6.283); g.fill();   // 말려 올라간 챙
+      g.beginPath(); g.ellipse(13.6, -22.6, 4.2, 3, -0.55, 0, 6.283); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -25.4, 8.2, 7.2, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#a06b3f';
+      g.beginPath(); g.ellipse(0, -25.1, 7, 6.2, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#3b2a18'; g.fillRect(-7, -23.4, 14, 2.7);
+      g.fillStyle = '#e0bb64'; g.fillRect(-1.7, -23.2, 3.4, 2.3);
+    },
+    cap(g) {                                          // 야구모자 (챙이 보는 방향으로)
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -21.2, 9.8, 7.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#3a6fe0';
+      g.beginPath(); g.ellipse(0, -21.5, 8.6, 6.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(7.6, -20.8, 9.6, 3.5, -0.12, 0, 6.283); g.fill();
+      g.fillStyle = '#2a55b5';
+      g.beginPath(); g.ellipse(7.8, -21.2, 8.5, 2.6, -0.12, 0, 6.283); g.fill();
+      g.fillStyle = '#ffd23d'; g.beginPath(); g.arc(0, -27.8, 1.5, 0, 6.283); g.fill();
+    },
+    beanie(g) {                                       // 방울 털모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -21.4, 10.6, 8.4, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#c0392b';
+      g.beginPath(); g.ellipse(0, -21.7, 9.4, 7.4, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#241a12'; g.fillRect(-10.8, -22.6, 21.6, 4.2);
+      g.fillStyle = '#efe4d2'; g.fillRect(-9.8, -22.2, 19.6, 3.4);
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(0, -30.6, 4.4, 0, 6.283); g.fill();
+      g.fillStyle = '#efe4d2'; g.beginPath(); g.arc(0, -30.8, 3.5, 0, 6.283); g.fill();
+    },
+    party(g) {                                        // 고깔모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.moveTo(-8.6, -20); g.lineTo(0, -37); g.lineTo(8.6, -20); g.closePath(); g.fill();
+      g.fillStyle = '#f06fbc';
+      g.beginPath(); g.moveTo(-7.1, -20.6); g.lineTo(0, -35.2); g.lineTo(7.1, -20.6); g.closePath(); g.fill();
+      g.fillStyle = '#ffd23d';
+      g.beginPath(); g.moveTo(-4.8, -25); g.lineTo(-2.7, -29.4); g.lineTo(1.3, -29.4); g.lineTo(-0.8, -25); g.closePath(); g.fill();
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(0, -36.4, 3.4, 0, 6.283); g.fill();
+      g.fillStyle = '#8ef0b5'; g.beginPath(); g.arc(0, -36.6, 2.6, 0, 6.283); g.fill();
+    },
+    crown(g) {                                        // 왕관
+      const pts = (o) => { g.beginPath();
+        g.moveTo(-10 - o, -20.2); g.lineTo(-10 - o, -27 - o); g.lineTo(-5, -23.4);
+        g.lineTo(0, -29.6 - o); g.lineTo(5, -23.4); g.lineTo(10 + o, -27 - o);
+        g.lineTo(10 + o, -20.2); g.closePath(); };
+      g.fillStyle = '#241a12'; pts(1.3); g.fill();
+      g.fillStyle = '#ffd23d'; pts(0); g.fill();
+      g.fillStyle = '#ff5f6d'; g.beginPath(); g.arc(0, -22.4, 1.6, 0, 6.283); g.fill();
+      g.fillStyle = '#5fd0ff';
+      g.beginPath(); g.arc(-5.6, -22, 1.15, 0, 6.283); g.fill();
+      g.beginPath(); g.arc(5.6, -22, 1.15, 0, 6.283); g.fill();
+    },
+    bow(g) {                                          // 리본 (머리 옆)
+      const bx = 7.6, by = -22.4;
+      const wings = (w, hh) => { g.beginPath();
+        g.moveTo(bx, by); g.lineTo(bx - w, by - hh); g.lineTo(bx - w, by + hh); g.closePath();
+        g.moveTo(bx, by); g.lineTo(bx + w, by - hh); g.lineTo(bx + w, by + hh); g.closePath(); };
+      g.fillStyle = '#241a12'; wings(7.2, 4.8); g.fill();
+      g.fillStyle = '#f06fbc'; wings(6, 3.7); g.fill();
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(bx, by, 2.6, 0, 6.283); g.fill();
+      g.fillStyle = '#c94f96'; g.beginPath(); g.arc(bx, by, 1.9, 0, 6.283); g.fill();
+    },
+    flower(g) {                                       // 꽃 한 송이
+      const fx = 7.6, fy = -23.4;
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 1.8; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(fx, fy + 1); g.lineTo(fx - 1, fy + 5.5); g.stroke();
+      for (const [r, c] of [[3.1, '#241a12'], [2.3, '#f7b2c4']])
+        for (let i = 0; i < 5; i++) {
+          const a = i * 1.2566 - 1.57;
+          g.fillStyle = c;
+          g.beginPath(); g.arc(fx + Math.cos(a) * 3.6, fy + Math.sin(a) * 3.6, r, 0, 6.283); g.fill();
+        }
+      g.fillStyle = '#ffd23d'; g.beginPath(); g.arc(fx, fy, 2.1, 0, 6.283); g.fill();
+    },
+    leaf(g) {                                         // 나뭇잎
+      g.save(); g.translate(3.5, -23); g.rotate(-0.55);
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, 0, 9.2, 4.8, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#5aa02e';
+      g.beginPath(); g.ellipse(0, 0, 8, 3.7, 0, 0, 6.283); g.fill();
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(-7.2, 0); g.lineTo(7.2, 0); g.stroke();
+      g.restore();
+    },
+    horns(g) {                                        // 숫양 뿔
+      for (const sx of [-1, 1]) {
+        g.save(); g.scale(sx, 1);
+        g.lineCap = 'round';
+        g.strokeStyle = '#241a12'; g.lineWidth = 6.4;
+        g.beginPath(); g.moveTo(7.5, -18.5); g.quadraticCurveTo(16, -22.5, 14.5, -13.5); g.stroke();
+        g.strokeStyle = '#d8c49a'; g.lineWidth = 4.2;
+        g.beginPath(); g.moveTo(7.5, -18.5); g.quadraticCurveTo(16, -22.5, 14.5, -13.5); g.stroke();
+        g.restore();
+      }
+    },
+    bucket(g) {                                       // 양동이 (장난)
+      const body = (o) => { g.beginPath();
+        g.moveTo(-10.4 - o, -18.6 + o); g.lineTo(-8.4 - o, -30.4 - o);
+        g.lineTo(8.4 + o, -30.4 - o); g.lineTo(10.4 + o, -18.6 + o); g.closePath(); };
+      g.fillStyle = '#241a12'; body(1.2); g.fill();
+      g.fillStyle = '#9aa0a8'; body(0); g.fill();
+      g.fillStyle = '#b8bec6'; g.fillRect(-8.7, -27.6, 17.4, 2.3);
+      g.strokeStyle = '#6f757c'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-9.2, -23.4); g.lineTo(9.2, -23.4); g.stroke();
+      g.fillStyle = '#241a12'; g.beginPath(); g.ellipse(0, -30.4, 9.6, 2.8, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#7f858d'; g.beginPath(); g.ellipse(0, -30.6, 8.4, 2.1, 0, 0, 6.283); g.fill();
+    },
+    sprout(g) {                                       // 새싹
+      g.strokeStyle = '#241a12'; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(0, -18.5); g.lineTo(0, -27); g.stroke();
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(0, -18.5); g.lineTo(0, -27); g.stroke();
+      for (const sx of [-1, 1]) {
+        g.fillStyle = '#241a12';
+        g.beginPath(); g.ellipse(sx * 4.6, -27.2, 5.2, 3.4, sx * -0.5, 0, 6.283); g.fill();
+        g.fillStyle = sx < 0 ? '#6cb63a' : '#8ed44f';
+        g.beginPath(); g.ellipse(sx * 4.6, -27.4, 4.1, 2.5, sx * -0.5, 0, 6.283); g.fill();
+      }
+    },
+  },
+
   charShape(g, col, o = {}) {
     const { dead = false, moving = false, t = 0 } = o;
     const OUT = '#241a12';                 // 모든 색 공통 외곽선
@@ -6481,6 +6678,9 @@ const Render = {
       g.beginPath(); g.ellipse(-1.1, -3.7, 0.7, 1, 0.2, 0, 6.283); g.fill();
       g.beginPath(); g.ellipse(1.1, -3.7, 0.7, 1, -0.2, 0, 6.283); g.fill();
     }
+
+    /* ── 모자 — 정수리 양털 위에 얹는다 ── */
+    if (o.hat && o.hat !== 'none') this.HAT_DRAW[o.hat]?.(g);
   },
 
   /* ---------------- 양 캐릭터 ---------------- */
@@ -6503,7 +6703,9 @@ const Render = {
     g.translate(0, -bob);
     g.scale(flip, 1);
 
-    this.charShape(g, col, { dead, moving: p.moving, t });
+    // 변신술사로 변해 있으면 그 사람의 모자를 쓴다 (색·이름과 같은 규칙)
+    const hat = p.morphId ? p.morphHat : p.hat;
+    this.charShape(g, col, { dead, moving: p.moving, t, hat });
     g.restore();
 
     /* 상태 배지 / 이름 */
@@ -6885,6 +7087,32 @@ const UI = {
     });
   },
 
+  /** 모자 고르기 — 내 색 양에게 씌워 본 모습을 캔버스로 미리 보여 준다.
+   *  renderLobby 는 상태가 올 때마다(초당 여러 번) 불리므로 캔버스 13개를 매번
+   *  다시 그리지 않는다. 내 색이 바뀌었을 때만 새로 그리고, 평소엔 선택 표시만 옮긴다. */
+  renderHats(myHat, myColor) {
+    const grid = $('#hatgrid');
+    if (!grid.children.length || this._hatPrevColor !== myColor) {
+      this._hatPrevColor = myColor;
+      grid.innerHTML = '';
+      const col = colorOf(myColor);
+      HATS.forEach(hat => {
+        const cv = h('canvas', { width: 96, height: 104 });   // 2배로 그려 폰에서도 선명하게
+        const b = h('button', { cls:'hatbtn', title: hat.name, onclick: () => Game.setHat(hat.id) }, cv);
+        b.dataset.hat = hat.id;
+        const g = cv.getContext('2d');
+        g.scale(2, 2);
+        // 세로 44 = 가장 높은 모자(고깔 40)까지 잘리지 않는 높이. 발은 잘려도 된다(상반신 초상)
+        g.translate(24, 44);
+        // t=0 은 눈 깜빡임 주기상 '감은 순간'이라 미리보기가 졸려 보인다
+        Render.charShape(g, col, { t: 800, hat: hat.id });
+        grid.appendChild(b);
+      });
+    }
+    const cur = myHat || 'none';
+    [...grid.children].forEach(b => b.classList.toggle('sel', b.dataset.hat === cur));
+  },
+
   renderLobby(st) {
     $('#lobby-code').textContent = Net.code || '----';
     $('#lobby-code2').textContent = Net.code || '----';
@@ -6908,7 +7136,11 @@ const UI = {
           : null,
       ));
     });
-    this.renderColors(st.players, st.players.find(p => p.id === G.myId)?.color);
+    {
+      const me = st.players.find(p => p.id === G.myId);
+      this.renderColors(st.players, me?.color);
+      this.renderHats(me?.hat, me?.color);
+    }
 
     const foot = $('#lobby-foot'); foot.innerHTML = '';
     const isHost = G.myId === st.hostId;
@@ -8390,7 +8622,7 @@ const Game = {
     const name = ($('#in-name').value.trim() || localStorage.getItem('duckus_name') || '양').slice(0, 10);
     try {
       await Net.joinRoom(code);
-      Net.toHost('hello', { uid: Net.uid, name, color: null });
+      Net.toHost('hello', { uid: Net.uid, name, color: null, hat: localStorage.getItem('duckus_hat') || 'none' });
       history.replaceState(null, '', '#room=' + code);
       $('#in-name2').value = name;
       this.keepAwake();
@@ -8421,7 +8653,7 @@ const Game = {
     UI.loading(true, '방에 접속하는 중…');
     try {
       await Net.joinRoom(code);
-      Net.toHost('hello', { uid: Net.uid, name, color: null });
+      Net.toHost('hello', { uid: Net.uid, name, color: null, hat: localStorage.getItem('duckus_hat') || 'none' });
       history.replaceState(null, '', '#room=' + code);
       $('#in-name2').value = name;
       this.keepAwake();
@@ -8559,7 +8791,7 @@ const Game = {
       // state 에는 좌표가 없다 (시야 밖 위치 노출 방지). 좌표는 snap 에서만 온다.
       if (!cur) G.players[p.id] = { ...p, x: EMERGENCY_BTN.wx, y: EMERGENCY_BTN.wy,
                                     rx: EMERGENCY_BTN.wx, ry: EMERGENCY_BTN.wy, dir: 1, moving: false, seen: false };
-      else Object.assign(cur, { name:p.name, color:p.color, alive:p.alive, connected:p.connected, afk:p.afk });
+      else Object.assign(cur, { name:p.name, color:p.color, hat:p.hat, alive:p.alive, connected:p.connected, afk:p.afk });
     }
     for (const id in G.players) if (!seen.has(id)) delete G.players[id];
     G.me = G.players[G.myId];
@@ -8605,6 +8837,7 @@ const Game = {
       p.morphId = morph || null;
       p.morphColor = morph ? G.players[morph]?.color : null;
       p.morphName  = morph ? G.players[morph]?.name  : null;
+      p.morphHat   = morph ? (G.players[morph]?.hat || 'none') : null;
       if (id === G.myId) { p.seen = true; if (p.ventId || p.hideId) { p.x = x; p.y = y; } continue; }
       const reappeared = !p.seen;
       p.x = x; p.y = y; p.seen = true;
@@ -9254,6 +9487,8 @@ const Game = {
   sabFix(d) { Net.toHost('sabfix', d); },
   sabotage(kind, room) { Net.toHost('sabotage', { kind, room }); },
   setColor(c) { Net.toHost('setColor', { color: c }); },
+  /** 모자는 취향이라 기기에 기억해 둔다 — 다음 판에도 쓰던 모자로 입장한다 */
+  setHat(id) { localStorage.setItem('duckus_hat', id); Net.toHost('setHat', { hat: id }); },
   setSetting(k, v) { Net.toHost('settings', { s: { [k]: v } }); },
   setRoleWeight(k, v) { const w = { ...G.settings.roleWeights, [k]: v }; Net.toHost('settings', { s: { roleWeights: w } }); },
   start() {

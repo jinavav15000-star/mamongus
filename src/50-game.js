@@ -118,13 +118,14 @@ const Host = {
   },
   stopTimers() { clearInterval(this.tickTimer); clearInterval(this.snapTimer); clearInterval(this.migTimer); },
 
-  addPlayer(peerId, uid, name, color) {
+  addPlayer(peerId, uid, name, color, hat) {
     // 재접속 복구
     const existing = Object.values(this.P).find(p => p.uid === uid);
     if (existing) {
       delete this.peerToId[existing.peerId];
       existing.peerId = peerId; existing.connected = true;
       if (name) existing.name = cleanName(name);
+      if (hat) existing.hat = validHat(hat);
       this.peerToId[peerId] = existing.id;
       return existing;
     }
@@ -135,6 +136,7 @@ const Host = {
     const p = {
       id: genId(), uid, peerId, name: cleanName(name),
       color: used.has(color) || !color ? free.id : color,
+      hat: validHat(hat),
       role: 'goose', alive: true, connected: true,
       // 로비에서도 맵을 돌아다니므로 겹치지 않게 원형으로 흩어 놓는다
       x: EMERGENCY_BTN.wx + Math.cos(G.order.length * 2.4) * (70 + G.order.length * 6),
@@ -158,7 +160,7 @@ const Host = {
     switch (m.t) {
       case 'hello': {
         if (this.banned?.has(m.uid)) { Net.toPeer(fromPeer, 'denied', { reason: '이 방에서 내보내진 상태입니다.' }); return; }
-        const p = this.addPlayer(fromPeer, m.uid, m.name, m.color);
+        const p = this.addPlayer(fromPeer, m.uid, m.name, m.color, m.hat);
         if (!p) { Net.toPeer(fromPeer, 'denied', { reason: G.phase !== 'lobby' ? '이미 게임이 진행 중입니다.' : '방이 가득 찼습니다 (최대 16명).' }); return; }
         p.peerId = fromPeer;
         Net.toPeer(fromPeer, 'welcome', { yourId: p.id, hostId: G.hostId, code: Net.code });
@@ -168,6 +170,11 @@ const Host = {
         break;
       }
       case 'setName': { const p = this.P[id]; if (p && G.phase === 'lobby') { p.name = cleanName(m.name); this.pushState(); } break; }
+      case 'setHat': {
+        // 모자는 순수 치장이라 중복 허용. 다만 모르는 id 는 그림이 없어 렌더가 깨지므로 거른다
+        const p = this.P[id]; if (!p || G.phase !== 'lobby') break;
+        p.hat = validHat(m.hat); this.pushState(); break;
+      }
       case 'setColor': {
         const p = this.P[id]; if (!p || G.phase !== 'lobby') break;
         if (Object.values(this.P).some(q => q.id !== id && q.color === m.color)) break;
@@ -213,7 +220,7 @@ const Host = {
    *  state 는 전원 브로드캐스트라, 좌표를 담으면 콘솔로 전원 위치가 노출된다.
    *  위치는 sendSnap 에서 수신자별 시야 컬링을 거쳐 나간다. */
   pubPlayer(p) {
-    return { id: p.id, name: p.name, color: p.color, alive: p.alive,
+    return { id: p.id, name: p.name, color: p.color, hat: p.hat || 'none', alive: p.alive,
              connected: p.connected, afk: !!p.afk, isBot: !!p.isBot };
   },
   /** 투표 중에는 "누가 투표했는지"만 공개하고 "누구에게"는 감춘다 (밴드왜건 방지) */

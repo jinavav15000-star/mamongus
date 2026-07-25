@@ -149,6 +149,32 @@ const UI = {
     });
   },
 
+  /** 모자 고르기 — 내 색 양에게 씌워 본 모습을 캔버스로 미리 보여 준다.
+   *  renderLobby 는 상태가 올 때마다(초당 여러 번) 불리므로 캔버스 13개를 매번
+   *  다시 그리지 않는다. 내 색이 바뀌었을 때만 새로 그리고, 평소엔 선택 표시만 옮긴다. */
+  renderHats(myHat, myColor) {
+    const grid = $('#hatgrid');
+    if (!grid.children.length || this._hatPrevColor !== myColor) {
+      this._hatPrevColor = myColor;
+      grid.innerHTML = '';
+      const col = colorOf(myColor);
+      HATS.forEach(hat => {
+        const cv = h('canvas', { width: 96, height: 104 });   // 2배로 그려 폰에서도 선명하게
+        const b = h('button', { cls:'hatbtn', title: hat.name, onclick: () => Game.setHat(hat.id) }, cv);
+        b.dataset.hat = hat.id;
+        const g = cv.getContext('2d');
+        g.scale(2, 2);
+        // 세로 44 = 가장 높은 모자(고깔 40)까지 잘리지 않는 높이. 발은 잘려도 된다(상반신 초상)
+        g.translate(24, 44);
+        // t=0 은 눈 깜빡임 주기상 '감은 순간'이라 미리보기가 졸려 보인다
+        Render.charShape(g, col, { t: 800, hat: hat.id });
+        grid.appendChild(b);
+      });
+    }
+    const cur = myHat || 'none';
+    [...grid.children].forEach(b => b.classList.toggle('sel', b.dataset.hat === cur));
+  },
+
   renderLobby(st) {
     $('#lobby-code').textContent = Net.code || '----';
     $('#lobby-code2').textContent = Net.code || '----';
@@ -172,7 +198,11 @@ const UI = {
           : null,
       ));
     });
-    this.renderColors(st.players, st.players.find(p => p.id === G.myId)?.color);
+    {
+      const me = st.players.find(p => p.id === G.myId);
+      this.renderColors(st.players, me?.color);
+      this.renderHats(me?.hat, me?.color);
+    }
 
     const foot = $('#lobby-foot'); foot.innerHTML = '';
     const isHost = G.myId === st.hostId;

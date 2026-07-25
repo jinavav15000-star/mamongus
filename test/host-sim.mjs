@@ -996,6 +996,44 @@ section('연습용 봇');
   ok('봇 제거 후 사람만 남음', G.order.length === 1 && !Object.values(Host.P).some(p => p.isBot));
 }
 
+section('모자 꾸미기');
+{
+  reset(4);
+  const me = byName('호스트'), other = byName('파랑');
+  ok('기본 모자는 없음', me.hat === 'none', me.hat);
+
+  sent.length = 0;
+  Host.onMsg({ t:'setHat', hat:'cowboy' }, 'self');
+  ok('모자 변경', me.hat === 'cowboy');
+  ok('전원에게 공개된다 (색상과 같은 등급)',
+     sent.some(x => x.t === 'state' && x.d.players.some(q => q.id === me.id && q.hat === 'cowboy')));
+
+  // 모르는 값은 반드시 걸러야 한다 — 그림 없는 id 는 상대 화면의 렌더를 죽인다
+  Host.onMsg({ t:'setHat', hat:'<script>' }, 'self');
+  ok('모르는 모자는 없음으로 대체', me.hat === 'none', me.hat);
+  Host.onMsg({ t:'setHat', hat:'crown' }, 'self');
+
+  // 남의 모자를 바꿀 수는 없다 (보낸 사람 자신만)
+  Host.onMsg({ t:'setHat', hat:'bucket' }, 'peer1');
+  ok('각자 자기 모자만 바꾼다', other.hat === 'bucket' && me.hat === 'crown', { me:me.hat, other:other.hat });
+
+  // 게임이 시작되면 못 바꾼다 (색상과 동일 — 판 중간에 외형이 바뀌면 식별이 무너진다)
+  Host.startGame();
+  Host.onMsg({ t:'setHat', hat:'party' }, 'self');
+  ok('게임 중에는 변경 불가', me.hat === 'crown', me.hat);
+  ok('게임 중에도 모자는 계속 공개된다',
+     Host.pubPlayer(me).hat === 'crown');
+
+  // 입장할 때 쓰던 모자를 그대로 가져온다 + 재접속해도 유지
+  reset(2);
+  const p = Host.addPlayer('peerX', 'uidX', '새양', null, 'straw');
+  ok('입장 시 모자 반영', p.hat === 'straw');
+  const bad = Host.addPlayer('peerY', 'uidY', '수상한양', null, '없는모자');
+  ok('입장 시에도 모르는 모자는 거른다', bad.hat === 'none', bad.hat);
+  const again = Host.addPlayer('peerZ', 'uidX', '새양', null, 'party');
+  ok('재접속 시 같은 사람으로 복구 + 모자 갱신', again.id === p.id && again.hat === 'party');
+}
+
 section('늑대 사냥 모드');
 {
   // 시작 구성: 늑대 1(공개) + 양, 특수 직업·중립 없음

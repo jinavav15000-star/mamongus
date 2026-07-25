@@ -251,7 +251,7 @@ const Game = {
     const name = ($('#in-name').value.trim() || localStorage.getItem('duckus_name') || '양').slice(0, 10);
     try {
       await Net.joinRoom(code);
-      Net.toHost('hello', { uid: Net.uid, name, color: null });
+      Net.toHost('hello', { uid: Net.uid, name, color: null, hat: localStorage.getItem('duckus_hat') || 'none' });
       history.replaceState(null, '', '#room=' + code);
       $('#in-name2').value = name;
       this.keepAwake();
@@ -282,7 +282,7 @@ const Game = {
     UI.loading(true, '방에 접속하는 중…');
     try {
       await Net.joinRoom(code);
-      Net.toHost('hello', { uid: Net.uid, name, color: null });
+      Net.toHost('hello', { uid: Net.uid, name, color: null, hat: localStorage.getItem('duckus_hat') || 'none' });
       history.replaceState(null, '', '#room=' + code);
       $('#in-name2').value = name;
       this.keepAwake();
@@ -420,7 +420,7 @@ const Game = {
       // state 에는 좌표가 없다 (시야 밖 위치 노출 방지). 좌표는 snap 에서만 온다.
       if (!cur) G.players[p.id] = { ...p, x: EMERGENCY_BTN.wx, y: EMERGENCY_BTN.wy,
                                     rx: EMERGENCY_BTN.wx, ry: EMERGENCY_BTN.wy, dir: 1, moving: false, seen: false };
-      else Object.assign(cur, { name:p.name, color:p.color, alive:p.alive, connected:p.connected, afk:p.afk });
+      else Object.assign(cur, { name:p.name, color:p.color, hat:p.hat, alive:p.alive, connected:p.connected, afk:p.afk });
     }
     for (const id in G.players) if (!seen.has(id)) delete G.players[id];
     G.me = G.players[G.myId];
@@ -466,6 +466,7 @@ const Game = {
       p.morphId = morph || null;
       p.morphColor = morph ? G.players[morph]?.color : null;
       p.morphName  = morph ? G.players[morph]?.name  : null;
+      p.morphHat   = morph ? (G.players[morph]?.hat || 'none') : null;
       if (id === G.myId) { p.seen = true; if (p.ventId || p.hideId) { p.x = x; p.y = y; } continue; }
       const reappeared = !p.seen;
       p.x = x; p.y = y; p.seen = true;
@@ -1115,6 +1116,8 @@ const Game = {
   sabFix(d) { Net.toHost('sabfix', d); },
   sabotage(kind, room) { Net.toHost('sabotage', { kind, room }); },
   setColor(c) { Net.toHost('setColor', { color: c }); },
+  /** 모자는 취향이라 기기에 기억해 둔다 — 다음 판에도 쓰던 모자로 입장한다 */
+  setHat(id) { localStorage.setItem('duckus_hat', id); Net.toHost('setHat', { hat: id }); },
   setSetting(k, v) { Net.toHost('settings', { s: { [k]: v } }); },
   setRoleWeight(k, v) { const w = { ...G.settings.roleWeights, [k]: v }; Net.toHost('settings', { s: { roleWeights: w } }); },
   start() {

@@ -301,6 +301,7 @@ node tools/shot-ui.mjs                       # 홈·로비·게임·지도 화�
 node tools/shot-fx.mjs                       # 연출 확인 (파티클 개수도 찍어 준다)
 node tools/shot-sfx.mjs                      # 효과음 25종 실측 + wav 저장 (소리 고쳤으면 필수)
 node tools/audit-hud.mjs                     # 화면4종×상태6종 버튼 점검 (CSS·HUD 건드렸으면 필수)
+node tools/shot-hats.mjs                     # 모자 13종 그림 + 높이표 검증 (서버 불필요)
 node tools/shot-og.mjs                       # 카톡 미리보기 이미지 재생성
 ```
 
@@ -364,7 +365,7 @@ node tools/shot-og.mjs                       # 카톡 미리보기 이미지 재
 
 ### 30초 요약
 - 배포: https://jinavav15000-star.github.io/mamongus/ (push → 1~2분 자동 반영)
-- `docs/index.html` 602KB + `docs/sfx.html`(소리 시험실) · 테스트 370(호스트 203+클라 167) + 기기 28 + 스윕 20 + **HUD 점검 24조합**
+- `docs/index.html` 617KB + `docs/sfx.html`(소리 시험실) · 테스트 392(호스트 213+클라 179) + 기기 28 + 스윕 20 + HUD 점검 24조합
 - **로드맵은 `PARITY.md`** — 덕몽어스 기능 대조표가 곧 할 일 목록이다.
   사용자가 "덕몽어스 기능을 거의 다 원한다"고 명시했다. 기능을 만들면 PARITY 갱신할 것.
 
@@ -451,6 +452,22 @@ node tools/shot-og.mjs                       # 카톡 미리보기 이미지 재
 ① 화면 밖 ② 버튼 겹침 ③ 44px 미만 ④ **가려짐(elementFromPoint 로 실제 클릭 대상 확인)**
 ⑤ 콘솔 오류를 한 번에 잡는다. ④ 가 이번 회의 마이크 버그를 잡은 검사다 —
 겹침 검사로는 안 잡히니 z-index 를 만졌으면 반드시 이걸 돌릴 것.
+
+### 🎩 모자 꾸미기 (2026-07-25)
+- **12종 + 없음** — 밀짚·카우보이·야구모자·털모자·고깔·왕관·리본·꽃·나뭇잎·뿔·양동이·새싹.
+  전부 캔버스 그림이라 **용량 0**. 대기실 "내 양" 칸에서 색상처럼 고른다
+- 세 곳의 짝이 맞아야 한다 (하나만 빠뜨려도 조용히 깨짐 — 테스트가 지킨다):
+  `HATS`(15-roles, 목록) ↔ `Render.HAT_DRAW`(60-render, 그림) ↔ `Render.HAT_TOP`(높이)
+- **`HAT_TOP` 은 이름표를 올리는 높이다.** 안 올리면 이름표가 모자를 덮는다(실제로 덮었다).
+  `drawLabels` 가 `lift = HAT_TOP - 25` 만큼 이름표·말풍선·늑대배지를 올린다
+- 네트워크: 색상과 같은 등급의 **공개 정보**(`pubPlayer.hat`). `setHat` 은 대기실에서만,
+  **`validHat()` 으로 반드시 거른다** — 모르는 id 는 그림이 없어 남의 화면 렌더가 죽는다.
+  `hello` 에 실어 보내고 `localStorage.duckus_hat` 에 기억해 다음 판에도 쓰던 모자로 입장
+- 변신술사는 대상의 **모자까지** 쓴다 (`morphHat` — 색·이름과 같은 규칙)
+- 미리보기(대기실)는 내 색이 바뀔 때만 다시 그린다. renderLobby 는 초당 여러 번 불린다
+- **함정**: `charShape` 의 `t=0` 은 눈 깜빡임 주기상 '감은 순간'이라 미리보기가 졸려 보인다 → `t=800`
+- 검증 `node tools/shot-hats.mjs` — 13종을 정면·반전으로 그려 `test-shots/hats.png` 저장 +
+  **실제 픽셀을 재서 HAT_TOP 표와 어긋나면 실패**시킨다 (손으로 적은 표가 그림과 따로 놀지 않게)
 
 ### 사용자와 합의된 다음 후보 (우선순위 순)
 1. **도도 역할** — 투표당하면 승리하는 중립. 소인원에도 맞음

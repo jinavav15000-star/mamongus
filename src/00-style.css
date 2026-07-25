@@ -92,6 +92,15 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .swatch.taken{opacity:.22;pointer-events:none}
 .err{color:var(--bad);font-size:13px;min-height:18px;text-align:center}
 
+/* 모자 고르기 — 미리보기를 캔버스로 그린다 (그림 파일 0개) */
+.hatlabel{font-size:12px;color:var(--dim);font-weight:800;margin:11px 0 6px 3px}
+.hatgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.hatbtn{background:#1c140d;border:2px solid #3e2d1e;border-radius:11px;padding:0;
+  display:flex;align-items:flex-end;justify-content:center;overflow:hidden;transition:.12s}
+.hatbtn canvas{display:block;width:100%;height:auto}
+.hatbtn.sel{border-color:var(--acc);background:#2b2016}
+.hatbtn:active{transform:scale(.94)}
+
 /* ---------- 로비 ---------- */
 .lobbybar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .codechip{background:#1f1610;border:1.5px dashed #6d4e30;border-radius:12px;padding:9px 15px;

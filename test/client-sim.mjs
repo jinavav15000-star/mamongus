@@ -92,7 +92,7 @@ vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, Game, UI, Meeting, Trail, QUICK, ROLES, roleInfo,
   TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, ADMIN_TABLE, VITALS_PANEL, CAMERA_PANEL,
   SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL, Voice,
-  Sfx, Bgm, TILE, roomIdAt };
+  Sfx, Bgm, TILE, roomIdAt, HATS, HAT_IDS, validHat };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -726,6 +726,51 @@ section('유령 음성 (덕몽어스 기준)');
      run({ x: 1000, y: 1500 }, false, false, false) === 0);
   ok('회의 중엔 산 사람 전원 같은 크기', run({ x: 9999, y: 9999 }, true, false, false) === 1);
   ok('회의 중에도 유령 목소리는 산 사람에게 무음', run({ x: 9999, y: 9999 }, true, true, false) === 0);
+}
+
+/* ---- 모자 -----------------------------------------------------------------*/
+section('모자 꾸미기');
+{
+  const R = A.Render, HATS = A.HATS;
+  ok('모자 13종 정의', HATS.length === 13, HATS.length);
+  ok('첫 항목은 없음(기본값)', HATS[0].id === 'none');
+  ok('id 중복 없음', new Set(HATS.map(x => x.id)).size === HATS.length);
+
+  // 목록·그림·높이표 세 곳의 짝이 맞아야 한다. 하나만 빠뜨려도 조용히 깨진다
+  const noDraw = HATS.filter(x => x.id !== 'none' && typeof R.HAT_DRAW[x.id] !== 'function').map(x => x.id);
+  ok('모든 모자에 그림 함수 존재', noDraw.length === 0, noDraw);
+  const noTop = HATS.filter(x => R.HAT_TOP[x.id] == null).map(x => x.id);
+  ok('모든 모자에 높이(이름표 올림) 값 존재', noTop.length === 0, noTop);
+  const orphan = Object.keys(R.HAT_DRAW).filter(k => !A.HAT_IDS.has(k));
+  ok('목록에 없는 그림이 남아 있지 않음', orphan.length === 0, orphan);
+
+  // 모르는 값은 반드시 걸러진다 (그림 없는 id 가 들어오면 렌더가 죽는다)
+  ok('validHat: 아는 값 통과', A.validHat('cowboy') === 'cowboy');
+  ok('validHat: 모르는 값 → none', A.validHat('해커모자') === 'none' && A.validHat(null) === 'none'
+     && A.validHat({}) === 'none');
+
+  // 13종 전부 실제로 그려도 예외가 없어야 한다
+  const g = ctx2d();
+  const broke = [];
+  for (const hat of HATS) {
+    try { R.charShape(g, A.COLORS[0], { t: 800, hat: hat.id }); }
+    catch (e) { broke.push(hat.id + ':' + e.message); }
+  }
+  ok('모자 13종 전부 그려짐 (예외 없음)', broke.length === 0, broke);
+
+  // 이름표는 모자 높이만큼 올라가야 한다 (안 그러면 이름이 모자를 덮는다)
+  ok('높은 모자일수록 많이 올린다', R.HAT_TOP.party > R.HAT_TOP.straw && R.HAT_TOP.straw > R.HAT_TOP.none);
+
+  // 변신술사는 대상의 모자까지 쓴다 (색·이름과 같은 규칙)
+  {
+    const P = setup();
+    P.p2.hat = 'crown'; P.me.hat = 'party';
+    G.myId = 'me'; G.ghost = false;
+    Game.onSnap({ p: [['me', 100, 100, 1, 3, 0, 'p2', 0]] });
+    ok('변신 중이면 대상의 모자', G.players.me.morphHat === 'crown', G.players.me.morphHat);
+    Game.onSnap({ p: [['me', 100, 100, 1, 3, 0, 0, 0]] });
+    ok('변신이 풀리면 내 모자로', G.players.me.morphHat === null);
+  }
 }
 
 /* ---- 효과음 ---------------------------------------------------------------*/

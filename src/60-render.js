@@ -1472,9 +1472,12 @@ const Render = {
   drawLabels(g, p, state, isMe) {
     const dead = !p.alive;
     g.save(); g.translate(p.x, p.y);
+    // 이름표가 모자를 덮지 않도록, 쓴 모자의 높이만큼 위로 밀어 올린다
+    const hatId = p.morphId ? p.morphHat : p.hat;
+    const lift = Math.max(0, (this.HAT_TOP[hatId] || 25) - 25);
     if (state.duckMates?.includes(p.id) && !isMe) {
       g.fillStyle = '#ff5f6d'; g.font = '700 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'bottom';
-      g.fillText('🐺', 0, -46);
+      g.fillText('🐺', 0, -46 - lift);
     }
     const shownName = p.morphName || p.name;
     if (shownName) {
@@ -1482,16 +1485,16 @@ const Render = {
       g.textAlign = 'center'; g.textBaseline = 'bottom';
       const w = g.measureText(shownName).width;
       g.fillStyle = 'rgba(0,0,0,.55)';
-      g.fillRect(-w / 2 - 5, -46, w + 10, 17);
+      g.fillRect(-w / 2 - 5, -46 - lift, w + 10, 17);
       g.fillStyle = dead ? '#9aa4b8' : (isMe ? '#ffd88a' : '#fff');   // 내 이름은 금색
-      g.fillText(shownName, 0, -33);
+      g.fillText(shownName, 0, -33 - lift);
     }
     if (p.bubble && Date.now() < p.bubble.until && p.alive) {
       const txt = p.bubble.text;
       g.font = '700 12.5px "Pretendard", system-ui, sans-serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       const tw = Math.min(g.measureText(txt).width, 150);
-      const bw = tw + 18, bh = 24, by = -66;
+      const bw = tw + 18, bh = 24, by = -66 - lift;
       g.fillStyle = '#f6f1e6';
       g.strokeStyle = 'rgba(36,26,18,.9)'; g.lineWidth = 2;
       g.beginPath(); g.roundRect(-bw / 2, by - bh / 2, bw, bh, 11); g.fill(); g.stroke();
@@ -1570,6 +1573,157 @@ const Render = {
    * 월드 렌더링과 킬 연출이 같은 그림을 쓰도록 분리해 둔다. */
   /** 양 캐릭터. 양털이 플레이어 색, 얼굴은 진회색(서퍽종) — 어떤 색 양털과도 대비된다.
    *  머리가 +x 쪽에 있어 앞으로 내밀어져 진행 방향을 알려준다. */
+  /* ══════════ 모자 ══════════
+   * 캐릭터 좌표계(중심 0,0 · 얼굴 중심 -9.5 · 정수리 ≈ -25)에 그대로 그린다.
+   * charShape 의 좌우 반전 안에서 호출되므로 야구모자 챙은 저절로 보는 방향을 향한다.
+   * 목록(이름·순서)은 15-roles.js 의 HATS 에 있다 — id 가 짝이 맞아야 한다. */
+  /** 모자별 꼭대기 높이(양수, 캐릭터 중심 기준).
+   *  이름표가 모자를 덮지 않도록 이만큼 위로 올린다 (모자 없는 머리 꼭대기 ≈ 25).
+   *  ⚠️ 그림을 고치면 이 값도 같이 고칠 것 — `node tools/shot-hats.mjs` 가
+   *     실제로 그려진 픽셀을 재서 표와 어긋나면 알려 준다. */
+  HAT_TOP: {
+    none: 25, straw: 32, cowboy: 33, cap: 30, beanie: 36, party: 40,
+    crown: 31, bow: 28, flower: 31, leaf: 29, horns: 26, bucket: 35, sprout: 31,
+  },
+
+  HAT_DRAW: {
+    straw(g) {                                        // 밀짚모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -20.6, 17.5, 6.2, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#e0bb64';
+      g.beginPath(); g.ellipse(0, -21, 16, 5.2, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -24.6, 8.6, 6.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#d9b25f';
+      g.beginPath(); g.ellipse(0, -24.3, 7.3, 5.5, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#b8452f'; g.fillRect(-7.4, -23.2, 14.8, 2.5);
+    },
+    cowboy(g) {                                       // 카우보이
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -20.6, 17, 5.6, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#8a5a34';
+      g.beginPath(); g.ellipse(0, -21, 15.4, 4.6, 0, 0, 6.283); g.fill();
+      g.beginPath(); g.ellipse(-13.6, -22.6, 4.2, 3, 0.55, 0, 6.283); g.fill();   // 말려 올라간 챙
+      g.beginPath(); g.ellipse(13.6, -22.6, 4.2, 3, -0.55, 0, 6.283); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -25.4, 8.2, 7.2, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#a06b3f';
+      g.beginPath(); g.ellipse(0, -25.1, 7, 6.2, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#3b2a18'; g.fillRect(-7, -23.4, 14, 2.7);
+      g.fillStyle = '#e0bb64'; g.fillRect(-1.7, -23.2, 3.4, 2.3);
+    },
+    cap(g) {                                          // 야구모자 (챙이 보는 방향으로)
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -21.2, 9.8, 7.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#3a6fe0';
+      g.beginPath(); g.ellipse(0, -21.5, 8.6, 6.6, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(7.6, -20.8, 9.6, 3.5, -0.12, 0, 6.283); g.fill();
+      g.fillStyle = '#2a55b5';
+      g.beginPath(); g.ellipse(7.8, -21.2, 8.5, 2.6, -0.12, 0, 6.283); g.fill();
+      g.fillStyle = '#ffd23d'; g.beginPath(); g.arc(0, -27.8, 1.5, 0, 6.283); g.fill();
+    },
+    beanie(g) {                                       // 방울 털모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, -21.4, 10.6, 8.4, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#c0392b';
+      g.beginPath(); g.ellipse(0, -21.7, 9.4, 7.4, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#241a12'; g.fillRect(-10.8, -22.6, 21.6, 4.2);
+      g.fillStyle = '#efe4d2'; g.fillRect(-9.8, -22.2, 19.6, 3.4);
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(0, -30.6, 4.4, 0, 6.283); g.fill();
+      g.fillStyle = '#efe4d2'; g.beginPath(); g.arc(0, -30.8, 3.5, 0, 6.283); g.fill();
+    },
+    party(g) {                                        // 고깔모자
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.moveTo(-8.6, -20); g.lineTo(0, -37); g.lineTo(8.6, -20); g.closePath(); g.fill();
+      g.fillStyle = '#f06fbc';
+      g.beginPath(); g.moveTo(-7.1, -20.6); g.lineTo(0, -35.2); g.lineTo(7.1, -20.6); g.closePath(); g.fill();
+      g.fillStyle = '#ffd23d';
+      g.beginPath(); g.moveTo(-4.8, -25); g.lineTo(-2.7, -29.4); g.lineTo(1.3, -29.4); g.lineTo(-0.8, -25); g.closePath(); g.fill();
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(0, -36.4, 3.4, 0, 6.283); g.fill();
+      g.fillStyle = '#8ef0b5'; g.beginPath(); g.arc(0, -36.6, 2.6, 0, 6.283); g.fill();
+    },
+    crown(g) {                                        // 왕관
+      const pts = (o) => { g.beginPath();
+        g.moveTo(-10 - o, -20.2); g.lineTo(-10 - o, -27 - o); g.lineTo(-5, -23.4);
+        g.lineTo(0, -29.6 - o); g.lineTo(5, -23.4); g.lineTo(10 + o, -27 - o);
+        g.lineTo(10 + o, -20.2); g.closePath(); };
+      g.fillStyle = '#241a12'; pts(1.3); g.fill();
+      g.fillStyle = '#ffd23d'; pts(0); g.fill();
+      g.fillStyle = '#ff5f6d'; g.beginPath(); g.arc(0, -22.4, 1.6, 0, 6.283); g.fill();
+      g.fillStyle = '#5fd0ff';
+      g.beginPath(); g.arc(-5.6, -22, 1.15, 0, 6.283); g.fill();
+      g.beginPath(); g.arc(5.6, -22, 1.15, 0, 6.283); g.fill();
+    },
+    bow(g) {                                          // 리본 (머리 옆)
+      const bx = 7.6, by = -22.4;
+      const wings = (w, hh) => { g.beginPath();
+        g.moveTo(bx, by); g.lineTo(bx - w, by - hh); g.lineTo(bx - w, by + hh); g.closePath();
+        g.moveTo(bx, by); g.lineTo(bx + w, by - hh); g.lineTo(bx + w, by + hh); g.closePath(); };
+      g.fillStyle = '#241a12'; wings(7.2, 4.8); g.fill();
+      g.fillStyle = '#f06fbc'; wings(6, 3.7); g.fill();
+      g.fillStyle = '#241a12'; g.beginPath(); g.arc(bx, by, 2.6, 0, 6.283); g.fill();
+      g.fillStyle = '#c94f96'; g.beginPath(); g.arc(bx, by, 1.9, 0, 6.283); g.fill();
+    },
+    flower(g) {                                       // 꽃 한 송이
+      const fx = 7.6, fy = -23.4;
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 1.8; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(fx, fy + 1); g.lineTo(fx - 1, fy + 5.5); g.stroke();
+      for (const [r, c] of [[3.1, '#241a12'], [2.3, '#f7b2c4']])
+        for (let i = 0; i < 5; i++) {
+          const a = i * 1.2566 - 1.57;
+          g.fillStyle = c;
+          g.beginPath(); g.arc(fx + Math.cos(a) * 3.6, fy + Math.sin(a) * 3.6, r, 0, 6.283); g.fill();
+        }
+      g.fillStyle = '#ffd23d'; g.beginPath(); g.arc(fx, fy, 2.1, 0, 6.283); g.fill();
+    },
+    leaf(g) {                                         // 나뭇잎
+      g.save(); g.translate(3.5, -23); g.rotate(-0.55);
+      g.fillStyle = '#241a12';
+      g.beginPath(); g.ellipse(0, 0, 9.2, 4.8, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#5aa02e';
+      g.beginPath(); g.ellipse(0, 0, 8, 3.7, 0, 0, 6.283); g.fill();
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(-7.2, 0); g.lineTo(7.2, 0); g.stroke();
+      g.restore();
+    },
+    horns(g) {                                        // 숫양 뿔
+      for (const sx of [-1, 1]) {
+        g.save(); g.scale(sx, 1);
+        g.lineCap = 'round';
+        g.strokeStyle = '#241a12'; g.lineWidth = 6.4;
+        g.beginPath(); g.moveTo(7.5, -18.5); g.quadraticCurveTo(16, -22.5, 14.5, -13.5); g.stroke();
+        g.strokeStyle = '#d8c49a'; g.lineWidth = 4.2;
+        g.beginPath(); g.moveTo(7.5, -18.5); g.quadraticCurveTo(16, -22.5, 14.5, -13.5); g.stroke();
+        g.restore();
+      }
+    },
+    bucket(g) {                                       // 양동이 (장난)
+      const body = (o) => { g.beginPath();
+        g.moveTo(-10.4 - o, -18.6 + o); g.lineTo(-8.4 - o, -30.4 - o);
+        g.lineTo(8.4 + o, -30.4 - o); g.lineTo(10.4 + o, -18.6 + o); g.closePath(); };
+      g.fillStyle = '#241a12'; body(1.2); g.fill();
+      g.fillStyle = '#9aa0a8'; body(0); g.fill();
+      g.fillStyle = '#b8bec6'; g.fillRect(-8.7, -27.6, 17.4, 2.3);
+      g.strokeStyle = '#6f757c'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-9.2, -23.4); g.lineTo(9.2, -23.4); g.stroke();
+      g.fillStyle = '#241a12'; g.beginPath(); g.ellipse(0, -30.4, 9.6, 2.8, 0, 0, 6.283); g.fill();
+      g.fillStyle = '#7f858d'; g.beginPath(); g.ellipse(0, -30.6, 8.4, 2.1, 0, 0, 6.283); g.fill();
+    },
+    sprout(g) {                                       // 새싹
+      g.strokeStyle = '#241a12'; g.lineWidth = 4; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(0, -18.5); g.lineTo(0, -27); g.stroke();
+      g.strokeStyle = '#3d7a1e'; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(0, -18.5); g.lineTo(0, -27); g.stroke();
+      for (const sx of [-1, 1]) {
+        g.fillStyle = '#241a12';
+        g.beginPath(); g.ellipse(sx * 4.6, -27.2, 5.2, 3.4, sx * -0.5, 0, 6.283); g.fill();
+        g.fillStyle = sx < 0 ? '#6cb63a' : '#8ed44f';
+        g.beginPath(); g.ellipse(sx * 4.6, -27.4, 4.1, 2.5, sx * -0.5, 0, 6.283); g.fill();
+      }
+    },
+  },
+
   charShape(g, col, o = {}) {
     const { dead = false, moving = false, t = 0 } = o;
     const OUT = '#241a12';                 // 모든 색 공통 외곽선
@@ -1678,6 +1832,9 @@ const Render = {
       g.beginPath(); g.ellipse(-1.1, -3.7, 0.7, 1, 0.2, 0, 6.283); g.fill();
       g.beginPath(); g.ellipse(1.1, -3.7, 0.7, 1, -0.2, 0, 6.283); g.fill();
     }
+
+    /* ── 모자 — 정수리 양털 위에 얹는다 ── */
+    if (o.hat && o.hat !== 'none') this.HAT_DRAW[o.hat]?.(g);
   },
 
   /* ---------------- 양 캐릭터 ---------------- */
@@ -1700,7 +1857,9 @@ const Render = {
     g.translate(0, -bob);
     g.scale(flip, 1);
 
-    this.charShape(g, col, { dead, moving: p.moving, t });
+    // 변신술사로 변해 있으면 그 사람의 모자를 쓴다 (색·이름과 같은 규칙)
+    const hat = p.morphId ? p.morphHat : p.hat;
+    this.charShape(g, col, { dead, moving: p.moving, t, hat });
     g.restore();
 
     /* 상태 배지 / 이름 */

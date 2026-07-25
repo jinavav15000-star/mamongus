@@ -21,6 +21,31 @@ const COLORS = [
 ];
 const colorOf = id => COLORS.find(c => c.id === id) || COLORS[0];
 
+/* ---------------------------------------------------------------------------
+ *  모자 — 색상과 함께 고르는 유일한 치장. 그림은 코드로 그리므로 용량이 0이다.
+ *  (그리는 함수는 60-render.js 의 HAT_DRAW 에 있다. 여기엔 목록만 둔다 —
+ *   호스트 검증·UI 목록이 렌더러보다 먼저 로드되기 때문)
+ *  ⚠️ id 를 추가하면 HAT_DRAW 에도 같은 id 를 넣을 것. 테스트가 짝을 검사한다.
+ * -------------------------------------------------------------------------*/
+const HATS = [
+  { id:'none',    name:'없음' },
+  { id:'straw',   name:'밀짚모자' },
+  { id:'cowboy',  name:'카우보이' },
+  { id:'cap',     name:'야구모자' },
+  { id:'beanie',  name:'털모자' },
+  { id:'party',   name:'고깔모자' },
+  { id:'crown',   name:'왕관' },
+  { id:'bow',     name:'리본' },
+  { id:'flower',  name:'꽃' },
+  { id:'leaf',    name:'나뭇잎' },
+  { id:'horns',   name:'뿔' },
+  { id:'bucket',  name:'양동이' },
+  { id:'sprout',  name:'새싹' },
+];
+/** 클라이언트가 보낸 값을 그대로 믿지 않는다 (모르는 id 는 그림이 없어 렌더가 깨진다) */
+const HAT_IDS = new Set(HATS.map(h => h.id));
+const validHat = id => (HAT_IDS.has(id) ? id : 'none');
+
 /** 한글 마지막 글자에 받침이 있는지 — 조사(이었/였, 을/를 …) 선택용 */
 const hasJong = s => {
   if (!s) return false;
