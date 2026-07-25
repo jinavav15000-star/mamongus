@@ -291,14 +291,34 @@ const Voice = {
     if (this.enabled) return true;
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('이 브라우저는 마이크를 지원하지 않습니다.');
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false,
+      audio: {
+        // 반향 제거는 필수다. 없으면 스피커로 나온 상대 목소리가 내 마이크로 되돌아가
+        // 상대에게 자기 목소리가 메아리로 들린다 (스피커폰으로 하는 사람이 대부분이다)
+        echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+        channelCount: 1, sampleRate: 48000,      // 말소리는 모노로 충분 — 대역을 아껴 끊김을 줄인다
+      }, video: false,
     });
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    /* ⚠️ 아이폰 사파리는 WebRTC 스트림을 WebAudio(createMediaStreamSource)로 재생하면
+       소리가 안 나는 사례가 있다. 그래서 아이폰에서는 <audio> 태그를 그대로 스피커로 쓰고
+       거리 감쇠는 태그의 volume 으로 준다 (좌우 방향감만 포기). */
+    this.elementSink = !!(typeof Viewport !== 'undefined' && Viewport.isIOS);
+
+    /* 공용 출력 버스 — 사람마다 목소리 크기가 제각각이라 큰 소리는 눌러 주고
+       작은 소리는 들리게 한다. 여러 명이 동시에 말할 때 특히 알아듣기 쉬워진다. */
+    if (!this.elementSink) {
+      const comp = this.ctx.createDynamicsCompressor();
+      comp.threshold.value = -26; comp.knee.value = 24;
+      comp.ratio.value = 6; comp.attack.value = 0.005; comp.release.value = 0.2;
+      comp.connect(this.ctx.destination);
+      this.outBus = comp;
+    }
     this.enabled = true;
     this.setTalking(!this.pushToTalk);
     // 수신 대기
     Net.peer?.on('call', call => {
-      call.answer(this.stream);
+      call.answer(this.stream, { sdpTransform: this._sdp });
       this._bind(call);
     });
     return true;
@@ -309,10 +329,26 @@ const Voice = {
     this.stream?.getAudioTracks().forEach(t => { t.enabled = on; });
   },
 
+  /** Opus 코덱 조정 — 모바일 데이터에서 끊김을 줄이고 말소리를 또렷하게.
+   *   useinbandfec : 패킷이 유실돼도 앞뒤로 메워 준다 (지하철·엘리베이터에서 체감이 크다)
+   *   usedtx       : 말을 안 하는 동안 전송을 멈춘다 (16명이면 대역이 크게 절약된다)
+   *   maxaveragebitrate 32k : 말소리 기준 넉넉한 값. 기본값보다 또렷하다
+   *  ⚠️ 거는 쪽·받는 쪽 양쪽에 걸어야 실제로 적용된다. */
+  _sdp(sdp) {
+    const want = { useinbandfec:'1', usedtx:'1', stereo:'0', maxaveragebitrate:'32000' };
+    // opus 의 fmtp 줄만 골라 '없는 항목만' 덧붙인다.
+    // 그냥 이어 붙이면 이미 있는 값이 중복돼 지저분해지고 해석이 엇갈릴 수 있다.
+    return sdp.replace(/^a=fmtp:(\d+) (.*minptime=.*)$/gm, (line, pt, params) => {
+      const have = new Set(params.split(';').map(x => x.split('=')[0].trim()));
+      const add = Object.entries(want).filter(([k]) => !have.has(k)).map(([k, v]) => k + '=' + v);
+      return add.length ? `a=fmtp:${pt} ${params};${add.join(';')}` : line;
+    });
+  },
+
   callPeer(peerId) {
     if (!this.enabled || !peerId || this.calls.has(peerId) || peerId === Net.peer?.id) return;
     try {
-      const call = Net.peer.call(peerId, this.stream);
+      const call = Net.peer.call(peerId, this.stream, { sdpTransform: this._sdp });
       if (call) this._bind(call);
     } catch {}
   },
@@ -321,17 +357,32 @@ const Voice = {
     this.calls.set(call.peer, call);
     call.on('stream', remote => {
       const audio = new Audio();
-      audio.srcObject = remote; audio.autoplay = true; audio.muted = false;
+      audio.srcObject = remote; audio.autoplay = true; audio.playsInline = true;
+      /* ⚠️ 이 <audio> 는 소리를 내는 곳이 아니라 '스트림을 흐르게 하는 펌프'다.
+         (일부 브라우저는 어딘가에 물려 있지 않으면 원격 스트림을 흘리지 않는다)
+         음소거하지 않으면 아래 WebAudio 경로와 겹쳐 같은 목소리가 두 번 재생되고,
+         그 순간 거리 감쇠·유령 차단이 통째로 무력화된다 — 게인을 0으로 내려도
+         태그가 원본 크기로 계속 울리기 때문이다. 실제로 그 상태였다. */
+      audio.muted = !this.elementSink;
       audio.play().catch(() => {});
+
+      if (this.elementSink) {                    // 아이폰: 태그가 곧 스피커
+        this.nodes.set(call.peer, { audio, panner: null, gain: null, src: null });
+        return;
+      }
       const src = this.ctx.createMediaStreamSource(remote);
+      // 말소리 아래쪽 웅웅거림(손 스침·바람·에어컨)을 잘라내 또렷하게 만든다
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 90; hp.Q.value = 0.7;
       const panner = this.ctx.createPanner();
       // linear 모델은 maxDistance 에서 정확히 0이 된다.
       // (inverse 는 아무리 멀어도 0이 안 되어 맵 반대편 목소리가 새어 들렸다)
       panner.panningModel = 'HRTF'; panner.distanceModel = 'linear';
       panner.refDistance = 70; panner.maxDistance = 380; panner.rolloffFactor = 1;
       const gain = this.ctx.createGain();
-      src.connect(panner); panner.connect(gain); gain.connect(this.ctx.destination);
-      this.nodes.set(call.peer, { audio, panner, gain, src });
+      src.connect(hp); hp.connect(panner); panner.connect(gain);
+      gain.connect(this.outBus || this.ctx.destination);
+      this.nodes.set(call.peer, { audio, panner, gain, src, hp });
     });
     call.on('close', () => this._drop(call.peer));
     call.on('error', () => this._drop(call.peer));
@@ -339,7 +390,7 @@ const Voice = {
 
   _drop(peerId) {
     const n = this.nodes.get(peerId);
-    if (n) { try { n.audio.srcObject = null; n.src.disconnect(); } catch {} this.nodes.delete(peerId); }
+    if (n) { try { n.audio.srcObject = null; n.src?.disconnect(); } catch {} this.nodes.delete(peerId); }
     this.calls.delete(peerId);
   },
 
@@ -356,12 +407,16 @@ const Voice = {
       const speakerDead = deadSet.has(peerId);
       // 유령의 목소리는 산 사람에게 들리지 않는다
       let g = iAmDead ? 1 : (speakerDead ? 0 : 1);
+      const at = (x, y) => {
+        if (!n.panner) return;
+        if (n.panner.positionX) { n.panner.positionX.value = x; n.panner.positionZ.value = y; }
+        else n.panner.setPosition(x, 0, y);
+      };
       if (meeting || (iAmDead && speakerDead)) {
         // 회의: 거리 무시, 전원 같은 크기 (화자를 귀 옆에)
         // 유령끼리도 마찬가지 — 죽은 사람들은 맵 어디서든 서로 대화한다 (덕몽어스 방식).
         // 산 사람 목소리는 유령에게도 여전히 거리 감쇠로 들린다 (구경하는 재미).
-        if (n.panner.positionX) { n.panner.positionX.value = listener.x; n.panner.positionZ.value = listener.y; }
-        else n.panner.setPosition(listener.x, 0, listener.y);
+        at(listener.x, listener.y);
       } else if (!p) {
         // ⚠️ 위치를 모르는 화자(시야 밖·건초 속) = 무음.
         // 예전엔 여기서 '내 위치'에 놓아 최대 음량으로 들렸다 —
@@ -371,10 +426,11 @@ const Voice = {
         const d = Math.hypot(p.x - listener.x, p.y - listener.y);
         // 이중 안전망: 패너와 별개로 게인에서도 거리 컷
         g *= d <= 100 ? 1 : d >= 380 ? 0 : 1 - (d - 100) / 280;
-        if (n.panner.positionX) { n.panner.positionX.value = p.x; n.panner.positionZ.value = p.y; }
-        else n.panner.setPosition(p.x, 0, p.y);
+        at(p.x, p.y);
       }
-      n.gain.gain.value = g;
+      // 소리를 실제로 내는 곳에 크기를 준다. 두 곳에 동시에 주면 이중 재생이 된다.
+      if (n.gain) n.gain.gain.value = g;
+      if (this.elementSink && n.audio) n.audio.volume = Math.max(0, Math.min(1, g));
     }
   },
 

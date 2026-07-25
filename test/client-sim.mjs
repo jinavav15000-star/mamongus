@@ -702,7 +702,8 @@ section('유령 관전');
 section('유령 음성 (덕몽어스 기준)');
 {
   const V = A.Voice;
-  const mkNode = () => ({ panner: { setPosition(){} }, gain: { gain: { value: 9 } } });
+  const mkNode = () => ({ panner: { setPosition(){} }, gain: { gain: { value: 9 } },
+                          audio: { volume: 9, muted: true } });
   const listener = { x: 1000, y: 1000 };
   const run = (pos, meeting, dead, iAmDead) => {
     const n = mkNode();
@@ -726,6 +727,31 @@ section('유령 음성 (덕몽어스 기준)');
      run({ x: 1000, y: 1500 }, false, false, false) === 0);
   ok('회의 중엔 산 사람 전원 같은 크기', run({ x: 9999, y: 9999 }, true, false, false) === 1);
   ok('회의 중에도 유령 목소리는 산 사람에게 무음', run({ x: 9999, y: 9999 }, true, true, false) === 0);
+
+  /* 소리가 나는 경로는 하나여야 한다.
+   * <audio> 태그와 WebAudio 가 같이 울리면 거리 감쇠·유령 차단이 통째로 무력화된다
+   * (실제로 그 상태였고, 브라우저 2개 실측으로 확인한 뒤 고쳤다). */
+  const both = (elementSink, pos, dead, iAmDead) => {
+    const n = mkNode();
+    V.enabled = true; V.ctx = { listener: { setPosition(){} } };
+    V.nodes = new Map([['peerA', n]]);
+    V.elementSink = elementSink;
+    V.update(listener, pos ? { peerA: pos } : {}, false, new Set(dead ? ['peerA'] : []), iAmDead);
+    V.enabled = false; V.ctx = null; V.nodes = new Map(); V.elementSink = false;
+    return { gain: n.gain.gain.value, vol: n.audio.volume };
+  };
+  {
+    const near = { x: 1000, y: 1010 }, far = { x: 1000, y: 9000 };
+    const web = both(false, near, false, false);
+    ok('평소(WebAudio): 게인으로 소리를 낸다', web.gain === 1);
+    ok('평소: 태그 음량은 건드리지 않는다 (태그는 음소거 상태)', web.vol === 9);
+    const ios = both(true, near, false, false);
+    ok('아이폰(태그 재생): 태그 음량으로 소리를 낸다', ios.vol === 1);
+    const iosFar = both(true, far, false, false);
+    ok('아이폰에서도 멀면 무음', iosFar.vol === 0);
+    const iosGhost = both(true, near, true, false);
+    ok('아이폰에서도 유령은 산 사람에게 무음', iosGhost.vol === 0);
+  }
 }
 
 /* ---- 모자 -----------------------------------------------------------------*/
