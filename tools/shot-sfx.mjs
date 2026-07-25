@@ -86,15 +86,17 @@ const rows = await p.evaluate(async (list) => {
     const s = Math.min(Math.max(0, peakAt - 512), Math.max(0, d.length - 4096));
     const w = d.slice(s, s + 4096);
     let e0 = 0; for (let i = 0; i < w.length; i++) e0 += w[i] * w[i];
-    let best = 0;
+    let best = 0, bestLag = 0;
     if (e0 > 1e-9) {
       for (let lag = 40; lag < 1200; lag++) {
         let c = 0;
         for (let i = 0; i + lag < w.length; i++) c += w[i] * w[i + lag];
         const n = c / e0;
-        if (n > best) best = n;
+        if (n > best) { best = n; bestLag = lag; }
       }
     }
+    // 음높이 — 자기상관이 가장 잘 맞는 주기. 음정이 뚜렷한 소리에서만 의미가 있다
+    const pitchHz = best > 0.35 && bestLag ? Math.round(SR / bestLag) : 0;
     // 끊김(진폭 변조) 속도 — 소리 크기가 초당 몇 번 열렸다 닫히는가.
     // 방귀의 '뿌르륵'이 실제로 있는지 재는 값. 매끈한 소리는 0에 가깝다.
     let amHz = 0;
@@ -111,7 +113,7 @@ const rows = await p.evaluate(async (list) => {
         amHz = Math.round(cross / (lastAudible / SR));
       }
     }
-    out.push({ name, peak, rms, durMs: Math.round(lastAudible / SR * 1000), amHz,
+    out.push({ name, peak, rms, durMs: Math.round(lastAudible / SR * 1000), amHz, pitchHz,
                zcr: Math.round(zc / LEN), tonality: +best.toFixed(3),
                wav: (() => {                       // 16bit PCM WAV 로 인코딩해 돌려준다
                  const n = Math.min(d.length, Math.round((lastAudible + SR * 0.05)));
@@ -135,8 +137,8 @@ mkdirSync('test-shots/sfx', { recursive: true });
 const meta = Object.fromEntries(SOUNDS.map(([n, , o]) => [n, o]));
 let fail = 0;
 const bad = [];
-console.log('\n이름            한글        최대   실효    길이   밝기(zcr)  잡음성  끊김');
-console.log('─'.repeat(82));
+console.log('\n이름            한글        최대   실효    길이   밝기(zcr)  잡음성  끊김   음높이');
+console.log('─'.repeat(90));
 for (const r of rows) {
   if (r.err) { console.log(`${r.name}  ❌ ${r.err}`); fail++; continue; }
   writeFileSync(`test-shots/sfx/${r.name}.wav`, Buffer.from(r.wav, 'base64'));
@@ -157,7 +159,8 @@ for (const r of rows) {
     r.name.padEnd(14) + (m.label || '').padEnd(11) +
     r.peak.toFixed(3).padStart(6) + r.rms.toFixed(4).padStart(8) +
     (r.durMs + 'ms').padStart(8) + String(r.zcr).padStart(9) +
-    r.tonality.toFixed(3).padStart(9) + (r.amHz + 'Hz').padStart(7) + '  ' + flags.join(' '));
+    r.tonality.toFixed(3).padStart(9) + (r.amHz + 'Hz').padStart(7) +
+    (r.pitchHz ? r.pitchHz + 'Hz' : '-').padStart(8) + '  ' + flags.join(' '));
 }
 console.log('─'.repeat(82));
 
