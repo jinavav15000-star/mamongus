@@ -780,6 +780,20 @@ section('효과음 (목장 소리)');
   const noFn = sounds.filter(s => typeof S[s] !== 'function');
   ok('빠진 효과음 없음', noFn.length === 0, noFn);
 
+  // 방귀는 '떨림(음정 흔들림) + 끊김(진폭 변조)' 두 LFO 가 핵심이다.
+  // 이게 빠지면 다시 '삐융' 하는 합성음으로 돌아간다 → 오실레이터 개수로 지킨다
+  {
+    let osc = 0;
+    const realCtx2 = S.ctx;
+    S.ctx = new Proxy(realCtx2, { get(t, k) {
+      if (k === 'createOscillator') return (...a) => { osc++; return t[k](...a); };
+      const v = t[k]; return typeof v === 'function' ? v.bind(t) : v;
+    } });
+    osc = 0; S._brap(0, 0.4, 100, 1);
+    ok('방귀 한 번 = 소리원 + 떨림LFO + 끊김LFO (3개)', osc === 3, osc);
+    S.ctx = realCtx2;
+  }
+
   // 미니게임이 쓰는 옛 API 는 그대로 살아 있어야 한다
   let err = null;
   try { S.tone(440, 0.1, 'square', 0, 220, 0.4); S.tone(440); S.noise(0.1, 900, 0.5, 200); }

@@ -2533,12 +2533,64 @@ const Sfx = {
                this.tone(1100, 0.05, 'sine', 0, 1500, 0.16); },
   wave()     { this._body(620, { parts:[[1,1],[2.1,0.3]], dur: 0.12, vol: 0.2 });
                this._body(830, { parts:[[1,1],[2.1,0.3]], dur: 0.14, vol: 0.2, when: 0.1 }); },
-  /** 방귀 — 대기실 장난. 톱니파 떨림 + 바람 새는 노이즈 */
+  /** 방귀 — 대기실 장난.
+   *  실제 방귀는 음이 아니라 「살이 파닥이며 공기를 끊는 소리」다. 세 겹으로 만든다.
+   *   1) 떨림(톱니파)의 음정이 불안정하게 출렁인다        ← 기계가 아니라 몸이 내는 소리
+   *   2) 그 소리가 초당 20~35번 끊긴다 (진폭 변조)        ← '뿌르륵'의 정체
+   *   3) 살집 공명으로 고역이 죽는다 (저역통과 + 공진)     ← '삑'이 아니라 '뿡'이 되는 이유
+   *  길이·음높이·끊김이 매번 달라서 같은 방귀가 두 번 나오지 않는다. */
   fart() {
-    this.tone(140, 0.09, 'sawtooth', 0,    95, 0.5);
-    this.tone(110, 0.13, 'sawtooth', 0.07, 70, 0.55);
-    this.tone(85,  0.22, 'sawtooth', 0.16, 45, 0.5);
-    this._grain({ noise:'brown', type:'lowpass', freq: 380, sweep: 120, dur: 0.3, vol: 0.22 });
+    if (!this.ctx || this.muted) return;
+    const dur = this._rnd(0.34, 0.62);
+    const f0 = this._rnd(76, 116);
+    this._brap(0, dur, f0, this._rnd(0.92, 1.12));
+    // 가끔 여운 한 방 더 — "뿌웅… 뽕"
+    if (Math.random() < 0.32)
+      this._brap(dur + this._rnd(0.05, 0.15), this._rnd(0.09, 0.19), f0 * this._rnd(0.8, 1.35), 0.72);
+  },
+
+  /** 방귀 한 번의 실체 (when = 지금부터 몇 초 뒤) */
+  _brap(when, dur, f0, vol) {
+    const c = this.ctx, t0 = c.currentTime + when;
+
+    const src = c.createOscillator();
+    src.type = 'sawtooth';
+    src.frequency.setValueAtTime(f0 * 1.28, t0);                 // 처음에 '뿡' 하고 튀었다가
+    src.frequency.exponentialRampToValueAtTime(f0 * 0.6, t0 + dur);  // 힘이 빠지며 내려간다
+
+    // ① 음정 출렁임 — 살은 일정한 속도로 떨리지 못한다
+    const wob = c.createOscillator(); wob.type = 'sine';
+    wob.frequency.setValueAtTime(this._rnd(5, 11), t0);
+    const wobG = c.createGain(); wobG.gain.setValueAtTime(f0 * 0.3, t0);
+    wob.connect(wobG); wobG.connect(src.frequency);
+
+    // ② 끊김 — 진폭이 초당 20~35번 열렸다 닫힌다. 끝으로 갈수록 느슨해진다
+    const am = c.createGain(); am.gain.setValueAtTime(0.55, t0);
+    const flut = c.createOscillator(); flut.type = 'triangle';
+    flut.frequency.setValueAtTime(this._rnd(21, 34), t0);
+    flut.frequency.exponentialRampToValueAtTime(this._rnd(9, 15), t0 + dur);
+    const flutG = c.createGain(); flutG.gain.setValueAtTime(0.45, t0);
+    flut.connect(flutG); flutG.connect(am.gain);
+
+    // ③ 살집 공명
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(1100, t0);
+    lp.frequency.exponentialRampToValueAtTime(270, t0 + dur);
+    lp.Q.value = 4.5;
+
+    const env = c.createGain();
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.exponentialRampToValueAtTime(0.6 * vol, t0 + 0.014);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    src.connect(am); am.connect(lp); lp.connect(env); env.connect(this.master);
+    src.start(t0); src.stop(t0 + dur + 0.05);
+    wob.start(t0); wob.stop(t0 + dur + 0.05);
+    flut.start(t0); flut.stop(t0 + dur + 0.05);
+
+    // 바람 새는 소리 한 줌
+    this._grain({ noise:'brown', type:'lowpass', freq: 540, sweep: 170,
+                  dur: dur * 0.85, vol: 0.2 * vol, when });
   },
   taskStep() { this._grain({ noise:'pink', freq: 1500, q: 6, dur: 0.03, vol: 0.2 });
                this._body(520, { parts:[[1,1],[2.7,0.25]], dur: 0.1, vol: 0.14 }); },
