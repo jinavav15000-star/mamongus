@@ -1134,18 +1134,6 @@ const Game = {
       Voice.callPeer(this.voicePeers[pid]);
     }
   },
-  buildVoiceBtn() {
-    return;                                    // 상시 🎙️ 버튼(#btn-mic)으로 대체됨
-    if ($('#btn-talk')) return;
-    const b = h('button', { cls:'abtn small', id:'btn-talk',
-      style:{ background:'radial-gradient(circle at 40% 30%,#2ea44f,#14532d)', borderColor:'#5fe08a' } },
-      h('span', { cls:'ic' }, '🎙️'), h('span', {}, '말하기'));
-    const on = e => { e.preventDefault(); Voice.setTalking(true); b.style.filter = 'brightness(1.5)'; };
-    const off = () => { Voice.setTalking(false); b.style.filter = ''; };
-    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off);
-    b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
-    $('#actrow2').appendChild(b);
-  },
 };
 
 /* ═══════════ 시작 ═══════════ */

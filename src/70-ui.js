@@ -54,6 +54,18 @@ const UI = {
     this.screen = name;
     ['home','lobby','game','meeting','eject','result'].forEach(s =>
       $('#screen-' + s).classList.toggle('hidden', s !== name));
+    this.updateMicBtn();
+  },
+
+  /** 마이크 버튼 표시 여부.
+   *  회의에서도 떠 있어야 한다 — 예전엔 게임 화면 안에 있어서 회의가 시작되면 사라졌고,
+   *  누르는 동안만 전송되는 방식이라 정작 토론 때 한 마디도 못 했다.
+   *  홈·결과 화면과 로비 설정 패널 위에서는 가린다 (누를 일이 없고 패널을 덮는다). */
+  updateMicBtn() {
+    const el = $('#btn-mic'); if (!el) return;
+    const inRoom = this.screen === 'game' || this.screen === 'meeting';
+    const panelOpen = !$('#screen-lobby').classList.contains('hidden');
+    el.classList.toggle('hidden', !inRoom || panelOpen);
   },
 
   loading(on, text) {
@@ -104,14 +116,14 @@ const UI = {
   closeAllModals() { while (this.modalStack.length) this.closeModal(); },
 
   /* ---------------- 대기실 패널 / 맵 채팅 ---------------- */
-  openLobbyPanel()  { $('#screen-lobby').classList.remove('hidden'); },
+  openLobbyPanel()  { $('#screen-lobby').classList.remove('hidden'); this.updateMicBtn(); },
   /** 첫 입장 안내 — 패널을 강제로 열지 않고 어디 있는지만 알려 준다 */
   hintLobbyMenu() {
     if (this._lobbyHinted) return;
     this._lobbyHinted = true;
     this.toast('오른쪽 위 <b>☰</b> 에서 닉네임·색상·설정·직업을 바꿀 수 있어요', 6500);
   },
-  closeLobbyPanel() { $('#screen-lobby').classList.add('hidden'); },
+  closeLobbyPanel() { $('#screen-lobby').classList.add('hidden'); this.updateMicBtn(); },
   togglePlayChat() {
     const w = $('#play-chat-wrap');
     w.classList.toggle('hidden');
@@ -315,8 +327,7 @@ const UI = {
 
     // 킬 버튼은 크게
     if (this.btn.kill) { this.btn.kill.classList.remove('small'); }
-    // 행동 버튼을 다시 만들면 말하기 버튼도 사라지므로 복구
-    if (Voice.enabled) Game.buildVoiceBtn();
+    // (마이크는 행동 버튼 무리 밖의 고정 버튼이라 여기서 다시 만들 필요가 없다)
   },
 
   renderRoleChip() {
@@ -684,7 +695,7 @@ const UI = {
       if (Voice.enabled) { Voice.disable(); vBtn.textContent = '🎙️ 음성채팅 켜기'; vBtn.classList.remove('primary'); UI.toast('음성채팅을 껐습니다.'); }
       else {
         try { await Voice.enable(); Game.announceVoice(); vBtn.textContent = '🎙️ 음성채팅 켜짐 (누르면 끔)'; vBtn.classList.add('primary');
-          UI.toast('🎙️ 음성채팅 ON — 화면 아래 <b>말하기</b> 버튼을 누르는 동안만 전송됩니다.', 6000); Game.buildVoiceBtn(); }
+          UI.toast('🎙️ 음성채팅 ON — 화면 <b>오른쪽 가운데 🎙️ 버튼</b>을 누르는 동안만 전송됩니다.', 6000); }
         catch (e) { UI.toast('마이크를 사용할 수 없습니다: ' + e.message, 5000); }
       }
     } }, Voice.enabled ? '🎙️ 음성채팅 켜짐 (누르면 끔)' : '🎙️ 음성채팅 켜기');

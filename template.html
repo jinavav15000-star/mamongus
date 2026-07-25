@@ -174,9 +174,6 @@
       <button class="abtn small emote" id="btn-fart" title="방귀">💨</button>
     </div>
 
-    <!-- 마이크 — 항상 보인다. 처음 누르면 켤지 묻고, 그 뒤로는 누르는 동안 말하기 -->
-    <button class="abtn small" id="btn-mic"><span class="ic">🎙️</span><span>음성</span></button>
-
     <!-- 채팅 (대기실 + 게임 중) -->
     <button class="iconbtn hidden" id="btn-chat">💬</button>
     <div id="play-chat-wrap" class="hidden">
@@ -237,6 +234,12 @@
     <div id="result-foot" style="padding:0 0 20px"></div>
   </div>
 </div>
+
+<!-- ══════════ 마이크 ══════════
+     ⚠️ 화면(#screen-*) 바깥에 둔다. 예전엔 게임 화면 안에 있어서 회의가 시작되면
+     사라졌다 — 정작 말이 가장 필요한 순간에 말할 수단이 없었다.
+     여기 있으면 게임·대기실·회의에서 같은 자리에 그대로 떠 있는다. -->
+<button class="abtn small hidden" id="btn-mic"><span class="ic">🎙️</span><span>음성</span></button>
 
 <!-- ══════════ 가로로 돌려주세요 (방향 고정이 안 되는 기기용) ══════════ -->
 <div id="rotate-gate" class="rotate-gate hidden">

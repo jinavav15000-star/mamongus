@@ -153,11 +153,11 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .specbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + var(--safe-b));
   display:flex;gap:7px;align-items:center;background:rgba(26,17,10,.86);border:1.5px solid #6b4e33;
   border-radius:999px;padding:7px 9px;z-index:6;box-shadow:0 4px 16px rgba(0,0,0,.45)}
-.specbar button{width:40px;height:40px;border-radius:50%;font-size:16px;font-weight:900;
+.specbar button{width:44px;height:44px;border-radius:50%;font-size:16px;font-weight:900;
   background:#3a2b1e;border:1.5px solid #6b4e33;color:var(--txt);flex:none}
 .specbar button:active{background:#503a27}
 .specbar .nm{min-width:104px;text-align:center;font-weight:800;font-size:13.5px;white-space:nowrap}
-.specbar .off{width:34px;height:34px;font-size:13px;background:#2b2016;color:var(--dim)}
+.specbar .off{width:40px;height:40px;font-size:14px;background:#2b2016;color:var(--dim)}
 
 /* 조이스틱 */
 .stick{position:absolute;left:calc(16px + var(--safe-l));bottom:calc(22px + var(--safe-b));
@@ -411,7 +411,7 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .meet-fs{position:absolute;right:calc(10px + var(--safe-r));top:calc(8px + var(--safe-t))}
 /* 회의 시간 조절 — 단계마다 1인 1회 */
 .meet-tv{position:absolute;left:calc(10px + var(--safe-l));top:calc(8px + var(--safe-t));display:flex;gap:6px}
-.meet-tv button{padding:6px 10px;border-radius:10px;background:#3c2c1d;border:1px solid #6d4e30;
+.meet-tv button{padding:6px 10px;min-height:44px;border-radius:10px;background:#3c2c1d;border:1px solid #6d4e30;
   font-size:12px;font-weight:800}
 .meet-tv button:disabled{opacity:.35}
 /* 강퇴 버튼 */
@@ -459,8 +459,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .chatbar{flex:none;border-top:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:7px}
 .chatinput{display:flex;gap:7px}
 .chatinput input{flex:1;background:#1c140d;border:1px solid #4b3623;border-radius:11px;padding:11px 13px;color:var(--txt);outline:none}
-.chatinput button{padding:0 16px;border-radius:11px;background:#d9862f;font-weight:800}
-#qc-toggle{flex:none;padding:0 13px;background:#3c2c1d;border:1px solid #6d4e30;border-radius:11px}
+.chatinput button{padding:0 16px;min-height:44px;border-radius:11px;background:#d9862f;font-weight:800}
+#qc-toggle{flex:none;padding:0 13px;min-height:44px;background:#3c2c1d;border:1px solid #6d4e30;border-radius:11px}
 #qc-toggle.on{background:#d9862f;border-color:#f0ac4d}
 .qc{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
 .qc::-webkit-scrollbar{height:0}
@@ -555,14 +555,16 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .topbar{top:calc(5px + var(--safe-t))}
   .taskbar-wrap{padding:5px 10px}
   .taskbar-label{font-size:10px}
-  .iconbtn{width:36px;height:36px;font-size:17px;border-radius:10px}
+  /* 손가락으로 누르는 최소 크기는 44px 이다. 36px 로 줄였더니 지도·메뉴가 잘 안 눌렸다.
+     상단 4px 만 더 내주면 되는 문제라 44px 로 되돌리고 아래 요소를 8px 씩 내렸다. */
+  .iconbtn{width:44px;height:44px;font-size:19px;border-radius:11px}
 
-  .tasklist{top:calc(48px + var(--safe-t));left:calc(8px + var(--safe-l));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
+  .tasklist{top:calc(56px + var(--safe-t));left:calc(8px + var(--safe-l));max-width:31%;max-height:68%;font-size:10px;padding:5px 8px;line-height:1.25}
   .tasklist .hd{font-size:9px;margin-bottom:2px}
   .tasklist .ti{margin-bottom:1px}
 
   /* 역할 설명은 길안내 화살표를 가린다 → 이름만, 자세한 건 탭하면 나온다 */
-  .rolechip{top:calc(48px + var(--safe-t));right:calc(8px + var(--safe-r));max-width:26%;padding:5px 9px}
+  .rolechip{top:calc(56px + var(--safe-t));right:calc(8px + var(--safe-r));max-width:26%;padding:5px 9px}
   .rolechip .rn{font-size:12px}
   .rolechip .rd{display:none}
 
@@ -592,7 +594,8 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
   .chatbar{padding:5px 6px;gap:4px}
   .qc button{padding:5px 9px;font-size:11.5px}
   .chatinput input{padding:8px 11px}
-  .chatinput button{padding:0 13px}
+  /* 좁아져도 손가락 크기(44px)는 지킨다 — 회의 중 가장 많이 누르는 버튼이다 */
+  .chatinput button{padding:0 13px;min-height:44px}
 
   /* --- 홈 / 로비 ---
      가로 360px 높이에서 로비는 985px 짜리였다. 방장이 985px 중 791px 지점에 있는
@@ -672,8 +675,15 @@ h3{margin:0 0 8px;font-size:15px;color:var(--dim);font-weight:700}
 .lb-code{font-size:16px;padding:7px 12px;letter-spacing:4px}
 #btn-lobby-start{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + var(--safe-b));
   padding:13px 34px!important;font-size:16px!important}
-/* 마이크 — 조이스틱 위 왼쪽, 게임·대기실 공통 */
-#btn-mic{position:absolute;left:calc(160px + var(--safe-l));bottom:calc(26px + var(--safe-b));
+/* 마이크 — 오른쪽 가장자리 가운데 높이. 대기실·게임·회의 어디서나 같은 자리.
+   왼쪽(조이스틱 옆)에 있었으나 이동 중에 누르기 어려워 오른손 자리로 옮겼다.
+   ⚠️ 오른쪽 아래 행동 버튼 무리에 붙이지 말 것 — 직업마다 버튼 수가 달라
+      (양 1개 ~ 늑대 5개) 마이크 높이가 판마다 바뀌면 손이 위치를 기억하지 못한다.
+   z-index 60: 게임(10)·로비 오버레이(40)·**회의(50)** 보다 위여야 한다.
+      45 로 뒀더니 회의 채팅판(50)이 덮어 버튼이 보이지만 눌리지 않았다.
+      추방연출(70)·킬연출(90)·회전게이트(9000)·모달(9500) 보다는 아래.
+      표시 여부는 UI.updateMicBtn() 이 정한다. */
+#btn-mic{position:fixed;right:calc(14px + var(--safe-r));bottom:44%;z-index:60;
   background:radial-gradient(circle at 40% 30%,#5c584e,#33302a);border:2px solid #8a8578}
 #btn-mic.live{background:radial-gradient(circle at 40% 30%,#2ea44f,#14532d);border-color:#5fe08a}
 #btn-mic.talking{filter:brightness(1.6);transform:scale(1.06)}
