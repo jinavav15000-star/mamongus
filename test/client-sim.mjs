@@ -72,12 +72,16 @@ const sandbox = {
   location: { hash: '', origin: 'http://x', pathname: '/' },
   history: { replaceState(){} },
   addEventListener(){}, removeEventListener(){},
-  AudioContext: function(){ return { state:'running', currentTime:0, destination:{},
-    createGain:()=>({gain:{value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}),
-    createOscillator:()=>({type:'',frequency:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},start(){},stop(){}}),
-    createBuffer:()=>({getChannelData:()=>new Float32Array(10)}),
-    createBufferSource:()=>({buffer:null,connect(){},start(){}}),
-    createBiquadFilter:()=>({type:'',frequency:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}),
+  AudioContext: function(){
+    // AudioParam 스텁 — 노이즈 그레인·포먼트 합성이 쓰는 것 전부 받아 준다
+    const param = (v = 0) => ({ value: v, setValueAtTime(){}, setTargetAtTime(){},
+      linearRampToValueAtTime(){}, exponentialRampToValueAtTime(){}, cancelScheduledValues(){} });
+    return { state:'running', currentTime:0, destination:{},
+    createGain:()=>({gain:param(),connect(){},disconnect(){}}),
+    createOscillator:()=>({type:'',frequency:param(440),detune:param(),connect(){},disconnect(){},start(){},stop(){}}),
+    createBuffer:(ch,n)=>({length:n,getChannelData:()=>new Float32Array(Math.min(n||10, 4096))}),
+    createBufferSource:()=>({buffer:null,loop:false,playbackRate:param(1),connect(){},disconnect(){},start(){},stop(){}}),
+    createBiquadFilter:()=>({type:'',frequency:param(1000),Q:param(1),gain:param(),connect(){},disconnect(){}}),
     sampleRate:44100, resume(){}, close(){} }; },
 };
 sandbox.window = sandbox; sandbox.globalThis = sandbox;
@@ -87,7 +91,8 @@ const src = FILES.map(f => fs.readFileSync(path.join(root, 'src', f), 'utf8')).j
 vm.runInContext(src + `
 ;globalThis.__api = { G, Host, Net, Game, UI, Meeting, Trail, QUICK, ROLES, roleInfo,
   TASK_SPOTS, VENTS, ROOMS, EMERGENCY_BTN, ADMIN_TABLE, VITALS_PANEL, CAMERA_PANEL,
-  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL, Voice };
+  SAB_SPOTS, spotById, roomNameAt, DEFAULT_SETTINGS, MiniGames, COLORS, Render, ABILITY_LABEL, Voice,
+  Sfx, Bgm, TILE, roomIdAt };
 `, sandbox);
 
 const A = sandbox.__api;
@@ -721,6 +726,80 @@ section('유령 음성 (덕몽어스 기준)');
      run({ x: 1000, y: 1500 }, false, false, false) === 0);
   ok('회의 중엔 산 사람 전원 같은 크기', run({ x: 9999, y: 9999 }, true, false, false) === 1);
   ok('회의 중에도 유령 목소리는 산 사람에게 무음', run({ x: 9999, y: 9999 }, true, true, false) === 0);
+}
+
+/* ---- 효과음 ---------------------------------------------------------------*/
+section('효과음 (목장 소리)');
+{
+  const S = A.Sfx;
+  S.ctx = null; S.init();
+  ok('오디오 컨텍스트 생성', !!S.ctx && !!S.master);
+
+  // 모든 방의 바닥 재질에 발소리가 정의돼 있어야 한다.
+  // (방을 추가하며 새 재질을 쓰면 발소리가 조용히 흙으로 떨어진다 — 그걸 잡는다)
+  const mats = [...new Set(A.ROOMS.map(r => r.floor))];
+  const missing = mats.filter(m => !S.FLOOR_SFX[m]);
+  ok('모든 바닥 재질에 발소리 정의', missing.length === 0, missing);
+  ok('복도(자갈) 발소리 정의', !!S.FLOOR_SFX.gravel);
+
+  // 바닥에 따라 실제로 다른 소리를 낸다 — _grain 인자를 가로채 확인
+  const grabbed = [];
+  const realGrain = S._grain;
+  S._grain = function (o) { grabbed.push(o); };
+  const center = rid => { const r = A.ROOMS.find(x => x.id === rid);
+                          return { x: (r.x + r.w / 2) * A.TILE, y: (r.y + r.h / 2) * A.TILE }; };
+  const straw = center('cafe'), plank = center('store');
+  ok('테스트 좌표가 의도한 방 안', A.roomIdAt(straw.x, straw.y) === 'cafe' && A.roomIdAt(plank.x, plank.y) === 'store');
+  grabbed.length = 0; S.step(straw.x, straw.y);
+  const strawFreq = grabbed[0]?.freq;
+  grabbed.length = 0; S.step(plank.x, plank.y);
+  const plankFreq = grabbed[0]?.freq;
+  ok('짚 발소리가 널빤지보다 높다 (바스락 vs 통통)', strawFreq > plankFreq * 1.5, { strawFreq, plankFreq });
+  grabbed.length = 0; S.step(10, 10);                       // 방 밖 = 복도(자갈)
+  ok('복도는 자갈 — 알갱이 여러 개', grabbed.length >= 3, grabbed.length);
+  grabbed.length = 0;
+  S.step(straw.x, straw.y); const a = grabbed[0]?.freq;
+  grabbed.length = 0;
+  S.step(straw.x, straw.y); const b = grabbed[0]?.freq;
+  ok('같은 바닥이라도 걸음마다 소리가 다르다', a !== b, { a, b });
+  S._grain = realGrain;
+
+  // 노이즈 버퍼는 캐시된다 (걸음마다 새로 만들면 저사양 폰이 끊긴다)
+  S._bufs = {};
+  const n1 = S._noiseBuf('pink'), n2 = S._noiseBuf('pink');
+  ok('노이즈 버퍼 재사용', n1 === n2);
+  ok('노이즈 3종 분리', S._noiseBuf('white') !== S._noiseBuf('brown'));
+
+  // 모든 효과음이 예외 없이 끝까지 실행된다
+  const sounds = ['click','chat','wave','fart','step','taskStep','taskDone','kill','bodyFound','meeting',
+                  'vote','eject','sabotage','alarm','fixed','win','lose','alert','gameStart','quack',
+                  'bleat','creak','rustle','vent','bell'];
+  const broke = [];
+  for (const s of sounds) { try { S[s](); } catch (e) { broke.push(s + ':' + e.message); } }
+  ok('효과음 25종 전부 실행 가능', broke.length === 0, broke);
+  const noFn = sounds.filter(s => typeof S[s] !== 'function');
+  ok('빠진 효과음 없음', noFn.length === 0, noFn);
+
+  // 미니게임이 쓰는 옛 API 는 그대로 살아 있어야 한다
+  let err = null;
+  try { S.tone(440, 0.1, 'square', 0, 220, 0.4); S.tone(440); S.noise(0.1, 900, 0.5, 200); }
+  catch (e) { err = String(e); }
+  ok('tone/noise 하위호환 유지', err === null, err);
+
+  // 음소거 — 실제로 오디오 노드가 만들어지는지로 판정한다.
+  // (_grain 을 가로채 세면 음소거 검사 자체를 건너뛰게 되어 항상 통과한다)
+  let nodes = 0;
+  const realCtx = S.ctx;
+  S.ctx = new Proxy(realCtx, { get(t, k) {
+    if (k === 'createBufferSource' || k === 'createOscillator') return (...a) => { nodes++; return t[k](...a); };
+    const v = t[k]; return typeof v === 'function' ? v.bind(t) : v;
+  } });
+  const playAll = () => { S.step(straw.x, straw.y); S.click(); S.bleat(); S.kill(); S.bell(); S.tone(440); };
+  S.muted = true;  nodes = 0; playAll();
+  ok('음소거 시 오디오 노드를 만들지 않음', nodes === 0, nodes);
+  S.muted = false; nodes = 0; playAll();
+  ok('음소거 해제 시 정상 발음', nodes > 0, nodes);
+  S.ctx = realCtx;
 }
 
 /* ---- 출력 -----------------------------------------------------------------*/

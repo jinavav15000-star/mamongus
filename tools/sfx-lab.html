@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- 소리 시험실 — 버튼을 눌러 효과음을 하나씩 들어 본다.
+     빌드할 때 아래 빈 script 태그 자리에 src/10-map.js + src/30-audio.js 가 인라인된다
+     (build.mjs 가 docs/sfx.html 로 생성 — 게임 코드와 항상 같은 소리다).
+     ⚠️ 치환 표식을 이 주석에 적지 말 것 — 먼저 걸려서 코드가 주석 안으로 들어간다.
+     휴대폰에서 실제 스피커로 들어 보라고 배포본에 함께 올린다. -->
+<html lang="ko"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>🐑 마몽어스 소리 시험실</title>
+<style>
+  :root{--bg:#150f0a;--panel:#2b2016;--line:#503a27;--txt:#f6ece0;--dim:#c0a98d;--acc:#ffc24d}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    padding:18px 14px calc(28px + env(safe-area-inset-bottom,0px));line-height:1.5}
+  h1{font-size:20px;margin:0 0 4px}
+  p.sub{color:var(--dim);font-size:13px;margin:0 0 16px}
+  h2{font-size:13px;color:var(--acc);margin:20px 0 8px;font-weight:800}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+  button{background:var(--panel);border:1.5px solid var(--line);color:var(--txt);
+    border-radius:13px;padding:13px 10px;font-size:14px;font-weight:700;text-align:left;
+    display:flex;align-items:center;gap:9px;cursor:pointer;font-family:inherit}
+  button:active{background:#3a2b1e;transform:scale(.97)}
+  button .ic{font-size:20px;flex:none}
+  button .d{display:block;font-size:11px;color:var(--dim);font-weight:600;margin-top:1px}
+  .note{margin-top:22px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);
+    border-radius:13px;font-size:12.5px;color:var(--dim)}
+  .note b{color:var(--txt)}
+</style></head><body>
+
+<h1>🐑 마몽어스 소리 시험실</h1>
+<p class="sub">버튼을 눌러 들어 보세요. 게임에 들어간 것과 <b>똑같은 소리</b>입니다.<br>
+휴대폰이라면 무음 스위치를 풀고, 되도록 이어폰으로 들어 주세요.</p>
+
+<div id="root"></div>
+
+<div class="note">
+  전부 <b>코드로 만든 소리</b>입니다 — 녹음 파일이 하나도 없어서 용량이 0입니다.<br>
+  발소리는 <b>밟고 있는 바닥에 따라 달라집니다.</b> 위 9가지를 이어서 눌러 비교해 보세요.<br>
+  같은 버튼을 여러 번 눌러 보면 <b>매번 조금씩 다른 소리</b>가 납니다 (실제 소리가 그렇습니다).
+</div>
+
+<script>/*__AUDIO__*/</script>
+<script>
+/* 게임에서는 화면·네트워크가 Sfx.init() 을 불러 준다. 여기서는 첫 탭에 직접 켠다. */
+const GROUPS = [
+  ['발소리 — 바닥별', [
+    ['짚 (헛간 앞마당)', '🌾', () => stepIn('cafe')],
+    ['흙 (북쪽 차고)',   '🟤', () => stepIn('upeng')],
+    ['널빤지 (곡물창고)', '🪵', () => stepIn('store')],
+    ['돌 (물레방아)',    '🪨', () => stepIn('react')],
+    ['타일 (동물병원)',  '⬜', () => stepIn('medbay')],
+    ['잔디 (전기울타리)', '🌱', () => stepIn('shield')],
+    ['흙바닥 (온실)',    '🪴', () => stepIn('oxygen')],
+    ['콘크리트 (발전기실)', '⬛', () => stepIn('elect')],
+    ['자갈 (오솔길)',    '⚪', () => Sfx.step(10, 10)],
+  ]],
+  ['양', [
+    ['양 울음',        '🐑', () => Sfx.bleat()],
+    ['새끼 양',        '🐏', () => Sfx.bleat({ f0: 430, size: 1.25, vol: 0.3 })],
+    ['게임 시작 (양떼)', '🎬', () => Sfx.gameStart()],
+  ]],
+  ['목장의 물건', [
+    ['건초 부스럭',  '🌾', () => Sfx.rustle()],
+    ['사물함 문',    '🚪', () => Sfx.creak()],
+    ['벤트 뚜껑',    '🕳️', () => Sfx.vent()],
+    ['헛간 종',      '🔔', () => Sfx.bell()],
+  ]],
+  ['게임 이벤트', [
+    ['살해',        '🔪', () => Sfx.kill()],
+    ['시체 발견',    '📢', () => Sfx.bodyFound()],
+    ['회의 소집',    '🗳️', () => Sfx.meeting()],
+    ['투표',        '✋', () => Sfx.vote()],
+    ['추방',        '👋', () => Sfx.eject()],
+    ['사보타주',    '💥', () => Sfx.sabotage()],
+    ['경보',        '🚨', () => Sfx.alarm()],
+    ['복구 완료',    '🔧', () => Sfx.fixed()],
+    ['임무 한 단계', '📋', () => Sfx.taskStep()],
+    ['임무 완료',    '✨', () => Sfx.taskDone()],
+    ['승리',        '🏆', () => Sfx.win()],
+    ['패배',        '💀', () => Sfx.lose()],
+  ]],
+  ['소소한 것', [
+    ['버튼 누름',  '👆', () => Sfx.click()],
+    ['채팅 도착',  '💬', () => Sfx.chat()],
+    ['알림',      '❗', () => Sfx.alert()],
+    ['인사',      '👋', () => Sfx.wave()],
+    ['방귀',      '💨', () => Sfx.fart()],
+  ]],
+  ['배경음악', [
+    ['대기실 오르골', '🎵', () => Bgm.play('lobby')],
+    ['게임 중 밤',   '🌙', () => Bgm.play('play')],
+    ['회의 긴장',    '💓', () => Bgm.play('meeting')],
+    ['음악 끄기',    '⏹️', () => Bgm.stop()],
+  ]],
+];
+
+/** 방 한가운데에서 한 걸음 */
+function stepIn(roomId) {
+  const r = ROOMS.find(x => x.id === roomId);
+  Sfx.step((r.x + r.w / 2) * TILE, (r.y + r.h / 2) * TILE);
+}
+
+const root = document.getElementById('root');
+for (const [title, items] of GROUPS) {
+  const h = document.createElement('h2'); h.textContent = title; root.appendChild(h);
+  const g = document.createElement('div'); g.className = 'grid';
+  for (const [name, ic, fn] of items) {
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="ic">${ic}</span><span>${name}</span>`;
+    b.onclick = () => { Sfx.init(); Sfx.resume(); fn(); };
+    g.appendChild(b);
+  }
+  root.appendChild(g);
+}
+</script>
+</body></html>

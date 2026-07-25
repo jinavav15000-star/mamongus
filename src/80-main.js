@@ -508,7 +508,7 @@ const Game = {
         $('#lobby-hud').classList.add('hidden');
         UI.show('game'); Render.resize(); Meeting.clearChat(); Trail.reset(); G.privateLog = [];
         setTimeout(() => UI.revealRole(), 260);
-        Sfx.quack();
+        Sfx.gameStart();
         break;
       case 'kill':
         // 당사자에게는 killcine 이 따로 간다. 여기서는 주변 사람의 '기척'만 처리.
@@ -760,7 +760,7 @@ const Game = {
     me.moving = moving;
     if (moving && (!this._stepAt || Date.now() - this._stepAt > 300)) {
       this._stepAt = Date.now();
-      Sfx.step();
+      Sfx.step(me.x, me.y);          // 밟고 있는 바닥 재질에 따라 소리가 달라진다
     }
     if (now() - this.lastPosSent > 66) {
       this.lastPosSent = now();
